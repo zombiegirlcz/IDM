@@ -119,6 +119,7 @@ install -m 0755 "$HOST_BIN_SRC"   "$PREFIX/bin/idm-host"
 install -m 0755 "$ENGINE_BIN_SRC" "$PREFIX/engine/target/release/idm"
 install -m 0755 "$HOST_BIN_SRC"   "$PREFIX/engine/target/release/idm-host"
 
+[[ -f "$SRC/install.sh" ]] && install -m 0755 "$SRC/install.sh" "$PREFIX/install.sh" 2>/dev/null || true
 cp -f "$SRC/extension/install-host.sh"  "$PREFIX/extension/" 2>/dev/null || true
 cp -f "$SRC/extension/install-shell.sh" "$PREFIX/extension/" 2>/dev/null || true
 [[ -f "$SRC/extension/com.tonec.idm.json" ]] && cp -f "$SRC/extension/com.tonec.idm.json" "$PREFIX/extension/"
@@ -212,4 +213,8 @@ echo "  GUI       : spusť z menu nebo dvojklikem na ikonu \"IDM — správce st
 echo "  Stažení   : $DOWNLOADS_DIR"
 echo "  Rozšíření : načti 'extension/' v chrome://extensions (Load unpacked)"
 echo
-echo "  Odinstalace: $0 --uninstall"
+if [[ -f "${BASH_SOURCE[0]:-}" ]]; then
+  echo "  Odinstalace: bash ${BASH_SOURCE[0]} --uninstall"
+else
+  echo "  Odinstalace: ~/.local/share/idm/install.sh --uninstall  (znovu spust instalator s --uninstall)"
+fi
