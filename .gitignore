@@ -33,3 +33,8 @@ dll/ext_idmmzcc/
 dll/ext_idmmzcc2/
 dll/ext_idmmzcc3/
 dll/*.json
+
+# IDM dokumentace/screenshoty (autorska dila Tonecu - nesirit)
+docs/idm/*.html
+docs/idm/*.txt
+docs/idm/pictures/
