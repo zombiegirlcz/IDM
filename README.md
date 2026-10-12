@@ -69,6 +69,38 @@ Odinstalace:
 bash install.sh --uninstall
 ```
 
+## 0b) Instalace na Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/zombiegirlcz/IDM/master/install.ps1 | iex
+```
+
+Nebo si ho nejdřív prohlédni a spusť ručně:
+
+```powershell
+irm https://raw.githubusercontent.com/zombiegirlcz/IDM/master/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+Co udělá (vše user-scoped, **bez admina**):
+
+- postaví engine + host (`cargo build --release`; když chybí Rust, poradí `winget install Rustlang.Rustup`)
+- nainstaluje binárky do `%LOCALAPPDATA%\idm\bin`
+- zaregistruje native-messaging hosta do **HKCU** pro Chrome / Edge / Brave / Chromium
+- uloží `IDM_ALLOWED_DIR` (host je fail-closed a Windows prohlížeče ho spouštějí bez argumentů)
+- vytvoří **ikonu na ploše** a v **menu Start** (`IDM.lnk`) — otevře nativní okno
+
+Parametry: `-DownloadsDir`, `-Prefix`, `-SourceDir` (lokální checkout), `-SkipBuild`, `-Ref`.
+
+Odinstalace:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\idm\install.ps1" -Uninstall
+```
+
+> Poznámka: host umí `--allowed-dir` i z proměnné `IDM_ALLOWED_DIR` (na Windows není
+> shell wrapper). Fail-closed zůstává: bez ani jednoho host skončí chybou a nic nezapíše.
+
 ## 1) Build
 
 Engine i host se staví z `engine/`:

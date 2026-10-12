@@ -425,12 +425,23 @@ fn main() {
 
     // --allowed-dir is mandatory: without it the host fails closed so a page
     // can never cause a write outside a controlled directory.
+    //
+    // On Linux the installer passes it through a shell wrapper. Windows browsers
+    // spawn a native host with no arguments and there is no wrapper, so the
+    // installer persists IDM_ALLOWED_DIR for the user and we fall back to it.
+    // This does NOT weaken fail-closed: with neither the flag nor the variable
+    // the host still exits non-zero and writes nothing.
     let allowed_dir = match allowed_dir {
         Some(d) => d,
-        None => {
-            eprintln!("idm-host: --allowed-dir <DIR> is required (fail-closed)");
-            std::process::exit(2);
-        }
+        None => match std::env::var_os("IDM_ALLOWED_DIR") {
+            Some(v) if !v.is_empty() => PathBuf::from(v),
+            _ => {
+                eprintln!(
+                    "idm-host: --allowed-dir <DIR> (or IDM_ALLOWED_DIR) is required (fail-closed)"
+                );
+                std::process::exit(2);
+            }
+        },
     };
 
     let ctx = HostCtx {
