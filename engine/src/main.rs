@@ -615,6 +615,42 @@ async fn run_direct(
     Ok(())
 }
 
+/// IDM-style URL schemes (extracted from the real extension's `wa` table).
+///
+/// Real IDM wraps a download target as `idmdwnlmfv9://<inner-url>` so it can be
+/// handed to it from anywhere (shell context menu, another app). It also uses
+/// `idmreg:` as a bare "wake up / register" trigger that is not a download.
+fn is_idm_wrapped(url: &str) -> bool {
+    let l = url.to_ascii_lowercase();
+    l.starts_with("idmdwnlmfv") || l.starts_with("idmreg:")
+}
+
+/// Unwrap `idmdwnlmfv9://<inner>` down to `<inner>`.
+///
+/// Returns `None` when the payload is a bare `idmreg:` trigger (no download).
+fn unwrap_idm_scheme(url: &str) -> Option<String> {
+    let l = url.to_ascii_lowercase();
+    if l.starts_with("idmreg:") {
+        return None;
+    }
+    let rest = if let Some(r) = url.strip_prefix("idmdwnlmfv9://") {
+        r
+    } else if let Some(r) = url.strip_prefix("idmdwnlmfv8://") {
+        r
+    } else {
+        // idmdwnlmfv<other>:// — accept any version suffix.
+        match url.split_once("://") {
+            Some((scheme, r)) if scheme.to_ascii_lowercase().starts_with("idmdwnlmfv") => r,
+            _ => return Some(url.to_string()),
+        }
+    };
+    let rest = rest.trim_start_matches('/');
+    if rest.to_ascii_lowercase().starts_with("idmreg:") {
+        return None;
+    }
+    Some(rest.to_string())
+}
+
 /// One in-flight segment, shared with the split monitor.
 struct Live {
     start: u64,
@@ -1177,7 +1213,7 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn run(args: Args) -> anyhow::Result<()> {
+async fn run(mut args: Args) -> anyhow::Result<()> {
     if let Some(addr) = args.serve.clone() {
         let out_dir = args
             .output_dir
@@ -1189,6 +1225,23 @@ async fn run(args: Args) -> anyhow::Result<()> {
             .unwrap_or_else(|| PathBuf::from(".idm-gui"));
         let engine = std::env::current_exe()?;
         return gui::serve(addr, out_dir, state_dir, args.max_concurrent, engine).await;
+    }
+
+    // IDM-style scheme unwrapping: `idmdwnlmfv9://<url>` means "download <url>",
+    // a bare `idmreg:` trigger means "nothing to download".
+    if let Some(u) = &args.url {
+        if is_idm_wrapped(u) {
+            match unwrap_idm_scheme(u) {
+                Some(inner) => {
+                    println!("[*] scheme     : unwrapped {}", inner);
+                    args.url = Some(inner);
+                }
+                None => {
+                    println!("[+] idmreg trigger received — nothing to download");
+                    return Ok(());
+                }
+            }
+        }
     }
 
     let net = Net {

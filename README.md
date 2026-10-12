@@ -38,6 +38,8 @@ content.js ──postMessage──► background.js ──native messaging──
 - **Dynamická segmentace** (`--dynamic --min-split BYTES`) — za běhu štěpí pomalé segmenty podle rychlosti (jako IDM)
 - **GUI správce stahování** (`idm --serve 127.0.0.1:8080`) — webové okno s frontou,
   progresem, pauzou/pokračováním a odebíráním; fronta přežije restart
+- **Shell integrace** — IDM schémata `idmdwnlmfv9://` / `idmreg:` (rozbalení v engine),
+  desktop launcher, scheme handler a kontextové menu (Nautilus/Thunar)
 
 ## 1) Build
 
@@ -168,6 +170,30 @@ Otevři `http://127.0.0.1:8080`:
 Progres se bere z `.idmmeta` sidecaru, který si engine vede kvůli resume, takže
 pauza je skutečné zabití workeru a pokračování je skutečný `--resume`.
 
+## 4c) Shell integrace (jako IDM v Exploreru)
+
+```bash
+cd extension
+./install-shell.sh                      # instalace
+IDM_DOWNLOADS_DIR=/x ./install-shell.sh # jinam
+./install-shell.sh --uninstall          # odinstalace
+```
+
+Co se nainstaluje (vše do `$HOME` / XDG, nikdy systémově):
+
+- **GUI launcher** `~/.local/share/applications/idm-download.desktop`
+  (spustí `idm --serve`, tedy webový správce stahování)
+- **scheme handler** `idm-scheme.desktop` pro reálná IDM schémata
+  `x-scheme-handler/idmdwnlmfv9` a `x-scheme-handler/idmreg`
+  (+ registrace v `mimeapps.list`)
+- **wrapper**, který předá příchozí URL (`%u`) enginu
+- **kontextové menu** v souborovém manažeru:
+  Nautilus skript i Thunar custom action „Stáhnout s IDM“,
+  které výběr obalí jako `idmdwnlmfv9://file://…`
+
+Engine sám tato schémata rozumí: `idm "idmdwnlmfv9://https://x/y.zip"` stáhne
+`https://x/y.zip`, a holý `idmreg:` trigger je neškodný no-op (žádný soubor).
+
 ## 5) Testy
 
 Vše jedním příkazem (vyžaduje **Rust toolchain** a **Node 22+**):
@@ -202,6 +228,7 @@ Pokrývá:
 - `schedule.rs` — `--start-in` zpozdí první požadavek (měřeno na origin serveru)
 - `category.rs` — auto-kategorizace do `Video/`, `Music/`, `Documents/`, `Compressed/`, `Programs/`, `Other/`
 - `host_category.rs` — host respektuje `category_dir` a soubor reálně skončí ve správné podsložce
+- `scheme.rs` — IDM schémata: `idmdwnlmfv9://<url>` se rozbalí a stáhne (CRC), `idmreg:` trigger je no-op success
 
 ### Extension (Node)
 
@@ -215,6 +242,7 @@ Pokrývá:
 - `host_e2e.test.mjs` — **cross-language**: `encodeFrame` ze `schema.js` → skutečný `idm-host` → `decodeFrame` (ping, download+CRC, chybový případ)
 - `capture_dom.test.mjs` — **funkční DOM** (jsdom): reálné `<video>`/`<a download>`/klik → opkódy `[22]`/`[41]`/`[39]` → `background.js` → skutečný `idm-host` → soubor s CRC32
 - `media_ui.test.mjs` — schéma pro `list_formats`/`normalizeFormats`/media download options (+ `category_dir`), manifest `action.default_popup`, popup skript (čte URL záložky, ptá se na formáty, posílá download)
+- `shell_integration.test.mjs` — `install-shell.sh` na throwaway `$HOME`: validní desktop soubory, registrace schématu v `mimeapps.list`, wrapper s `%u`, kontextové akce, `--uninstall`
 - `release_host.test.mjs` — regresní guard na **nasazenou release binárku** (`target/release/idm-host`, ne `CARGO_BIN_EXE_*`): existence, **čerstvost** (nesmí být starší než `src/bin/idm_host.rs`) a fail-closed bez `--allowed-dir`
 
 ## Bezpečnost
