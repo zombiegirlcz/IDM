@@ -93,6 +93,10 @@ struct Args {
     /// Route the file into a type subfolder under BASE (Video/, Music/, ...)
     #[arg(long)]
     category_dir: Option<PathBuf>,
+
+    /// Append one JSON line per completed download to FILE (history)
+    #[arg(long)]
+    history: Option<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -557,6 +561,7 @@ async fn run_direct(
     }
 
     let _ = tokio::fs::remove_file(&mpath).await;
+    append_history(&args.history, url, &out, read_total, crc);
     println!("[+] done -> {}", out.display());
     Ok(())
 }
@@ -605,10 +610,48 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
     .await?;
 
     let (size, crc) = crc32_file(&out)?;
+    append_history(&args.history, url, &out, size, crc);
     println!("[*] downloaded   : {} bytes", size);
     println!("[*] crc32        : {:08x}", crc);
     println!("[+] done -> {}", out.display());
     Ok(())
+}
+
+/// Append one JSON line describing a completed download.
+///
+/// Best-effort: a history write must never fail an otherwise good download,
+/// so errors are reported but swallowed.
+fn append_history(
+    history: &Option<PathBuf>,
+    url: &str,
+    out: &Path,
+    size: u64,
+    crc: u32,
+) {
+    let Some(hpath) = history else { return };
+    let record = serde_json::json!({
+        "at": chrono::Local::now().to_rfc3339(),
+        "url": url,
+        "path": out.to_string_lossy(),
+        "size": size,
+        "crc32": format!("{:08x}", crc),
+    });
+    let line = format!("{}
+", record);
+    if let Some(parent) = hpath.parent() {
+        if !parent.as_os_str().is_empty() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+    }
+    match std::fs::OpenOptions::new().create(true).append(true).open(hpath) {
+        Ok(mut f) => {
+            use std::io::Write;
+            if let Err(e) = f.write_all(line.as_bytes()) {
+                eprintln!("[!] history write failed: {}", e);
+            }
+        }
+        Err(e) => eprintln!("[!] history open failed: {}", e),
+    }
 }
 
 /// Resolve how long to wait before starting, from --start-in / --start-at.
@@ -697,6 +740,9 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
         }
         if let Some(cd) = &args.category_dir {
             cmd.arg("--category-dir").arg(cd);
+        }
+        if let Some(h) = &args.history {
+            cmd.arg("--history").arg(h);
         }
         cmd.arg("--yt-dlp").arg(&args.yt_dlp);
         cmd.arg(url);
