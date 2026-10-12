@@ -26,3 +26,10 @@ dll/*.exe
 dll/*.crx
 dll/*.xpi
 dll/ext_*/
+dll/ext_IDMEdgeExt/
+dll/ext_IDMGCExt/
+dll/ext_IDMGCExt59/
+dll/ext_idmmzcc/
+dll/ext_idmmzcc2/
+dll/ext_idmmzcc3/
+dll/*.json
