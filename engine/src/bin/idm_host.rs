@@ -148,6 +148,33 @@ fn default_output(url: &str) -> PathBuf {
     }
 }
 
+/// Mirror of the engine's category mapping, so the host can report where the
+/// file actually landed when `category_dir` is used.
+fn category_subdir(url: &str) -> &'static str {
+    let name = default_output(url);
+    let name = name.to_string_lossy().to_ascii_lowercase();
+    let ext = name.rsplit('.').next().unwrap_or("");
+    match ext {
+        "mp4" | "mkv" | "avi" | "mov" | "webm" | "flv" | "m4v" => "Video",
+        "mp3" | "m4a" | "flac" | "wav" | "ogg" | "aac" | "opus" => "Music",
+        "pdf" | "doc" | "docx" | "txt" | "epub" | "rtf" | "odt" => "Documents",
+        "zip" | "rar" | "7z" | "tar" | "gz" | "bz2" | "xz" => "Compressed",
+        "exe" | "msi" | "deb" | "apk" | "dmg" | "rpm" | "appimage" => "Programs",
+        _ => "Other",
+    }
+}
+
+/// The path the engine will actually write to.
+fn final_path(out: &Option<PathBuf>, cat: &Option<PathBuf>, url: &str) -> PathBuf {
+    if let Some(o) = out {
+        return o.clone();
+    }
+    if let Some(c) = cat {
+        return c.join(category_subdir(url)).join(default_output(url));
+    }
+    default_output(url)
+}
+
 fn opt_str<'a>(req: &'a serde_json::Value, key: &str) -> Option<&'a str> {
     req.get(key).and_then(|v| v.as_str())
 }
@@ -175,26 +202,47 @@ fn check_url(req: &serde_json::Value) -> Result<String, serde_json::Value> {
     Ok(url)
 }
 
-/// Resolve + contain the output path, or return an error JSON.
+fn outside(allowed_dir: &Path, what: &str, p: &Path) -> serde_json::Value {
+    serde_json::json!({
+        "ok": false,
+        "error": format!(
+            "{} path outside allowed dir: {} (allowed: {})",
+            what,
+            p.display(),
+            allowed_dir.display()
+        )
+    })
+}
+
+/// Resolve where the download should land.
+///
+/// Priority: explicit `output` > `category_dir` (engine routes into a type
+/// subfolder) > default basename inside the allowed dir. Both paths are
+/// contained within `allowed_dir` (fail-closed).
 fn check_output(
     req: &serde_json::Value,
     url: &str,
     allowed_dir: &Path,
-) -> Result<PathBuf, serde_json::Value> {
-    let out: PathBuf = opt_str(req, "output")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| default_output(url));
-    if !output_allowed(&out, allowed_dir) {
-        return Err(serde_json::json!({
-            "ok": false,
-            "error": format!(
-                "output path outside allowed dir: {} (allowed: {})",
-                out.display(),
-                allowed_dir.display()
-            )
-        }));
+) -> Result<(Option<PathBuf>, Option<PathBuf>), serde_json::Value> {
+    if let Some(o) = opt_str(req, "output") {
+        let out = PathBuf::from(o);
+        if !output_allowed(&out, allowed_dir) {
+            return Err(outside(allowed_dir, "output", &out));
+        }
+        return Ok((Some(out), None));
     }
-    Ok(out)
+    if let Some(cd) = opt_str(req, "category_dir") {
+        let cat = PathBuf::from(cd);
+        if !output_allowed(&cat, allowed_dir) {
+            return Err(outside(allowed_dir, "category", &cat));
+        }
+        return Ok((None, Some(cat)));
+    }
+    let out = allowed_dir.join(default_output(url));
+    if !output_allowed(&out, allowed_dir) {
+        return Err(outside(allowed_dir, "output", &out));
+    }
+    Ok((Some(out), None))
 }
 
 struct HostCtx<'a> {
@@ -257,7 +305,7 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
                 Ok(u) => u,
                 Err(e) => return e,
             };
-            let out = match check_output(req, &url, ctx.allowed_dir) {
+            let (out, cat) = match check_output(req, &url, ctx.allowed_dir) {
                 Ok(o) => o,
                 Err(e) => return e,
             };
@@ -265,7 +313,12 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
             let conns = opt_u64(req, "connections").unwrap_or(4);
             let mut cmd = Command::new(ctx.engine);
             cmd.arg("-n").arg(conns.to_string());
-            cmd.arg("-o").arg(&out);
+            if let Some(o) = &out {
+                cmd.arg("-o").arg(o);
+            }
+            if let Some(c) = &cat {
+                cmd.arg("--category-dir").arg(c);
+            }
             // Use the same media backend binary as list_formats.
             cmd.arg("--yt-dlp").arg(ctx.yt_dlp);
 
@@ -311,12 +364,13 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
                 });
             }
 
-            match crc32_file(&out) {
+            let final_out = final_path(&out, &cat, &url);
+            match crc32_file(&final_out) {
                 Ok((size, crc)) => serde_json::json!({
                     "ok": true,
                     "size": size,
                     "crc32": format!("{:08x}", crc),
-                    "output": out.to_string_lossy(),
+                    "output": final_out.to_string_lossy(),
                 }),
                 Err(e) => serde_json::json!({
                     "ok": false,

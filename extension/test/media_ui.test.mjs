@@ -100,6 +100,10 @@ test('buildDownload carries media options and keeps plain downloads plain', asyn
 
   assert.throws(() => buildDownload({ url: 'https://x/y', format: '' }), /format/i);
   assert.throws(() => buildDownload({ url: 'https://x/y', limitRate: -5 }), /limitRate/i);
+
+  const cat = buildDownload({ url: 'https://example.com/movie.mp4', categoryDir: '/root/Downloads' });
+  assert.equal(cat.category_dir, '/root/Downloads');
+  assert.ok(!('category_dir' in plain), 'plain download must not carry category_dir');
 });
 
 // ---- manifest: the popup is wired as the "nabídka" ----

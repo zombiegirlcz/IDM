@@ -22,6 +22,20 @@ content.js ──postMessage──► background.js ──native messaging──
 | `ENGINE_SPEC.md` | spec engine (retry, HLS/DASH roadmapa) |
 | `carve/` | soubory vytáhlé z instalátoru IDM |
 
+### Co engine umí
+
+- **Multi-connection Range** stahování + **resume** (offset + ETag/Last-Modified)
+- **Retry/backoff** a single-connection fallback (server bez `Accept-Ranges`)
+- **Speed limit** (`--limit-rate`), **proxy** (`--proxy http://…` i `socks5://…`)
+- **Cookies / Referer** (`--cookie`, `--referer`)
+- **Media backend (yt-dlp)** — YouTube/Vimeo/Twitch/… a streamy (`.m3u8`/`.mpd`/`.f4m`):
+  `--force-media`, `--format <ID>`, `--list-formats` (JSON se seznamem formátů)
+- **Výběr formátů v prohlížeči** — popup (klik na ikonu) načte URL aktivní záložky,
+  vypíše formáty a stáhne zvolený
+- **Fronta** (`--queue FILE --output-dir DIR`), komentáře `#`, každá URL vlastní proces
+- **Scheduler** (`--start-in SEC`, `--start-at HH:MM` / `YYYY-MM-DDTHH:MM`)
+- **Auto-kategorizace** (`--category-dir BASE`) — Video/Music/Documents/Compressed/Programs/Other
+
 ## 1) Build
 
 Engine i host se staví z `engine/`:
@@ -156,6 +170,12 @@ Pokrývá:
 - `host_protocol.rs` — rámcování, ping, spawn+CRC
 - `host_security.rs` — odmítnutí non-http(s) URL, output mimo `--allowed-dir`, fail-closed bez `--allowed-dir`, `..` traversal, symlink escape
 - `host_contract.rs` — host echo `id` (korelace odpovědí)
+- `media_backend.rs` — yt-dlp backend se stub binárkou: seznam formátů, download s `-f`, auto-detekce media URL, `--no-media`
+- `proxy.rs` — stahování přes **vlastní lokální HTTP forward proxy** (důkaz, že `--proxy` se opravdu použije) + CRC
+- `queue.rs` — fronta: 3 URL z jednoho seznamu, CRC všech
+- `schedule.rs` — `--start-in` zpozdí první požadavek (měřeno na origin serveru)
+- `category.rs` — auto-kategorizace do `Video/`, `Music/`, `Documents/`, `Compressed/`, `Programs/`, `Other/`
+- `host_category.rs` — host respektuje `category_dir` a soubor reálně skončí ve správné podsložce
 
 ### Extension (Node)
 
@@ -168,6 +188,7 @@ Pokrývá:
 - `message_schema.test.mjs` — MV3 manifest, opkódy vs `PROTOCOL.md`, frame codec, scheme reject, onConnect/korelace `id`, host manifest + cesta na disku, pinned ID vs `allowed_origins`, `install-host.sh` (existence, wrapper s `--allowed-dir`, vygenerovaný instalovaný manifest)
 - `host_e2e.test.mjs` — **cross-language**: `encodeFrame` ze `schema.js` → skutečný `idm-host` → `decodeFrame` (ping, download+CRC, chybový případ)
 - `capture_dom.test.mjs` — **funkční DOM** (jsdom): reálné `<video>`/`<a download>`/klik → opkódy `[22]`/`[41]`/`[39]` → `background.js` → skutečný `idm-host` → soubor s CRC32
+- `media_ui.test.mjs` — schéma pro `list_formats`/`normalizeFormats`/media download options (+ `category_dir`), manifest `action.default_popup`, popup skript (čte URL záložky, ptá se na formáty, posílá download)
 - `release_host.test.mjs` — regresní guard na **nasazenou release binárku** (`target/release/idm-host`, ne `CARGO_BIN_EXE_*`): existence, **čerstvost** (nesmí být starší než `src/bin/idm_host.rs`) a fail-closed bez `--allowed-dir`
 
 ## Bezpečnost
@@ -182,6 +203,9 @@ Pokrývá:
 ## Co ještě NENÍ hotové
 
 - **E2E v reálném Chrome** — neověřeno v prohlížeči (testy ověřují protokol, ne běh)
-- Cookies/referrer forwarding host → engine
-- Host jako daemon s frontou (teď 1 download = 1 proces)
+- **Plné GUI** — jen CLI + popup; chybí seznam stahování s progresem, pozastavit/pokračovat, odebrat
+- **Shell integrace** — pravé tlačítko → „Stáhnout s IDM“
+- **Dynamická segmentace podle rychlosti** — segmenty jsou statické
+- **Windows / Android build** — engine je teď Linux (aarch64/x86_64)
+- **Dynamická analýza `idmcchandler2_64.dll`** — blokováno (nutný Windows/Wine; zde jen statická analýza)
 - HLS/DASH, proxy, throttle v engine (jen v `ENGINE_SPEC.md`)

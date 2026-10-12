@@ -81,6 +81,18 @@ struct Args {
     /// Directory for --queue downloads (default: current dir)
     #[arg(long)]
     output_dir: Option<PathBuf>,
+
+    /// Wait SECONDS before starting the download
+    #[arg(long, default_value_t = 0)]
+    start_in: u64,
+
+    /// Start at a wall-clock time, e.g. 2026-10-13T03:00 or 03:00
+    #[arg(long)]
+    start_at: Option<String>,
+
+    /// Route the file into a type subfolder under BASE (Video/, Music/, ...)
+    #[arg(long)]
+    category_dir: Option<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -135,6 +147,40 @@ fn out_path_for(url: &str, output: Option<&Path>) -> PathBuf {
     } else {
         PathBuf::from(name)
     }
+}
+
+/// IDM-style category folder for a URL, chosen by its extension.
+fn category_subdir(url: &str) -> &'static str {
+    let name = url
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or("")
+        .split('?')
+        .next()
+        .unwrap_or("");
+    let ext = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+    match ext.as_str() {
+        "mp4" | "mkv" | "avi" | "mov" | "webm" | "flv" | "m4v" => "Video",
+        "mp3" | "m4a" | "flac" | "wav" | "ogg" | "aac" | "opus" => "Music",
+        "pdf" | "doc" | "docx" | "txt" | "epub" | "rtf" | "odt" => "Documents",
+        "zip" | "rar" | "7z" | "tar" | "gz" | "bz2" | "xz" => "Compressed",
+        "exe" | "msi" | "deb" | "apk" | "dmg" | "rpm" | "appimage" => "Programs",
+        _ => "Other",
+    }
+}
+
+/// Resolve the on-disk path for a URL, honouring --output and --category-dir.
+fn resolve_out_path(url: &str, output: Option<&Path>, category_dir: Option<&Path>) -> PathBuf {
+    if let Some(o) = output {
+        return o.to_path_buf();
+    }
+    if let Some(base) = category_dir {
+        let p = out_path_for(url, None);
+        let name = p.file_name().map(|n| n.to_owned()).unwrap_or_default();
+        return base.join(category_subdir(url)).join(name);
+    }
+    out_path_for(url, None)
 }
 
 fn meta_path(out: &Path) -> PathBuf {
@@ -403,6 +449,11 @@ async fn run_direct(
     }
     let meta = Arc::new(Mutex::new(meta.unwrap()));
 
+    if let Some(parent) = out.parent() {
+        if !parent.as_os_str().is_empty() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+    }
     {
         let f = TokioOpenOptions::new()
             .create(true)
@@ -535,6 +586,11 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
     println!("[*] format       : {}", args.format.as_deref().unwrap_or("best"));
     println!("[*] output       : {}", out.display());
 
+    if let Some(parent) = out.parent() {
+        if !parent.as_os_str().is_empty() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+    }
     media::download(
         &args.yt_dlp,
         url,
@@ -553,6 +609,42 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
     println!("[*] crc32        : {:08x}", crc);
     println!("[+] done -> {}", out.display());
     Ok(())
+}
+
+/// Resolve how long to wait before starting, from --start-in / --start-at.
+///
+/// --start-at accepts "HH:MM" (next occurrence, today or tomorrow) or a full
+/// "YYYY-MM-DDTHH:MM" timestamp. If both flags are given, the later wait wins.
+fn schedule_wait(args: &Args) -> anyhow::Result<std::time::Duration> {
+    use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
+    let mut wait = std::time::Duration::from_secs(args.start_in);
+    if let Some(spec) = &args.start_at {
+        let target: NaiveDateTime = if spec.contains('T') {
+            NaiveDateTime::parse_from_str(spec, "%Y-%m-%dT%H:%M")
+                .map_err(|e| anyhow::anyhow!("bad --start-at {}: {}", spec, e))?
+        } else {
+            let t = NaiveTime::parse_from_str(spec, "%H:%M")
+                .map_err(|e| anyhow::anyhow!("bad --start-at {}: {}", spec, e))?;
+            let today = Local::now().date_naive();
+            let mut dt = NaiveDateTime::new(today, t);
+            if dt <= Local::now().naive_local() {
+                let tomorrow = today
+                    .succ_opt()
+                    .ok_or_else(|| anyhow::anyhow!("date overflow"))?;
+                dt = NaiveDateTime::new(tomorrow, t);
+            }
+            dt
+        };
+        let local = Local
+            .from_local_datetime(&target)
+            .single()
+            .ok_or_else(|| anyhow::anyhow!("ambiguous local time {}", spec))?;
+        let delta = local.with_timezone(&Local).signed_duration_since(Local::now());
+        let secs = delta.num_seconds().max(0) as u64;
+        wait = wait.max(std::time::Duration::from_secs(secs));
+    }
+    let _ = NaiveDate::from_ymd_opt(1970, 1, 1);
+    Ok(wait)
 }
 
 /// Download every URL listed in `--queue FILE` into `--output-dir`.
@@ -603,6 +695,9 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
         if let Some(f) = &args.format {
             cmd.arg("--format").arg(f);
         }
+        if let Some(cd) = &args.category_dir {
+            cmd.arg("--category-dir").arg(cd);
+        }
         cmd.arg("--yt-dlp").arg(&args.yt_dlp);
         cmd.arg(url);
         eprintln!("[queue {}/{}] {}", i + 1, urls.len(), url);
@@ -639,6 +734,18 @@ async fn run(args: Args) -> anyhow::Result<()> {
         return run_queue(&args).await;
     }
 
+    let wait = schedule_wait(&args)?;
+    if !wait.is_zero() {
+        let until = chrono::Local::now()
+            + chrono::Duration::from_std(wait).unwrap_or_default();
+        eprintln!(
+            "[*] scheduled: waiting {}s (until {})",
+            wait.as_secs(),
+            until.format("%Y-%m-%d %H:%M:%S")
+        );
+        tokio::time::sleep(wait).await;
+    }
+
     let url = match &args.url {
         Some(u) if !u.is_empty() => u.clone(),
         _ => {
@@ -650,7 +757,8 @@ async fn run(args: Args) -> anyhow::Result<()> {
     let use_media =
         !args.no_media && (args.force_media || args.list_formats || media::is_media_url(&url));
     if use_media {
-        return run_media(&args, &net, &url, args.output.clone()).await;
+        let out = resolve_out_path(&url, args.output.as_deref(), args.category_dir.as_deref());
+        return run_media(&args, &net, &url, Some(out)).await;
     }
 
     let mut builder = reqwest::Client::builder();
@@ -664,7 +772,7 @@ async fn run(args: Args) -> anyhow::Result<()> {
             .build()
             .map_err(|e| anyhow::anyhow!("client: {}", e))?,
     );
-    let out = out_path_for(&url, args.output.as_deref());
+    let out = resolve_out_path(&url, args.output.as_deref(), args.category_dir.as_deref());
     run_direct(&args, &net, client, &url, out).await
 }
 

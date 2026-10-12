@@ -102,7 +102,7 @@ export function buildPing() {
  *          format?: string, forceMedia?: boolean, limitRate?: number,
  *          cookie?: string, referer?: string}} opts
  */
-export function buildDownload({ url, output, connections, format, forceMedia, limitRate, cookie, referer, proxy } = {}) {
+export function buildDownload({ url, output, connections, format, forceMedia, limitRate, cookie, referer, proxy, categoryDir } = {}) {
   assertHttpUrl(url);
   const req = { action: HOST_ACTIONS.DOWNLOAD, url };
   if (output !== undefined) req.output = output;
@@ -130,6 +130,7 @@ export function buildDownload({ url, output, connections, format, forceMedia, li
   if (cookie !== undefined) req.cookie = String(cookie);
   if (referer !== undefined) req.referer = String(referer);
   if (proxy !== undefined) req.proxy = String(proxy);
+  if (categoryDir !== undefined) req.category_dir = String(categoryDir);
   return req;
 }
 
