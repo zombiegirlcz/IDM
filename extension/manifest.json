@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "IDM-like Capture (POC)",
+  "version": "0.1.0",
+  "description": "Captures download URLs in the page and forwards them to the idm-host native messaging host.",
+  "permissions": [
+    "nativeMessaging",
+    "downloads",
+    "notifications",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "IDM — stáhnout",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "page.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "minimum_chrome_version": "102",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw0FPUp7pjqe8RNWUaBjbBSlk/0qTmH9YtzcgdTVX3LrhknsVR6DP0xKZzZuxfO+wDNE7P8QjnBXMp7T0bXFm+k/5we0UN8kcy8RFvN/z+rx3LirjJ764P0nje+amxCkZ9or0aHraoaIVWEOrPObYkI8KqiGD16p6t9zkwZmNQOvrI2heDmQQ6qMIs7MnFcu4AkrIKEtjwjzsNP5c1E/9R7kJexjfe+nNgcrPEwEA/mp4QcIC/hmzOrJ9r8UeaOP7daVTOfh0ALhuKdwQltgJenj1EkR/9OxfFrYWODFbDJneDChFyWo+NJwUOi/WuWoZ511pHvOlH8d+RqmJxVaKmwIDAQAB"
+}

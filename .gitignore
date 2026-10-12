@@ -1,0 +1,21 @@
+# Rust
+engine/target/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Reverzní analýza — velké / vygenerované
+idman643build15.exe
+carve/
+carve3/
+extract/
+probe2.mjs
+probe_ext.mjs
+
+# Runtime artefakty
+*.part
+*.idmmeta
+*.idmmeta.tmp
+# Privatni klic rozsireni (nikdy necommitovat)
+extension/keys/extension.pem

@@ -1,0 +1,31 @@
+[package]
+name = "idm-engine"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "idm"
+path = "src/main.rs"
+
+[[bin]]
+name = "idm-host"
+path = "src/bin/idm_host.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "time", "sync", "process"] }
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"] }
+futures-util = "0.3"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+crc32fast = "1"
+anyhow = "1"
+
+[dev-dependencies]
+crc32fast = "1"
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

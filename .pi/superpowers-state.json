@@ -1,0 +1,66 @@
+{
+  "workflow": {
+    "phases": {
+      "brainstorm": "pending",
+      "plan": "pending",
+      "execute": "pending",
+      "verify": "pending",
+      "review": "pending",
+      "finish": "pending"
+    },
+    "currentPhase": null,
+    "artifacts": {
+      "brainstorm": null,
+      "plan": null,
+      "execute": null,
+      "verify": null,
+      "review": null,
+      "finish": null
+    },
+    "prompted": {
+      "brainstorm": false,
+      "plan": false,
+      "execute": false,
+      "verify": false,
+      "review": false,
+      "finish": false
+    }
+  },
+  "tdd": {
+    "phase": "red-pending",
+    "testFiles": [
+      "/root/IDM/engine/tests/integration.rs",
+      "/root/IDM/engine/tests/host_protocol.rs",
+      "/root/IDM/engine/tests/host_security.rs",
+      "/root/IDM/extension/test/message_schema.test.mjs",
+      "/root/IDM/engine/tests/host_contract.rs",
+      "/root/IDM/extension/test/host_e2e.test.mjs",
+      "/root/IDM/extension/test/capture_dom.test.mjs",
+      "/root/IDM/extension/test/release_host.test.mjs",
+      "/root/IDM/engine/tests/media_backend.rs",
+      "/root/IDM/engine/tests/host_media.rs",
+      "/root/IDM/extension/test/media_ui.test.mjs",
+      "/root/IDM/engine/tests/proxy.rs",
+      "/root/IDM/engine/tests/queue.rs"
+    ],
+    "sourceFiles": [
+      "/root/IDM/engine/src/main.rs",
+      "/root/IDM/extension/schema.js",
+      "/root/IDM/extension/background.js",
+      "/root/IDM/extension/content.js",
+      "/root/IDM/engine/src/bin/idm_host.rs",
+      "/root/IDM/engine/src/media.rs",
+      "/root/IDM/extension/popup.js"
+    ],
+    "redVerificationPending": true
+  },
+  "debug": {
+    "active": false,
+    "investigated": true,
+    "fixAttempts": 0
+  },
+  "verification": {
+    "verified": false,
+    "verificationWaived": false
+  }
+}
