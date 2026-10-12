@@ -301,6 +301,34 @@ fn build_segments(total: u64, n: usize) -> Vec<SegmentState> {
     segs
 }
 
+/// Positional write that works on both Unix and Windows.
+///
+/// Unix has `FileExt::write_all_at`; Windows has `FileExt::seek_write`, which
+/// does not guarantee to write the whole buffer, so we loop.
+fn write_at(file: &std::fs::File, buf: &[u8], offset: u64) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::FileExt;
+        file.write_all_at(buf, offset)
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::FileExt;
+        let mut written = 0usize;
+        while written < buf.len() {
+            let n = file.seek_write(&buf[written..], offset + written as u64)?;
+            if n == 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::WriteZero,
+                    "failed to write whole buffer",
+                ));
+            }
+            written += n;
+        }
+        Ok(())
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn download_segment(
     client: Arc<reqwest::Client>,
@@ -313,8 +341,6 @@ async fn download_segment(
     resume_from: u64,
     progress_tx: tokio::sync::mpsc::UnboundedSender<(usize, u64)>,
 ) -> anyhow::Result<()> {
-    use std::os::unix::fs::FileExt;
-
     let mut pos = start + resume_from;
     if pos > end {
         return Ok(());
@@ -360,7 +386,7 @@ async fn download_segment(
                     let out2 = out.clone();
                     let p = pos;
                     tokio::task::spawn_blocking(move || -> std::io::Result<()> {
-                        out2.write_all_at(&buf, p)
+                        write_at(&out2, &buf, p)
                     })
                     .await??;
                     pos += len;

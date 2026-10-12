@@ -1,0 +1,87 @@
+Manifest-Version: 1.0
+
+Name: install.rdf
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: B0vAKGes5xeD+b4DwmCvow==
+SHA1-Digest: E9eOhDyEntt+m2AWViKCBzDCYWE=
+
+Name: chrome.manifest
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: DlqENIC+ecacQqpZHd0JVA==
+SHA1-Digest: xrrB0VZoVQ5kMPxEYnJ0lYi97zo=
+
+Name: icon.png
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: pkfj44HH5fYMsdgQdYhBdw==
+SHA1-Digest: uhttIMGLh4lLvquOBrIrtHmNXrg=
+
+Name: chrome/idmmzcc.jar
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: Vk3pKVLaqDeThUQ6/qE7Wg==
+SHA1-Digest: FF+HgUcYOU73VXuKxK7yKnJV1lY=
+
+Name: components/idmhelper11.js
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: nGIqQolhrJszxzocgU2GzA==
+SHA1-Digest: cgqKj9gfLc3Uk8fSriaP00Wj708=
+
+Name: components/idmhelper5.js
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: z1+2kGNzdXValJOhKbS5Sg==
+SHA1-Digest: hxWPEcgkwNZU+m/fute59dYO+wo=
+
+Name: components/idmhelper8.js
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: UJTu0aK/lO0gv352B9AAeg==
+SHA1-Digest: 3qtT7QiMQUEzZS1t/M4O3JdMol4=
+
+Name: components/idmhelper9.js
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: CCdsjaGlf4srnJzgqHMU4w==
+SHA1-Digest: Y+aj5zcxxk95jOmF6zBHHXYmyow=
+
+Name: components/iIDMHelper11.xpt
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: tjebbQ1UqG/3pahmihRgPw==
+SHA1-Digest: 67oLUlD3C5qrPmYk1ozcZzTYsks=
+
+Name: components/iIDMHelper5.xpt
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: Kt1nXMSc4+L8VlIan8ZJ3Q==
+SHA1-Digest: CF2XHpXHXoHkb4dquIwP57gy9ns=
+
+Name: components/iIDMHelper8.xpt
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: OWESlJgxMYfE37KvFPYRqg==
+SHA1-Digest: fkvm7CUlnlSbWXcrmPPYDaekulg=
+
+Name: components/iIDMHelper8b.xpt
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: ydthbx+DQ5Ct6wh3nRN76Q==
+SHA1-Digest: YANWg0ukwt7vkvBL27y5xA3Yg9E=
+
+Name: components/iIDMHelper9.xpt
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: VSbHMPdnyxQDGgAU2j7iFQ==
+SHA1-Digest: D7KQJDg6lYCW6PDBUD/YyjBMJ0c=
+
+Name: components/iIDMMzCC.xpt
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: A1ePfiElzVB1wEw3MBI2Cw==
+SHA1-Digest: CRJrMvQfaVGvhfOA9JtZ7M3U+7I=
+
+Name: components2/idmhelper.js
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: moNQFq+KtDVe4SM+dWGobg==
+SHA1-Digest: FdKw8MRWSaFOU3kD9FdmQR7doqM=
+
+Name: components2/iIDMHelper.xpt
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: FCntNKYtYREUTkS42r8WXQ==
+SHA1-Digest: xaiMGWkEfGWFZIbMtImBCSUHPh0=
+
+Name: components2/iIDMMzCC.xpt
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: A1ePfiElzVB1wEw3MBI2Cw==
+SHA1-Digest: CRJrMvQfaVGvhfOA9JtZ7M3U+7I=
+
