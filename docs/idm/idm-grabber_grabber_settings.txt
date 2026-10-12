@@ -1,0 +1,53 @@
+How to use Internet Download Manager Grabber: Settings dialog
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ home
+ news
+ features
+ language
+ contact us
+ download
+ support
+ buy now
+ | FAQ
+ | Registration
+ | How to use IDM
+ | IDM Grabber
+ | IDM Scheduler
+ | Purchase
+ | Registration / Serial number
+ | Browser integration
+ | Downloading videos from web players
+ | Downloading from sharing sites
+ | General questions about IDM functions and problems
+ | About IDM
+ | Dynamic Segmentation and Performance
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ more
+ more
+ support
+ buy now
+ home
+ news
+ features
+ language
+ contact us
+ download
+ ← Support
+ Internet Download Manager Grabber
+ Introduction
+ Grabber Wizard
+ Main Action Dialog
+ Grabber Settings
+ Grabber Scheduler
+ Grabber Settings
+ [IMG: Settings of IDM Grabber dialog]
+ On the Grabber settings dialog you can specify how many files to explore and how many files to download at the same time. 
+ If a link to a found file has any text, then the description containing the text will be added to the description field and be shown when you add the file to the main IDM list.
+ By default "Look up files in IE cache before downloading" box is checked. If the grabber finds a file in IE cache, it checks if the file was changed. If the file was changed, the grabber downloads it from the site.
+ If not, the grabber takes it from the cache of IE. If you don't use Internet Explorer, you may turn this option off.
+ [IMG: Tonec Inc. logo]
+ © 1999–2026 Tonec FZE. All rights reserved.
+ Privacy Policy
+ Terms and conditions

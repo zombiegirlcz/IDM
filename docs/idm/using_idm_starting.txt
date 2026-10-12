@@ -1,0 +1,101 @@
+How to use Internet Download Manager: Starting Downloads with IDM
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ home
+ news
+ features
+ language
+ contact us
+ download
+ support
+ buy now
+ | FAQ
+ | Registration
+ | How to use IDM
+ | IDM Grabber
+ | IDM Scheduler
+ | Purchase
+ | Registration / Serial number
+ | Browser integration
+ | Downloading videos from web players
+ | Downloading from sharing sites
+ | General questions about IDM functions and problems
+ | About IDM
+ | Dynamic Segmentation and Performance
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ more
+ more
+ support
+ buy now
+ home
+ news
+ features
+ language
+ contact us
+ download
+ ← Support
+ How to use Internet Download Manager
+ Main Dialog
+ Starting Downloads
+ Properties Dialog
+ Options Dialog
+ Download Complete Dialog
+ About Dialog
+ Registraion Dialog
+ Quick Update
+ Starting Downloads with IDM
+ There are several ways to start your downloads with Internet Download Manager.
+ 1. IDM monitors clicks in Chrome, Internet Explorer, Opera, Mozilla and many other browsers.
+ This method is the easiest one. If you click on a download link in your browser IDM will take over and accelerate this download. In this case you don't need to do anything special, just browse the Internet as you usually do.
+ IDM takes over a download if its type matches the list of types/extensions. The list of file types/extensions to download with IDM can be edited in "Options→File Types" IDM dialog. If IDM has taken over a download, it shows the following dialog.
+ [IMG: 'Download File Info' Internet Download Manager dialog]
+ If you click on "Download Later" button, URL (web address) will be added to the list of downloads, but the download process doesn't start. If you click on "Start Download" button, IDM will start downloading the file immediately.
+ IDM lets you associate your downloads with IDM categories. IDM suggests the category and the default save folder according to file type. You may edit categories, delete and add new categories in the main IDM window.
+ If you want to see the contents of a zip file before downloading, you may click on "Preview" button.
+ IDM will take over any download if you hold down the Ctrl key while clicking on its download link in your browser. You can select another key or key combination.
+ To do this open "Options→General" IDM dialog and press "Keys" button. On a new dialog enable "Use the following key(s) to enable downloading..." option and select key combination.
+ If you hold down the Alt key while clicking on a download link, IDM will not take over the download and let yout browser to download the file. You can select another key or key combination for this action as well
+ If you don't want IDM to take over any downloads from a browser, turn off the browser integration in IDM options. After turning off or on the browser integration in "Options→General" IDM dialog, don't forget to restart the browser.
+ 2. IDM monitors clipboard for valid URLs (web addresses).
+ IDM monitors system clipboard for URLs with special extension types. When a web address is being copied to the clipboard, IDM shows its dialog to start a download.
+ [IMG: Download link was found in clipboard]
+ If you click on "OK" button, IDM will start downloading.
+ 3. IDM integrates into right click link menu of Chrome based (Opera, new Edge), IE based (MSN, AOL)
+ and Mozilla based (FireFox, PaleMoon) browsers.
+ If you right click on a link in a browser, you will see "Download with IDM" menu item. You can download a specific link or all links in the selected text from an html page.
+ [IMG: 'Download with IDM' Internet Explorer right click pop-up menu]
+ This way of downloading files is useful if IDM couldn't take over the download automatically. Just pick this item to start downloading a link with IDM.
+ You may also select a text in your browser, and pick "Download with IDM" to add all links in the selected text to IDM.
+ 4. You can add URL (web address) manually with "Add URL" button.
+ See Main Dialog topic for more details.
+ 5. Drag and drop links from your browser to IDM main window or download basket.
+ Drop target is a window that accepts hyperlinks dragged from a browser. You can drag a link from your browser and drop it to this window in order to start your downloads with IDM. 
+ [IMG: Internet Download Manager drop target]
+ If you want to hide this window simply close it. Later you can pick "Tasks→Show drop target" from the main menu (or tray menu) if you want this window to appear again.
+ 6. You may start downloads from a command line using command line parameters.
+idman /s 
+or idman /d URL [/p local_path] [/f local_file_name] [/q] [/h] [/n] [/a] 
+Parameters:
+/d URL - downloads a file, eg.
+IDMan.exe /d "https://www.internetdownloadmanager.com/path/FileName.zip" 
+/s - starts queue in scheduler
+/p local_path - defines the local path where to save the file
+/f local_file_name - defines the local file name to save the file
+/q - IDM will exit after the successful downloading. This parameter works only for the first copy
+/h - IDM will hang up your connection after the successful downloading
+/n - turns on the silent mode when IDM doesn't ask any questions
+/a - add a file, specified with /d, to download queue, but don't start downloading
+Parameters /a, /h, /n, /q, /f local_file_name, /p local_path work only
+if you specified the file to download with /d URL
+Examples:
+C:\idman.exe /n /d https://www.tonec.com/download/idman317.exe
+ Please note that it's strictly forbidden to use command line from any 3rd party extensions and add-ons hosted in Chrome Webstore, Mozilla AMO web site, and in Microsoft Store.
+ The reason is that many users think that it's an official extension/add-on and they are confused to install it. As the result these add-on/extensions cannot provide the necessary level of integration with the browser.
+ Internet Download Manager users contact us and complain about such 3rd party extensions. Also it's prohibited to use such Impersonation/Deceptive Behavior in all
+ store policies. We will complain to store administration about such extensions/add-ons which confuse our users.
+ We will block all such extensions in Internet Download Manager because they abuse our license agreement, usage policy, and store policies.
+ [IMG: Tonec Inc. logo]
+ © 1999–2026 Tonec FZE. All rights reserved.
+ Privacy Policy
+ Terms and conditions

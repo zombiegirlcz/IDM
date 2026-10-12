@@ -1,0 +1,58 @@
+How to use Internet Download Manager: 'Download Complete' Dialog
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ home
+ news
+ features
+ language
+ contact us
+ download
+ support
+ buy now
+ | FAQ
+ | Registration
+ | How to use IDM
+ | IDM Grabber
+ | IDM Scheduler
+ | Purchase
+ | Registration / Serial number
+ | Browser integration
+ | Downloading videos from web players
+ | Downloading from sharing sites
+ | General questions about IDM functions and problems
+ | About IDM
+ | Dynamic Segmentation and Performance
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ more
+ more
+ support
+ buy now
+ home
+ news
+ features
+ language
+ contact us
+ download
+ ← Support
+ How to use Internet Download Manager
+ Main Dialog
+ Starting Downloads
+ Properties Dialog
+ Options Dialog
+ Download Complete Dialog
+ About Dialog
+ Registraion Dialog
+ Quick Update
+ Download Complete Dialog
+ When a download is finished, IDM shows "Download Complete" dialog. You can choose from several ways to open the downloaded file.
+ [IMG: Internet Download Manager 'Download Complete' dialog]
+ You can turn off showing the dialog by checking "Don't show this dialog again" box. Later you may turn it on or off in "Options→Downloads" tab
+ At bottom-right corner of this dialog has "drag & drop" icon to start drag & drop operation for a downloaded file.
+ Sometimes it's very convenient not to open the file directly, but drag it from IDM and drop it to another program.
+ For example if you are using a music player program like Winamp to hear MP3 music and if you open a file with "Open" button, the player will clear the current playlist and open the file alone.
+ But if you drag & drop the file to the player, it will be added to the current playlist.
+ [IMG: Tonec Inc. logo]
+ © 1999–2026 Tonec FZE. All rights reserved.
+ Privacy Policy
+ Terms and conditions

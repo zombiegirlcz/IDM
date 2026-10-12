@@ -268,7 +268,21 @@ fn resume_after_kill() {
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
-    thread::sleep(Duration::from_millis(1500));
+    // Wait until the engine has actually persisted its resume state, instead of
+    // guessing with a fixed sleep: under parallel test load the engine can take
+    // longer than 1.5 s to write the first meta flush, and killing too early
+    // would leave no meta file at all.
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    while !meta.exists() {
+        if std::time::Instant::now() > deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("engine never wrote {} within 30 s", meta.display());
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    // Give it a moment to write some progress into the meta, then kill.
+    thread::sleep(Duration::from_millis(300));
     child.kill().unwrap();
     let _ = child.wait();
 

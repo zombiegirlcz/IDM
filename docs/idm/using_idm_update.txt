@@ -1,0 +1,55 @@
+How to use Internet Download Manager: Quick Update
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ home
+ news
+ features
+ language
+ contact us
+ download
+ support
+ buy now
+ | FAQ
+ | Registration
+ | How to use IDM
+ | IDM Grabber
+ | IDM Scheduler
+ | Purchase
+ | Registration / Serial number
+ | Browser integration
+ | Downloading videos from web players
+ | Downloading from sharing sites
+ | General questions about IDM functions and problems
+ | About IDM
+ | Dynamic Segmentation and Performance
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ more
+ more
+ support
+ buy now
+ home
+ news
+ features
+ language
+ contact us
+ download
+ ← Support
+ How to use Internet Download Manager
+ Main Dialog
+ Starting Downloads
+ Properties Dialog
+ Options Dialog
+ Download Complete Dialog
+ About Dialog
+ Registraion Dialog
+ Quick Update
+ Quick Update
+ IDM checks for newer releases on its home site once per week and suggests updating when a new version becomes available.
+ [IMG: IDM new version is available]
+ Update dialog asks if you want to update IDM showing all enhancements of the new version and the date of the new release. Press "Update now" to install the latest version.
+ You can also check for a newer version using "Help→Check for updates..." IDM main menu.
+ [IMG: Tonec Inc. logo]
+ © 1999–2026 Tonec FZE. All rights reserved.
+ Privacy Policy
+ Terms and conditions

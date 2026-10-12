@@ -1,0 +1,54 @@
+How to use Internet Download Manager: 'About' Dialog (old version)
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ home
+ news
+ features
+ language
+ contact us
+ download
+ support
+ buy now
+ | FAQ
+ | Registration
+ | How to use IDM
+ | IDM Grabber
+ | IDM Scheduler
+ | Purchase
+ | Registration / Serial number
+ | Browser integration
+ | Downloading videos from web players
+ | Downloading from sharing sites
+ | General questions about IDM functions and problems
+ | About IDM
+ | Dynamic Segmentation and Performance
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ more
+ more
+ support
+ buy now
+ home
+ news
+ features
+ language
+ contact us
+ download
+ ← Support
+ How to use Internet Download Manager
+ Main Dialog
+ Starting Downloads
+ Properties Dialog
+ Options Dialog
+ Download Complete Dialog
+ About Dialog
+ Registraion Dialog
+ Quick Update
+ About Dialog
+ "About Internet Download Manager" dialog shows detailed information about program version. Here you can send a message to IDM support service, go to IDM home page, start the registration process or check for the availability of a newer version of IDM.
+ Also here you can see to whom IDM is registered and first 7 symbols of its serial number.
+ [IMG: Internet Download Manager 'About' dialog screenshot]
+ [IMG: Tonec Inc. logo]
+ © 1999–2026 Tonec FZE. All rights reserved.
+ Privacy Policy
+ Terms and conditions

@@ -1,0 +1,92 @@
+Internet Download Manager: Check frequently asked questions
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ home
+ news
+ features
+ language
+ contact us
+ download
+ support
+ buy now
+ | FAQ
+ | Registration
+ | How to use IDM
+ | IDM Grabber
+ | IDM Scheduler
+ [IMG: Internet Download Manager logo]
+  Internet Download Manager
+ more
+ more
+ support
+ buy now
+ home
+ news
+ features
+ language
+ contact us
+ download
+ Welcome to IDM Knowledge Base!
+ Search
+ What is your problem's topic? Check frequently asked questions
+ Purchase
+ Registration / Serial number
+ Browser integration
+ Downloading videos from web players
+ Downloading from sharing sites
+ General questions about functions and problems
+ Click here, if you need help with registration of Internet Download Manager
+ Internet Download Manager User Guide
+ How to use IDM
+ Main Dialog
+ Registration IDM
+ Starting Downloads
+ Quick Update
+ Download Complete Dialog
+ About
+ About Dialog
+ Properties Dialog
+ Options Dialog
+ IDM Grabber
+ Introduction
+ Grabber Wizard
+ Main Action Dialog
+ Settings Dialog
+ Scheduler
+ IDM Scheduler
+ IDM Scheduler
+ Queues
+ If you looked, but did not find an answer, please contact us below
+ If you have multiple questions or concerns, please include them into just one support request.
+ Please fix the following issues to submit your request:
+ [IMG: Error icon]  The verification code is invalid. Please try again.
+ [IMG: Error icon]  The return email address you used has a wrong format.
+ Please use a correct email address, or we will not be able to reply.
+ [IMG: Error icon]  Please fill your name.
+ [IMG: Error icon]  
+ You should confirm that you have repaired your IDM installation as described in our FAQ
+ [IMG: Error icon]  
+ You should confirm that you have read about solution for no "download this video" button problem as described in our FAQ
+ [IMG: Error icon]  
+ You should confirm that you have read about solution for problem with only low video resolution avaliable as described in our FAQ
+ [IMG: Error icon]  You should confirm that you have read FAQ before contacting us
+ [IMG: Error icon]  
+ You should confirm that you understand that you have an old version of IDM that may contain already fixed bugs
+ OK
+ Subject
+ Your name
+ E-mail
+ IDM Order number / Serial number
+ Comments
+ I have read about a solution for no "403 Forbidden" error problem
+ I have read about a solution for no "download this video" button problem
+ I want to attach some files like screenshots or videos that may help to explain the problem
+ File(s) to attach
+ I have read the topics above, but I have not found a solution to my problem
+ Please enter the code that is shown on the image
+ [IMG: Capcha image]
+ Send message
+ [IMG: Tonec Inc. logo]
+ © 1999–2026 Tonec FZE. All rights reserved.
+ Privacy Policy
+ Terms and conditions

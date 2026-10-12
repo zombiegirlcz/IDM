@@ -27,10 +27,12 @@
     }
   },
   "tdd": {
-    "phase": "idle",
-    "testFiles": [],
+    "phase": "red-pending",
+    "testFiles": [
+      "/root/IDM/gui/test/idm_look.test.mjs"
+    ],
     "sourceFiles": [],
-    "redVerificationPending": false
+    "redVerificationPending": true
   },
   "debug": {
     "active": false,
