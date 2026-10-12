@@ -27,13 +27,10 @@
     }
   },
   "tdd": {
-    "phase": "red-pending",
-    "testFiles": [
-      "/root/IDM/engine/tests/host_allowed_env.rs",
-      "/root/IDM/test/install_ps1.test.mjs"
-    ],
+    "phase": "idle",
+    "testFiles": [],
     "sourceFiles": [],
-    "redVerificationPending": true
+    "redVerificationPending": false
   },
   "debug": {
     "active": false,

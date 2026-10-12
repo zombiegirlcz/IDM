@@ -1,0 +1,84 @@
+name: release
+
+# Builds prebuilt binaries on GitHub's runners (NOT on the user's machine) and
+# publishes them as release assets. The Windows/Linux installers then just
+# download these — no Rust, no git, no compilation for the user.
+#
+# Trigger: push a tag like v0.1.0, or run manually from the Actions tab.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: idm-windows-x64.zip
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: idm-linux-x64.tar.gz
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            archive: idm-linux-arm64.tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        shell: bash
+        working-directory: engine
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Stage artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp engine/target/${{ matrix.target }}/release/idm.exe dist/
+          cp engine/target/${{ matrix.target }}/release/idm-host.exe dist/
+          cp gui/idm_gui.py dist/
+          cp extension/manifest.json dist/ 2>/dev/null || true
+          cp install.ps1 dist/
+          (cd dist && 7z a ../${{ matrix.archive }} .)
+
+      - name: Stage artifacts (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp engine/target/${{ matrix.target }}/release/idm dist/
+          cp engine/target/${{ matrix.target }}/release/idm-host dist/
+          cp gui/idm_gui.py dist/
+          tar -czf ${{ matrix.archive }} -C dist .
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: ${{ matrix.archive }}
+          fail_on_unmatched_files: true
