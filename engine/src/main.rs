@@ -45,6 +45,14 @@ struct Args {
     #[arg(long, default_value = "yt-dlp")]
     yt_dlp: PathBuf,
 
+    /// Delegate the download to aria2c instead of the built-in Range engine
+    #[arg(long, default_value_t = false)]
+    aria2: bool,
+
+    /// Path to the aria2c binary (used with --aria2)
+    #[arg(long, default_value = "aria2c")]
+    aria2_path: PathBuf,
+
     /// Never use yt-dlp; always download the URL directly
     #[arg(long, default_value_t = false)]
     no_media: bool,
@@ -1009,6 +1017,60 @@ async fn run_direct_dynamic(
     Ok(())
 }
 
+/// Delegate a download to aria2c.
+async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
+    let dir = out
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+    if !dir.as_os_str().is_empty() {
+        tokio::fs::create_dir_all(&dir).await.ok();
+    }
+    let name = out
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "download.bin".to_string());
+
+    println!("[*] url          : {}", url);
+    println!("[*] output       : {}", out.display());
+    println!("[*] backend      : aria2c ({})", args.aria2_path.display());
+
+    let mut cmd = tokio::process::Command::new(&args.aria2_path);
+    cmd.arg("-x").arg(args.connections.max(1).to_string());
+    cmd.arg("-s").arg(args.connections.max(1).to_string());
+    cmd.arg("-c");
+    cmd.arg("--file-allocation=none");
+    cmd.arg("--summary-interval=0");
+    cmd.arg("--console-log-level=warn");
+    cmd.arg("-d").arg(&dir);
+    cmd.arg("-o").arg(&name);
+    if args.limit_rate > 0 {
+        cmd.arg("--max-download-limit").arg(args.limit_rate.to_string());
+    }
+    if let Some(c) = &args.cookie {
+        cmd.arg("--header").arg(format!("Cookie: {}", c));
+    }
+    if let Some(r) = &args.referer {
+        cmd.arg("--referer").arg(r);
+    }
+    if let Some(px) = &args.proxy {
+        cmd.arg("--all-proxy").arg(px);
+    }
+    cmd.arg(url);
+
+    let status = cmd.status().await?;
+    if !status.success() {
+        anyhow::bail!("aria2c exited with {}", status);
+    }
+
+    let (size, crc) = crc32_file(&out)?;
+    append_history(&args.history, url, &out, size, crc);
+    println!("[*] downloaded   : {} bytes", size);
+    println!("[*] crc32        : {:08x}", crc);
+    println!("[+] done -> {}", out.display());
+    Ok(())
+}
+
 /// Media/stream download through the yt-dlp backend.
 async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathBuf>) -> anyhow::Result<()> {
     let cookie = net.cookie.as_deref();
@@ -1187,6 +1249,10 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
         if let Some(h) = &args.history {
             cmd.arg("--history").arg(h);
         }
+        if args.aria2 {
+            cmd.arg("--aria2");
+            cmd.arg("--aria2-path").arg(&args.aria2_path);
+        }
         if args.dynamic {
             cmd.arg("--dynamic");
             cmd.arg("--min-split").arg(args.min_split.to_string());
@@ -1276,6 +1342,11 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
             std::process::exit(2);
         }
     };
+
+    if args.aria2 {
+        let out = resolve_out_path(&url, args.output.as_deref(), args.category_dir.as_deref());
+        return run_aria2(&args, &url, out).await;
+    }
 
     let use_media =
         !args.no_media && (args.force_media || args.list_formats || media::is_media_url(&url));

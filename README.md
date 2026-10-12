@@ -36,6 +36,12 @@ content.js ──postMessage──► background.js ──native messaging──
 - **Scheduler** (`--start-in SEC`, `--start-at HH:MM` / `YYYY-MM-DDTHH:MM`)
 - **Auto-kategorizace** (`--category-dir BASE`) — Video/Music/Documents/Compressed/Programs/Other
 - **Dynamická segmentace** (`--dynamic --min-split BYTES`) — za běhu štěpí pomalé segmenty podle rychlosti (jako IDM)
+- **aria2 backend** (`--aria2 [--aria2-path BIN]`) — volitelně deleguje stahování na
+  hotový `aria2c` (spolehlivý open-source multi-connection downloader); předává
+  spojení, resume, limit, cookie, referer i proxy
+- **GUI podle skutečného IDM** — toolbar s ikonami, strom kategorií, sloupce včetně **Q**,
+  dialogy Add URL / Download File Info / Options / Scheduler / Properties / Complete /
+  **Download Progress s grafem segmentů** (ikony i graf se kreslí za běhu přes PIL)
 - **GUI správce stahování** (`idm --serve 127.0.0.1:8080`) — webové okno s frontou,
   progresem, pauzou/pokračováním a odebíráním; fronta přežije restart
 - **Shell integrace** — IDM schémata `idmdwnlmfv9://` / `idmreg:` (rozbalení v engine),
@@ -295,8 +301,10 @@ Pokrývá:
 - `schedule.rs` — `--start-in` zpozdí první požadavek (měřeno na origin serveru)
 - `category.rs` — auto-kategorizace do `Video/`, `Music/`, `Documents/`, `Compressed/`, `Programs/`, `Other/`
 - `host_category.rs` — host respektuje `category_dir` a soubor reálně skončí ve správné podsložce
+- `aria2_backend.rs` — `--aria2`: reálné stažení přes `aria2c` (CRC) i předání voleb (stub loguje argv)
 - `scheme.rs` — IDM schémata: `idmdwnlmfv9://<url>` se rozbalí a stáhne (CRC), `idmreg:` trigger je no-op success
-- `gui/test/native_gui.test.mjs` — nativní okno: Tk se postaví pod xvfb, API klient reálně stáhne soubor přes `idm --serve` (CRC)
+- `gui/test/native_gui.test.mjs`
+- `gui/test/idm_look.test.mjs` — struktura okna podle IDM (toolbar, strom, sloupce včetně Q, ikony, Download Progress s grafem segmentů) — nativní okno: Tk se postaví pod xvfb, API klient reálně stáhne soubor přes `idm --serve` (CRC)
 - `extension/test/panel.test.mjs` — panel nad videem: injektuje se jen u videí, tlačítko emituje opkód 42
 
 ### Extension (Node)

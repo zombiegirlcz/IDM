@@ -27,10 +27,15 @@
     }
   },
   "tdd": {
-    "phase": "idle",
-    "testFiles": [],
-    "sourceFiles": [],
-    "redVerificationPending": false
+    "phase": "red-pending",
+    "testFiles": [
+      "/root/IDM/engine/tests/aria2_backend.rs"
+    ],
+    "sourceFiles": [
+      "/tmp/patch_aria2.py",
+      "/tmp/patch_look_icons.py"
+    ],
+    "redVerificationPending": true
   },
   "debug": {
     "active": false,

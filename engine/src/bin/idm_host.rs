@@ -348,6 +348,12 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
                     cmd.arg("--min-split").arg(ms.to_string());
                 }
             }
+            if opt_bool(req, "aria2") {
+                cmd.arg("--aria2");
+                if let Some(p) = opt_str(req, "aria2_path") {
+                    cmd.arg("--aria2-path").arg(p);
+                }
+            }
 
             cmd.arg(&url);
 

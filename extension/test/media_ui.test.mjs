@@ -110,6 +110,11 @@ test('buildDownload carries media options and keeps plain downloads plain', asyn
   assert.equal(dyn.min_split, 500000);
   assert.ok(!('dynamic' in plain), 'plain download must not carry dynamic');
   assert.throws(() => buildDownload({ url: 'https://x/y', minSplit: -1 }), /minSplit/i);
+
+  const a2 = buildDownload({ url: 'https://example.com/big.bin', aria2: true, aria2Path: '/usr/bin/aria2c' });
+  assert.equal(a2.aria2, true);
+  assert.equal(a2.aria2_path, '/usr/bin/aria2c');
+  assert.ok(!('aria2' in plain), 'plain download must not carry aria2');
 });
 
 // ---- manifest: the popup is wired as the "nabídka" ----

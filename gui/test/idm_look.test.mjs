@@ -118,6 +118,33 @@ test('Add URL dialog follows IDM (URL box, authorization, Start/Download Later)'
   );
 });
 
+test('toolbar buttons and category tree carry icons (not just text)', () => {
+  const d = dumpWindow();
+  // IDM draws coloured icons on its toolbar and category tree; we render ours
+  // at runtime with PIL, so every toolbar button must carry an image.
+  assert.ok(
+    d.buttons_with_icons >= d.buttons.length,
+    `every toolbar button needs an icon: ${d.buttons_with_icons}/${d.buttons.length}`,
+  );
+  assert.ok(
+    d.categories_with_icons >= 4,
+    `category tree needs icons, got ${d.categories_with_icons}`,
+  );
+});
+
+test('Download Progress dialog shows per-connection segments (IDM graph)', () => {
+  const d = dumpWindow();
+  const prog = d.dialogs.find((x) => /download progress|file download/i.test(x.title));
+  assert.ok(
+    prog,
+    `no "Download Progress" dialog; got: ${d.dialogs.map((x) => x.title).join(', ')}`,
+  );
+  // IDM draws one bar per connection plus the overall bar.
+  assert.ok(prog.segment_bars >= 1, `must draw per-connection segment bars, got ${prog.segment_bars}`);
+  assert.ok(prog.has_canvas, 'the progress graph must be a drawing surface (canvas)');
+  assert.ok(prog.has_pause, 'Download Progress must offer Pause (like IDM)');
+});
+
 test('Options dialog has the IDM tabs', () => {
   const d = dumpWindow();
   const opt = d.dialogs.find((x) => /options/i.test(x.title));

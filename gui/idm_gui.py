@@ -83,6 +83,96 @@ TOOLBAR = [
     "Stop Queue",
 ]
 
+# --------------------------------------------------------------------------- #
+# Runtime-drawn icons (IDM has coloured toolbar/category icons; we render ours
+# with PIL so we ship no binary assets and still look like the original).
+# --------------------------------------------------------------------------- #
+_ICON_CACHE = {}
+
+
+def _icon(color, shape="square", size=16, master=None):
+    """Return a Tk PhotoImage for a small coloured icon (cached).
+
+    Draws a simple but recognisable glyph so the toolbar/tree look like IDM
+    instead of bare text buttons. Falls back to None if PIL is unavailable.
+    """
+    key = (color, shape, size)
+    if key in _ICON_CACHE:
+        return _ICON_CACHE[key]
+    try:
+        from PIL import Image, ImageDraw, ImageTk
+    except Exception:  # noqa: BLE001
+        _ICON_CACHE[key] = None
+        return None
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    if shape == "arrow_down":
+        d.polygon([(size // 2, size - 2), (2, 6), (size - 2, 6)], fill=color)
+        d.rectangle([size // 2 - 2, 1, size // 2 + 2, 8], fill=color)
+    elif shape == "arrow_up":
+        d.polygon([(size // 2, 2), (2, size - 6), (size - 2, size - 6)], fill=color)
+    elif shape == "stop":
+        d.rectangle([3, 3, size - 3, size - 3], fill=color)
+    elif shape == "pause":
+        d.rectangle([3, 2, 6, size - 2], fill=color)
+        d.rectangle([size - 6, 2, size - 3, size - 2], fill=color)
+    elif shape == "resume":
+        d.polygon([(3, 2), (size - 3, size // 2), (3, size - 2)], fill=color)
+    elif shape == "trash":
+        d.rectangle([4, 5, size - 4, size - 2], fill=color)
+        d.rectangle([2, 3, size - 2, 5], fill=color)
+    elif shape == "gear":
+        d.ellipse([2, 2, size - 2, size - 2], outline=color, width=3)
+        d.ellipse([size // 2 - 2, size // 2 - 2, size // 2 + 2, size // 2 + 2], fill=color)
+    elif shape == "clock":
+        d.ellipse([1, 1, size - 1, size - 1], outline=color, width=2)
+        d.line([size // 2, size // 2, size // 2, 4], fill=color, width=2)
+        d.line([size // 2, size // 2, size - 4, size // 2], fill=color, width=2)
+    elif shape == "folder":
+        d.rectangle([1, 4, size - 1, size - 1], fill=color)
+        d.rectangle([1, 2, 7, 5], fill=color)
+    elif shape == "plus":
+        d.line([size // 2, 2, size // 2, size - 2], fill=color, width=3)
+        d.line([2, size // 2, size - 2, size // 2], fill=color, width=3)
+    else:  # square
+        d.rectangle([2, 2, size - 2, size - 2], fill=color)
+    try:
+        ph = ImageTk.PhotoImage(img, master=master)
+    except Exception:  # noqa: BLE001
+        ph = None
+    _ICON_CACHE[key] = ph
+    return ph
+
+
+# Per-toolbar-button icon spec (name -> (colour, glyph)).
+TOOLBAR_ICONS = {
+    "Add URL": ("#2e7d32", "plus"),
+    "Resume": ("#1565c0", "resume"),
+    "Stop": ("#c62828", "pause"),
+    "Stop All": ("#b71c1c", "stop"),
+    "Delete": ("#ef6c00", "trash"),
+    "Delete Completed": ("#ef6c00", "trash"),
+    "Options": ("#455a64", "gear"),
+    "Scheduler": ("#6a1b9a", "clock"),
+    "Start Queue": ("#2e7d32", "resume"),
+    "Stop Queue": ("#c62828", "stop"),
+}
+
+# Per-category icon spec.
+CATEGORY_ICONS = {
+    "All Downloads": ("#546e7a", "folder"),
+    "Compressed": ("#8d6e63", "folder"),
+    "Documents": ("#1565c0", "folder"),
+    "Music": ("#6a1b9a", "folder"),
+    "Programs": ("#2e7d32", "folder"),
+    "Video": ("#c62828", "folder"),
+    "Unfinished": ("#ef6c00", "folder"),
+    "Finished": ("#2e7d32", "folder"),
+    "Grabber projects": ("#455a64", "folder"),
+    "Queues": ("#f9a825", "folder"),
+}
+
+
 OPTIONS_TABS = [
     "General",
     "File Types",
@@ -356,6 +446,52 @@ def _dialog_complete(parent, path):
 # --------------------------------------------------------------------------- #
 # Main window (IDM layout: toolbar above, category tree left, list right)
 # --------------------------------------------------------------------------- #
+def _dialog_progress(parent, name, connections=4, on_pause=None):
+    """IDM 'Download Progress' (File Download) dialog with a segment graph."""
+    import tkinter as tk
+    from tkinter import ttk
+
+    win = tk.Toplevel(parent)
+    win.title("Download Progress")
+    win.geometry("520x330")
+
+    ttk.Label(win, text=name, font=("", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 2))
+    info = ttk.Label(win, text="Connecting...")
+    info.pack(anchor="w", padx=10)
+
+    canvas = tk.Canvas(win, height=120, background="#ffffff", highlightthickness=1,
+                       highlightbackground="#999")
+    canvas.pack(fill="x", padx=10, pady=8)
+
+    n = max(1, connections)
+    bars = []
+    top, height, gap = 8, 12, 4
+    width = 480
+    for i in range(n):
+        y = top + i * (height + gap)
+        canvas.create_rectangle(6, y, width, y + height, outline="#bbb", fill="#f0f0f0")
+        bar = canvas.create_rectangle(6, y, 6, y + height, outline="", fill="#2d6cdf")
+        canvas.create_text(width + 4, y + height // 2, anchor="w", text=f"{i + 1}.", font=("", 8))
+        bars.append(bar)
+    oy = top + n * (height + gap) + 4
+    canvas.create_rectangle(6, oy, width, oy + height, outline="#888", fill="#e8e8e8")
+    overall = canvas.create_rectangle(6, oy, 6, oy + height, outline="", fill="#1a9850")
+
+    btns = ttk.Frame(win)
+    btns.pack(fill="x", padx=10, pady=8)
+    pause = ttk.Button(btns, text="Pause", command=(on_pause or win.destroy))
+    pause.pack(side="left")
+    cancel = ttk.Button(btns, text="Cancel", command=win.destroy)
+    cancel.pack(side="left", padx=6)
+    ttk.Button(btns, text="Options on completion").pack(side="right")
+
+    win._idm_segment_bars = bars  # type: ignore[attr-defined]
+    win._idm_overall_bar = overall  # type: ignore[attr-defined]
+    win._idm_canvas = canvas  # type: ignore[attr-defined]
+    win._idm_info = info  # type: ignore[attr-defined]
+    return win, canvas, bars
+
+
 def build_window(api: Api, out_dir: str = "", on_close=None):
     """Construct the main window and return (root, refresh_fn, widgets)."""
     import tkinter as tk
@@ -373,10 +509,20 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
     toolbar.pack(fill="x", side="top")
     w["toolbar"] = toolbar
     w["buttons"] = []
+    w["icons"] = []
     for name in TOOLBAR:
-        b = ttk.Button(toolbar, text=name)
+        spec = TOOLBAR_ICONS.get(name)
+        img = _icon(spec[0], spec[1], master=root) if spec else None
+        if img is not None:
+            w["icons"].append(img)
+            b = ttk.Button(toolbar, text=name, image=img, compound="left")
+        else:
+            b = ttk.Button(toolbar, text=name)
         b.pack(side="left", padx=2)
         w["buttons"].append((name, b))
+    w["buttons_with_icons"] = sum(
+        1 for _n, btn in w["buttons"] if _button_has_icon(btn)
+    )
 
     # --- search row (IDM has it above the list) ---
     search_row = ttk.Frame(root, padding=(6, 2))
@@ -395,8 +541,17 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
     tree.pack(fill="both", expand=True)
     parent = ""
     for c in CATEGORIES:
-        tree.insert(parent, "end", text=c)
+        spec = CATEGORY_ICONS.get(c)
+        img = _icon(spec[0], spec[1], 14, master=root) if spec else None
+        if img is not None:
+            w["icons"].append(img)
+            tree.insert(parent, "end", text=c, image=img)
+        else:
+            tree.insert(parent, "end", text=c)
     w["tree"] = tree
+    w["categories_with_icons"] = sum(
+        1 for i in tree.get_children("") if tree.item(i, "image")
+    )
     body.add(left, weight=1)
 
     right = ttk.Frame(body)
@@ -557,6 +712,13 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
     return root, refresh, w
 
 
+def _button_has_icon(btn):
+    try:
+        return bool(btn.cget("image"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def spawn_server(engine, addr, out_dir, state_dir):
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(state_dir, exist_ok=True)
@@ -713,8 +875,24 @@ def selftest_dump(engine):
     _collect_widgets(cw, acc)
     dialogs.append({"title": cw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
 
+    # Download Progress dialog: carries a canvas with one bar per connection.
+    pw2, pcanvas, pbars = _dialog_progress(root, "movie.mp4", connections=4)
+    pw2.withdraw()
+    acc = {"buttons": [], "labels": [], "tabs": []}
+    _collect_widgets(pw2, acc)
+    dialogs.append({
+        "title": pw2.title(),
+        "widgets": acc["labels"] + acc["buttons"],
+        "tabs": acc["tabs"],
+        "has_canvas": pcanvas.winfo_class() == "Canvas",
+        "segment_bars": len(pbars),
+        "has_pause": any("pause" in b.lower() for b in acc["buttons"]),
+    })
+
     dump = {
         "buttons": buttons,
+        "buttons_with_icons": w.get("buttons_with_icons", 0),
+        "categories_with_icons": w.get("categories_with_icons", 0),
         "has_toolbar_frame": has_toolbar,
         "toolbar_above_list": toolbar_above,
         "categories": cats,
@@ -725,7 +903,7 @@ def selftest_dump(engine):
     }
 
     # Cleanup.
-    for win in (aw, fw, ow, sw, pw, cw):
+    for win in (aw, fw, ow, sw, pw, cw, pw2):
         try:
             win.destroy()
         except Exception:  # noqa: BLE001
