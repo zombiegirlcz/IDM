@@ -51,7 +51,9 @@ content.js ──postMessage──► background.js ──native messaging──
 curl -fsSL https://raw.githubusercontent.com/zombiegirlcz/IDM/master/install.sh | bash
 ```
 
-Nainstaluje se **do uživatelského prostoru** (nikdy systémově), takže nepotřebuje
+Stáhne **hotové binárky** z GitHub release (postavené GitHub Actions) — **žádný
+git, žádný Rust, žádný kompilátor**, stejně jako když si instaluješ skutečné IDM.
+Instaluje se **do uživatelského prostoru** (nikdy systémově), takže nepotřebuje
 root a nic nerozbije:
 
 - postaví engine + host a dá je do `~/.local/share/idm/bin`
@@ -84,7 +86,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 
 Co udělá (vše user-scoped, **bez admina**):
 
-- postaví engine + host (`cargo build --release`; když chybí Rust, poradí `winget install Rustlang.Rustup`)
+- stáhne **hotové binárky** z GitHub release (žádný Rust, žádný git, žádný kompilátor)
 - nainstaluje binárky do `%LOCALAPPDATA%\idm\bin`
 - zaregistruje native-messaging hosta do **HKCU** pro Chrome / Edge / Brave / Chromium
 - uloží `IDM_ALLOWED_DIR` (host je fail-closed a Windows prohlížeče ho spouštějí bez argumentů)
@@ -100,6 +102,11 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\idm\install.ps1" -Un
 
 > Poznámka: host umí `--allowed-dir` i z proměnné `IDM_ALLOWED_DIR` (na Windows není
 > shell wrapper). Fail-closed zůstává: bez ani jednoho host skončí chybou a nic nezapíše.
+
+
+> **Chceš build ze zdroje?** Oba instalátory mají opt-in cestu: Linux
+> `IDM_LOCAL_SOURCE=/cesta ./install.sh`, Windows `-SourceDir C:\cesta`. Ta
+> vyžaduje Rust toolchain. Výchozí cesta je vždy stažení hotových binárek.
 
 ## 1) Build
 
