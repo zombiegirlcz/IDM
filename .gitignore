@@ -19,3 +19,10 @@ probe_ext.mjs
 *.idmmeta.tmp
 # Privatni klic rozsireni (nikdy necommitovat)
 extension/keys/extension.pem
+
+# Stazene IDM binarky z Windows (necommitovat)
+dll/*.dll
+dll/*.exe
+dll/*.crx
+dll/*.xpi
+dll/ext_*/
