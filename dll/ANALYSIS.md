@@ -106,3 +106,66 @@ ROT13 literál `atcnzcnccazrctvybwsbunquuzouynrx` → **`ngpampappnmepgilojfohad
 
 `ua(s)` = **ROT13** (viz `ua("lbhghor")` → `youtube`). Používá se pro obfuskování
 konfiguračních řetězců, ne pro přenos dat.
+
+## Dispatch tabulka (dokončeno)
+
+### Příchozí zprávy (host/WS → rozšíření) — `n.$a`
+
+```
+case  3  … handshake/init odpověď (verze protokolu g<97 → re-handshake)
+case  4  … konfigurace (flags e[3]: 0x8000000=kontrola, 0x80000000=ia)
+case  5  … zc(this, e[0], d, e[1])
+case  6  … zc (jiná větev, přes f.g[0])
+case  8  … stav stahování (a=4294967295 → ukončit A)
+case 11  … 4294967295 → Db(...,!0,!0)
+case 12  … hlavní download event (m=4 → Ac, jinak mc)
+case 13  … požadavek/odpověď (g<=3 → kc/O; g==5 → port.postMessage([19,...]))
+case 18  … definice domény/akce (I tabulka, e.ac=ua("lbhghor")=youtube)
+case 20  … proxy konfigurace (k[122]=proxy string, k[121]=J)
+case 21–46 … handlery cc/ec/hc/fc/Hb/za/Zb/Ya/Cb/Fb/Db/wb/Bb/Eb/Yb/Kb/ub/yb
+```
+
+### Odchozí zprávy (rozšíření → host/WS) — `S(this,type,A,…)`
+
+```
+type  0 A  1  … ?
+type  1 A  2  … odpověď (g?2:4), [a.l]
+type  2 A  5  … HANDSHAKE: a=[113,93,1028|1031,0,16845059,cid,15,mv], k={112,113,125,116}
+type  5 A  1  … [32,[a]]
+type  8 A  1  … [32,[a]] / [1152,[g]]
+type 10 A  1  … progress/keepalive
+type 14 A  1  … [0, g, a]
+type 16 A  1  … [32|16, a] / [48,[id,0],{115:c}]
+type 19 A  2  … [b,c,tabId,a.j] + d
+type 21 A  1  … [0, a, d]
+type 23 A  2  … [b,tabId,a.j,a.X,a.da], {132,133,134}
+type 100 A 1  … [a.l], a
+```
+
+### Opkódy do stránky/content scriptu (`postMessage([N,…])`)
+
+```
+14, 15, 16, 17, 18, 19
+```
+(odpovídá starému PROTOCOL.md sekci background→content 11–18; reálné je 14–19)
+
+### `I[]` tabulka (case 18) — definice akcí podle domény
+
+```
+I[1] type=2 A=<znaky> B=<znaky>   // youtube (e.ac=ua("lbhghor"))
+I[2..6] type=2|null
+```
+Klíč `102` = domény, `110<g<150` = další vlastnosti; hodnoty se překládají
+do `RegExp` a skládají do `Ua` = `^https?://(?:dom1|dom2|…)` (allow-list domén,
+na které se aplikuje zvláštní zacházení — YouTube apod.).
+
+## Shrnutí rozdílu proti našemu PROTOCOL.md
+
+| Věc | Starý PROTOCOL.md | Skutečnost |
+|---|---|---|
+| Transport | jen native messaging | **WS :1001 primárně**, NM fallback |
+| Rámec | 4B LE len + JSON | **text `MSG#id#type#A#j:g…,k=v;`** |
+| Opkódy bg→content | 11–18 | **14–19** |
+| Šifra | (neznámá) | **ROT13 `ua()`** |
+| ID rozšíření | naše testovací | `ngpampappnmepgilojfohadhhmbhlaek` |
+| Handshake | neúplný | type=2,A=5, a=[113,93,1028/1031,…], k={112,113,125,116} |
