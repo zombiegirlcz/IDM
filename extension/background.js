@@ -177,6 +177,12 @@ function handleCapture(arr, sender) {
       if (typeof url === 'string' && /^https?:/i.test(url)) captureDownload(url, undefined, sender);
       break;
     }
+    // 42: user pressed the in-page download button -> download the media
+    case 42: {
+      const [, kind, src] = arr;
+      if (src) captureDownload(src, undefined, sender);
+      break;
+    }
     // 34: serialized DOM snippet (debug)
     case 34:
       log('dom snippet', arr[1], arr[2]);

@@ -40,6 +40,10 @@ content.js ──postMessage──► background.js ──native messaging──
   progresem, pauzou/pokračováním a odebíráním; fronta přežije restart
 - **Shell integrace** — IDM schémata `idmdwnlmfv9://` / `idmreg:` (rozbalení v engine),
   desktop launcher, scheme handler a kontextové menu (Nautilus/Thunar)
+- **Nativní okno (GUI)** — `gui/idm_gui.py` (Tkinter): seznam stahování s progresem,
+  pauza/pokračovat/odebrat; spustí si vlastní `idm --serve` backend (`--autostart`)
+- **Panel u videí v prohlížeči** — malé plovoucí okno s tlačítkem „Download" nad `<video>`
+  (opkód 42 → host → engine)
 
 ## 1) Build
 
@@ -229,6 +233,8 @@ Pokrývá:
 - `category.rs` — auto-kategorizace do `Video/`, `Music/`, `Documents/`, `Compressed/`, `Programs/`, `Other/`
 - `host_category.rs` — host respektuje `category_dir` a soubor reálně skončí ve správné podsložce
 - `scheme.rs` — IDM schémata: `idmdwnlmfv9://<url>` se rozbalí a stáhne (CRC), `idmreg:` trigger je no-op success
+- `gui/test/native_gui.test.mjs` — nativní okno: Tk se postaví pod xvfb, API klient reálně stáhne soubor přes `idm --serve` (CRC)
+- `extension/test/panel.test.mjs` — panel nad videem: injektuje se jen u videí, tlačítko emituje opkód 42
 
 ### Extension (Node)
 

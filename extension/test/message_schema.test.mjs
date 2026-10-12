@@ -59,7 +59,8 @@ test('schema opcode tables match PROTOCOL.md', async () => {
   const { CONTENT_TO_BG, BG_TO_CONTENT, PAGE_MAGIC } = mod;
 
   // content.js -> background.js opcodes observed in carve/0090fee2_content.js
-  const expectedC2B = [22, 23, 24, 25, 26, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 39, 41];
+  // 42 is our own addition (in-page media download button); the rest are from the reverse-engineered IDM content script.
+  const expectedC2B = [22, 23, 24, 25, 26, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 39, 41, 42];
   assert.deepEqual([...CONTENT_TO_BG].sort((a, b) => a - b), expectedC2B);
 
   // background.js -> content.js opcodes (switch(b.shift()))

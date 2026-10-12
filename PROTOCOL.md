@@ -53,6 +53,7 @@ content.js (scrape DOM)  --browser.runtime.connect + postMessage-->  background.
 | 37 | `1,1,e` / `1,2,k` | media sub-event (video/audio) |
 | 39 | `hasAttribute("download"), href, download` | **klik na odkaz ke stažení** |
 | 41 | `e, localName, src\|\|data, a, c, d` | `<video>/<audio>/<object>/<embed>` (`F=video,audio,object,embed`) |
+| 42 | `kind, src` | **vlastní rozšíření**: uživatel stiskl tlačítko Download v panelu nad videem |
 
 ## 3. Dispatch tabulka — background → content (`this.xb` → `switch(b.shift())`)
 

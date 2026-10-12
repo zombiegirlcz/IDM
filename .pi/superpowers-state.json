@@ -29,12 +29,13 @@
   "tdd": {
     "phase": "red-pending",
     "testFiles": [
-      "/root/IDM/engine/tests/scheme.rs",
-      "/root/IDM/extension/test/shell_integration.test.mjs"
+      "/root/IDM/gui/test/native_gui.test.mjs",
+      "/root/IDM/extension/test/panel.test.mjs"
     ],
     "sourceFiles": [
-      "/tmp/patch_scheme.py",
-      "/tmp/patch_readme_shell.py"
+      "/root/IDM/gui/idm_gui.py",
+      "/tmp/patch_panel.py",
+      "/tmp/patch_tests_sh.py"
     ],
     "redVerificationPending": true
   },

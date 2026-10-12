@@ -28,6 +28,7 @@ export const CONTENT_TO_BG = Object.freeze([
   37, // media sub-event (video/audio)
   39, // click on a download link (download, href, name)
   41, // <video>/<audio>/<object>/<embed>
+  42, // user pressed the in-page download button for a media element
 ]);
 
 // --- background.js -> content.js opcodes ---

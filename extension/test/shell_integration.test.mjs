@@ -79,9 +79,12 @@ test('installs a valid GUI launcher', () => {
   assert.ok(existsSync(guiWrapper), `GUI wrapper missing: ${guiWrapper}`);
   assert.ok(isExec(guiWrapper), 'GUI wrapper must be executable');
   const gw = readFileSync(guiWrapper, 'utf8');
-  assert.ok(gw.includes('--serve'), 'GUI wrapper should start the --serve UI');
+  // The launcher opens the native Tkinter window, which starts its own
+  // `idm --serve` backend via --autostart.
+  assert.ok(gw.includes('idm_gui.py'), 'GUI wrapper should run the native window');
+  assert.ok(gw.includes('--autostart'), 'GUI wrapper should start its own backend');
   assert.ok(gw.includes('127.0.0.1'), 'GUI wrapper should bind the serve address');
-  assert.ok(gw.includes('--output-dir'), 'GUI wrapper should set the output dir');
+  assert.ok(gw.includes('--out-dir'), 'GUI wrapper should set the output dir');
   assert.ok(src.includes('idm-gui-wrapper.sh'), 'Exec must point at the GUI wrapper');
 
   execFileSync('desktop-file-validate', [gui], { stdio: 'pipe' });

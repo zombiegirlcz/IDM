@@ -125,6 +125,76 @@
   function scanMedia() {
     var nodes = document.querySelectorAll('video, audio, object, embed');
     for (var i = 0; i < nodes.length; i++) onMediaFound(nodes[i]);
+    injectPanels();
+  }
+
+  // --- opcode 42: user pressed the in-page download button for a media element ---
+  function onPanelDownload(kind, src) {
+    if (!src) return;
+    post([42, kind, src]);
+  }
+
+  // --- small floating "Download" panel over each media element (videos only) ---
+  var PANEL_ATTR = 'data-idm-panel';
+  function makePanel(el, kind, src) {
+    var box = document.createElement('div');
+    box.setAttribute(PANEL_ATTR, '1');
+    box.style.cssText = [
+      'position:absolute',
+      'z-index:2147483647',
+      'background:rgba(17,17,17,.85)',
+      'color:#fff',
+      'font:12px system-ui,sans-serif',
+      'padding:4px 6px',
+      'border-radius:6px',
+      'box-shadow:0 1px 6px rgba(0,0,0,.4)',
+      'pointer-events:auto',
+    ].join(';');
+
+    var btn = document.createElement('button');
+    btn.textContent = 'Download';
+    btn.style.cssText = [
+      'background:#2d6cdf',
+      'color:#fff',
+      'border:0',
+      'border-radius:4px',
+      'padding:3px 8px',
+      'cursor:pointer',
+      'font:12px system-ui,sans-serif',
+    ].join(';');
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      onPanelDownload(kind, el.currentSrc || el.src || el.data || src);
+    });
+
+    box.appendChild(btn);
+    return box;
+  }
+
+  function positionPanel(box, el) {
+    var r = rectOf(el);
+    box.style.left = (r[0] + window.scrollX + 8) + 'px';
+    box.style.top = (r[1] + window.scrollY + 8) + 'px';
+  }
+
+  function injectPanel(el) {
+    var kind = mediaKind(el);
+    if (!kind) return;
+    if (el.getAttribute('data-idm-panel-for')) return;
+    el.setAttribute('data-idm-panel-for', '1');
+    var src = el.currentSrc || el.src || el.data || '';
+    if (!src) return;
+    var box = makePanel(el, kind, src);
+    document.body.appendChild(box);
+    positionPanel(box, el);
+    window.addEventListener('scroll', function () { positionPanel(box, el); }, { passive: true });
+    window.addEventListener('resize', function () { positionPanel(box, el); });
+  }
+
+  function injectPanels() {
+    var nodes = document.querySelectorAll('video');
+    for (var i = 0; i < nodes.length; i++) injectPanel(nodes[i]);
   }
 
   // ---- wire up listeners ----
