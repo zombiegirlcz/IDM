@@ -16,6 +16,7 @@ use std::sync::Arc;
 use tokio::fs::OpenOptions as TokioOpenOptions;
 use tokio::sync::{Mutex, Semaphore};
 
+mod gui;
 mod media;
 
 #[derive(Parser, Debug)]
@@ -107,6 +108,18 @@ struct Args {
     /// Smallest segment that --dynamic is allowed to split (bytes)
     #[arg(long, default_value_t = 1000000)]
     min_split: u64,
+
+    /// Run the GUI/queue HTTP server on ADDR (e.g. 127.0.0.1:8080)
+    #[arg(long)]
+    serve: Option<String>,
+
+    /// Directory for the persisted queue (used by --serve)
+    #[arg(long)]
+    state_dir: Option<PathBuf>,
+
+    /// Max simultaneous downloads in --serve mode
+    #[arg(long, default_value_t = 2)]
+    max_concurrent: usize,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -1165,6 +1178,19 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
 }
 
 async fn run(args: Args) -> anyhow::Result<()> {
+    if let Some(addr) = args.serve.clone() {
+        let out_dir = args
+            .output_dir
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("."));
+        let state_dir = args
+            .state_dir
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(".idm-gui"));
+        let engine = std::env::current_exe()?;
+        return gui::serve(addr, out_dir, state_dir, args.max_concurrent, engine).await;
+    }
+
     let net = Net {
         ua: args.user_agent.clone(),
         cookie: args.cookie.clone(),

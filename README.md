@@ -36,6 +36,8 @@ content.js ──postMessage──► background.js ──native messaging──
 - **Scheduler** (`--start-in SEC`, `--start-at HH:MM` / `YYYY-MM-DDTHH:MM`)
 - **Auto-kategorizace** (`--category-dir BASE`) — Video/Music/Documents/Compressed/Programs/Other
 - **Dynamická segmentace** (`--dynamic --min-split BYTES`) — za běhu štěpí pomalé segmenty podle rychlosti (jako IDM)
+- **GUI správce stahování** (`idm --serve 127.0.0.1:8080`) — webové okno s frontou,
+  progresem, pauzou/pokračováním a odebíráním; fronta přežije restart
 
 ## 1) Build
 
@@ -142,6 +144,29 @@ chrome.runtime.sendMessage(
   console.log,
 )
 ```
+
+## 4b) GUI správce stahování
+
+Engine umí i okno správce (jako IDM), bez jakýchkoli nových závislostí:
+
+```bash
+cd engine
+cargo build --release
+./target/release/idm --serve 127.0.0.1:8080 \
+    --output-dir ~/Downloads --state-dir ~/.local/share/idm-gui
+# -> [*] IDM GUI on http://127.0.0.1:8080
+```
+
+Otevři `http://127.0.0.1:8080`:
+
+- nahoře vložíš URL a dáš **Stáhnout**
+- tabulka ukazuje **progres**, **stav** (running / paused / done / error) a **velikost**
+- u každé položky **Pauza** / **Pokračovat** / **Odebrat**
+- fronta se ukládá do `--state-dir/queue.json`, takže **přežije restart** procesu
+  (nedokončené položky se po startu objeví jako `paused`)
+
+Progres se bere z `.idmmeta` sidecaru, který si engine vede kvůli resume, takže
+pauza je skutečné zabití workeru a pokračování je skutečný `--resume`.
 
 ## 5) Testy
 
