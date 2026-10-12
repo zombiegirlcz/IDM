@@ -16,15 +16,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-echo "== [1/3] cargo build --release =="
+echo "== [1/5] cargo build --release =="
 (cd engine && cargo build --release)
 
 echo
-echo "== [2/3] cargo test =="
+echo "== [2/5] cargo test =="
 (cd engine && cargo test)
 
 echo
-echo "== [3/4] node --test (extension, excluding chrome_e2e) =="
+echo "== [3/5] node --test (extension, excluding chrome_e2e) =="
 # Every *.test.mjs except the real-Chromium harness, which needs a working
 # Chromium + display and is therefore run manually / in a dedicated job.
 mapfile -t TEST_FILES < <(
@@ -38,7 +38,7 @@ printf '  - %s\n' "${TEST_FILES[@]}"
 node --test "${TEST_FILES[@]}"
 
 echo
-echo "== [4/4] node --test (native GUI) =="
+echo "== [4/5] node --test (native GUI) =="
 # The native window tests: API client against a real idm --serve, plus building
 # the Tk window under xvfb-run. Skipped gracefully if python3/xvfb are absent.
 if command -v python3 >/dev/null 2>&1; then
@@ -49,6 +49,18 @@ if command -v python3 >/dev/null 2>&1; then
   fi
 else
   echo "  (skipped: python3 not found)"
+fi
+
+echo
+echo "== [5/5] node --test (installer) =="
+if command -v desktop-file-validate >/dev/null 2>&1; then
+  mapfile -t INSTALL_FILES < <(find test -name '*.test.mjs' | sort)
+  if [[ ${#INSTALL_FILES[@]} -gt 0 ]]; then
+    printf '  - %s\n' "${INSTALL_FILES[@]}"
+    node --test "${INSTALL_FILES[@]}"
+  fi
+else
+  echo "  (skipped: desktop-file-validate not found)"
 fi
 
 echo

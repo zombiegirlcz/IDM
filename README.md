@@ -45,6 +45,30 @@ content.js ──postMessage──► background.js ──native messaging──
 - **Panel u videí v prohlížeči** — malé plovoucí okno s tlačítkem „Download" nad `<video>`
   (opkód 42 → host → engine)
 
+## 0) Jednořádková instalace (nejjednodušší)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zombiegirlcz/IDM/master/install.sh | bash
+```
+
+Nainstaluje se **do uživatelského prostoru** (nikdy systémově), takže nepotřebuje
+root a nic nerozbije:
+
+- postaví engine + host a dá je do `~/.local/share/idm/bin`
+- zaregistruje native-messaging hosta do prohlížečů
+- zaregistruje desktop integraci (launcher, schémata `idmdwnlmfv9:`/`idmreg:`, kontextové menu)
+- vytvoří **ikonu na ploše** „IDM — správce stahování" (dvojklik otevře nativní okno)
+
+Proměnné: `IDM_DOWNLOADS_DIR`, `IDM_INSTALL_PREFIX`, `IDM_SOURCE_DIR` (lokální
+checkout místo klonu), `IDM_SKIP_BUILD=1` (binárky už jsou postavené).
+
+Odinstalace:
+
+```bash
+# znovu spusť stažený instalátor s --uninstall, nebo lokálně:
+bash install.sh --uninstall
+```
+
 ## 1) Build
 
 Engine i host se staví z `engine/`:

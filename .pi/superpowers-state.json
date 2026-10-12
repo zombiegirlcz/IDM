@@ -29,14 +29,9 @@
   "tdd": {
     "phase": "red-pending",
     "testFiles": [
-      "/root/IDM/gui/test/native_gui.test.mjs",
-      "/root/IDM/extension/test/panel.test.mjs"
+      "/root/IDM/test/install.test.mjs"
     ],
-    "sourceFiles": [
-      "/root/IDM/gui/idm_gui.py",
-      "/tmp/patch_panel.py",
-      "/tmp/patch_tests_sh.py"
-    ],
+    "sourceFiles": [],
     "redVerificationPending": true
   },
   "debug": {
