@@ -9,7 +9,9 @@
 use clap::Parser;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::fs::OpenOptions as TokioOpenOptions;
 use tokio::sync::{Mutex, Semaphore};
@@ -97,6 +99,14 @@ struct Args {
     /// Append one JSON line per completed download to FILE (history)
     #[arg(long)]
     history: Option<PathBuf>,
+
+    /// Adaptive segmentation: split slow segments while downloading (IDM-style)
+    #[arg(long, default_value_t = false)]
+    dynamic: bool,
+
+    /// Smallest segment that --dynamic is allowed to split (bytes)
+    #[arg(long, default_value_t = 1000000)]
+    min_split: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -592,6 +602,364 @@ async fn run_direct(
     Ok(())
 }
 
+/// One in-flight segment, shared with the split monitor.
+struct Live {
+    start: u64,
+    end: u64,
+    pos: Arc<AtomicU64>,
+    split: Arc<AtomicU64>,
+}
+
+/// Download one segment, honouring a runtime split request.
+///
+/// Returns `Some((split, end))` when the monitor asked this segment to split;
+/// the returned range is the part that was NOT downloaded and must be handed
+/// to another worker. Returns `None` when the segment finished normally.
+#[allow(clippy::too_many_arguments)]
+async fn download_dyn_segment(
+    client: Arc<reqwest::Client>,
+    url: String,
+    net: Net,
+    start: u64,
+    end: u64,
+    out: Arc<std::fs::File>,
+    pos_atomic: Arc<AtomicU64>,
+    split_atomic: Arc<AtomicU64>,
+    progress_tx: tokio::sync::mpsc::UnboundedSender<u64>,
+) -> anyhow::Result<Option<(u64, u64)>> {
+    let mut pos = start;
+    let mut written: u64 = 0;
+    const MAX_ATTEMPTS: u32 = 6;
+    let mut attempt: u32 = 0;
+    'retry: loop {
+        attempt += 1;
+        let resp = match net
+            .apply(client.get(&url))
+            .header("Range", format!("bytes={}-{}", pos, end))
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                if attempt >= MAX_ATTEMPTS {
+                    anyhow::bail!("segment {}-{}: {} attempts exhausted: {}", start, end, MAX_ATTEMPTS, e);
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(100 * 2u64.pow(attempt.min(5)))).await;
+                continue 'retry;
+            }
+        };
+        let status = resp.status();
+        if status != reqwest::StatusCode::PARTIAL_CONTENT
+            && !(pos == 0 && status.is_success())
+        {
+            anyhow::bail!("segment {}-{}: unexpected status {}", start, end, status);
+        }
+
+        let mut stream = resp.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk = match chunk {
+                Ok(c) => c,
+                Err(e) => {
+                    if attempt >= MAX_ATTEMPTS {
+                        anyhow::bail!("segment {}-{}: stream error: {}", start, end, e);
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                    continue 'retry;
+                }
+            };
+            let sp = split_atomic.load(Ordering::SeqCst);
+            let limit = if sp != u64::MAX && sp > pos && sp <= end { sp } else { end + 1 };
+            let mut buf = chunk.to_vec();
+            let take = std::cmp::min(buf.len() as u64, limit - pos);
+            buf.truncate(take as usize);
+
+            let out2 = out.clone();
+            let p = pos;
+            tokio::task::spawn_blocking(move || write_at(&out2, &buf, p)).await??;
+            pos += take;
+            written += take;
+            pos_atomic.store(pos, Ordering::SeqCst);
+            let _ = progress_tx.send(take);
+
+            if net.limit_rate > 0 {
+                let expected =
+                    std::time::Duration::from_secs_f64(written as f64 / net.limit_rate as f64);
+                if expected > std::time::Duration::from_millis(5) {
+                    tokio::time::sleep(expected).await;
+                }
+            }
+
+            if pos >= limit {
+                if limit <= end {
+                    return Ok(Some((limit, end)));
+                }
+                return Ok(None);
+            }
+        }
+        if pos > end {
+            return Ok(None);
+        }
+        if attempt >= MAX_ATTEMPTS {
+            anyhow::bail!("segment {}-{}: incomplete after {} attempts", start, end, MAX_ATTEMPTS);
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        continue 'retry;
+    }
+}
+
+/// IDM-style adaptive downloader.
+///
+/// Starts with `connections` segments. A monitor watches progress and, when one
+/// segment lags far behind the fastest one, splits the slow segment so the fast
+/// connections are not held back. Split ranges are pushed back on the work
+/// queue and picked up by free workers.
+async fn run_direct_dynamic(
+    args: &Args,
+    net: &Net,
+    client: Arc<reqwest::Client>,
+    url: &str,
+    out: PathBuf,
+) -> anyhow::Result<()> {
+    let probe = probe(&client, url, net).await?;
+    println!("[*] url          : {}", url);
+    println!("[*] output       : {}", out.display());
+    println!("[*] total size   : {} bytes", probe.total);
+    println!("[*] accept-ranges: {}", probe.ranges);
+    println!("[*] dynamic      : on (min-split {} bytes)", args.min_split);
+
+    if probe.total == 0 {
+        anyhow::bail!("server did not report a size; cannot segment");
+    }
+    let total = probe.total;
+    let n = if probe.ranges { args.connections.max(1) } else { 1 };
+
+    if let Some(parent) = out.parent() {
+        if !parent.as_os_str().is_empty() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+    }
+    {
+        let f = TokioOpenOptions::new()
+            .create(true)
+            .write(true)
+            .read(true)
+            .open(&out)
+            .await?;
+        f.set_len(total).await?;
+    }
+    let out_file = Arc::new(std::fs::OpenOptions::new().read(true).write(true).open(&out)?);
+
+    let queue: Arc<std::sync::Mutex<VecDeque<(u64, u64)>>> =
+        Arc::new(std::sync::Mutex::new(VecDeque::new()));
+    {
+        let mut q = queue.lock().unwrap();
+        for seg in build_segments(total, n) {
+            q.push_back((seg.start, seg.end));
+        }
+    }
+    let registry: Arc<std::sync::Mutex<Vec<Live>>> =
+        Arc::new(std::sync::Mutex::new(Vec::new()));
+    let inflight = Arc::new(AtomicUsize::new(0));
+    let splits_left = Arc::new(AtomicUsize::new(16));
+    let done = Arc::new(tokio::sync::Mutex::new(0u64));
+
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<u64>();
+
+    let printer_done = done.clone();
+    let printer = tokio::spawn(async move {
+        let mut last = std::time::Instant::now();
+        while let Some(len) = rx.recv().await {
+            let mut c = printer_done.lock().await;
+            *c += len;
+            let cur = *c;
+            drop(c);
+            if last.elapsed().as_millis() >= 500 {
+                let pct = (cur as f64 / total as f64) * 100.0;
+                eprint!("\r[{:>5.1}%] {} / {} bytes", pct, cur, total);
+                last = std::time::Instant::now();
+            }
+        }
+    });
+
+    // Split monitor.
+    //
+    // We compare *rates* (bytes/second), not absolute progress: a segment that
+    // started later must not be mistaken for a slow one. The slowest segment is
+    // split when it is clearly slower than the fastest, or whenever there is an
+    // idle worker that could take over part of it.
+    let mon_reg = registry.clone();
+    let mon_done = done.clone();
+    let mon_split = splits_left.clone();
+    let mon_inflight = inflight.clone();
+    let min_split = args.min_split;
+    let n_workers = n;
+    let monitor = tokio::spawn(async move {
+        let mut prev: HashMap<(u64, u64), (u64, std::time::Instant)> = HashMap::new();
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            if *mon_done.lock().await >= total {
+                break;
+            }
+            let live: Vec<(u64, u64, u64, Arc<AtomicU64>)> = {
+                let g = mon_reg.lock().unwrap();
+                g.iter()
+                    .map(|l| (l.start, l.end, l.pos.load(Ordering::SeqCst), l.split.clone()))
+                    .collect()
+            };
+            let now = std::time::Instant::now();
+            let mut rates: Vec<((u64, u64), f64, u64, u64, Arc<AtomicU64>)> = Vec::new();
+            for (start, end, pos, split) in &live {
+                let key = (*start, *end);
+                let rate = match prev.get(&key) {
+                    Some((pp, tt)) => {
+                        let dt = now.duration_since(*tt).as_secs_f64();
+                        if dt > 0.0 {
+                            (*pos).saturating_sub(*pp) as f64 / dt
+                        } else {
+                            0.0
+                        }
+                    }
+                    None => 0.0,
+                };
+                prev.insert(key, (*pos, now));
+                let remaining = end.saturating_sub(*pos);
+                rates.push((key, rate, *pos, remaining, split.clone()));
+            }
+            // Drop stale entries for finished segments.
+            prev.retain(|k, _| live.iter().any(|l| (l.0, l.1) == *k));
+
+            if rates.is_empty() {
+                continue;
+            }
+            let fastest = rates.iter().map(|r| r.1).fold(0.0f64, f64::max);
+            // Victim: slowest rate that is still worth splitting.
+            let mut victim: Option<usize> = None;
+            let mut victim_rate = f64::MAX;
+            for (i, (_k, rate, _pos, remaining, _sp)) in rates.iter().enumerate() {
+                if *remaining > min_split && *rate < victim_rate {
+                    victim_rate = *rate;
+                    victim = Some(i);
+                }
+            }
+            let idle = n_workers.saturating_sub(mon_inflight.load(Ordering::SeqCst));
+            let clearly_slower = rates.len() >= 2 && fastest > 0.0 && victim_rate * 2.0 + 1.0 < fastest;
+            let should_split = clearly_slower || idle > 0;
+            if should_split && mon_split.load(Ordering::SeqCst) > 0 {
+                if let Some(i) = victim {
+                    let (_key, _rate, pos, remaining, split) = &rates[i];
+                    if split.load(Ordering::SeqCst) == u64::MAX {
+                        let sp = *pos + remaining / 2;
+                        split.store(sp, Ordering::SeqCst);
+                        mon_split.fetch_sub(1, Ordering::SeqCst);
+                    }
+                }
+            }
+        }
+    });
+
+    // Worker pool.
+    let mut workers = Vec::new();
+    for _ in 0..n {
+        let client = client.clone();
+        let url = url.to_string();
+        let net = net.clone();
+        let out_file = out_file.clone();
+        let queue = queue.clone();
+        let registry = registry.clone();
+        let inflight = inflight.clone();
+        let tx = tx.clone();
+        workers.push(tokio::spawn(async move {
+            loop {
+                let job = { queue.lock().unwrap().pop_front() };
+                match job {
+                    Some((start, end)) => {
+                        let pos = Arc::new(AtomicU64::new(start));
+                        let split = Arc::new(AtomicU64::new(u64::MAX));
+                        {
+                            let mut g = registry.lock().unwrap();
+                            g.push(Live { start, end, pos: pos.clone(), split: split.clone() });
+                        }
+                        inflight.fetch_add(1, Ordering::SeqCst);
+                        let res = download_dyn_segment(
+                            client.clone(),
+                            url.clone(),
+                            net.clone(),
+                            start,
+                            end,
+                            out_file.clone(),
+                            pos.clone(),
+                            split.clone(),
+                            tx.clone(),
+                        )
+                        .await;
+                        // Hand the leftover to the queue BEFORE dropping inflight,
+                        // so an idle worker cannot miss it.
+                        let leftover = match &res {
+                            Ok(Some(r)) => Some(*r),
+                            _ => None,
+                        };
+                        if let Some((ls, le)) = leftover {
+                            queue.lock().unwrap().push_back((ls, le));
+                        }
+                        {
+                            let mut g = registry.lock().unwrap();
+                            g.retain(|l| !Arc::ptr_eq(&l.pos, &pos));
+                        }
+                        inflight.fetch_sub(1, Ordering::SeqCst);
+                        if let Err(e) = res {
+                            return Err(e);
+                        }
+                    }
+                    None => {
+                        if inflight.load(Ordering::SeqCst) == 0 {
+                            if queue.lock().unwrap().is_empty() {
+                                break;
+                            }
+                            continue;
+                        }
+                        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+                    }
+                }
+            }
+            Ok::<(), anyhow::Error>(())
+        }));
+    }
+    drop(tx);
+
+    let mut first_err: Option<anyhow::Error> = None;
+    for w in workers {
+        match w.await {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => {
+                if first_err.is_none() {
+                    first_err = Some(e);
+                }
+            }
+            Err(e) => {
+                if first_err.is_none() {
+                    first_err = Some(anyhow::anyhow!("worker join error: {}", e));
+                }
+            }
+        }
+    }
+    let _ = monitor.await;
+    let _ = printer.await;
+    eprintln!();
+    if let Some(e) = first_err {
+        return Err(e);
+    }
+
+    let (read_total, crc) = crc32_file(&out)?;
+    println!("[*] downloaded   : {} bytes", read_total);
+    println!("[*] crc32        : {:08x}", crc);
+    if read_total != total {
+        anyhow::bail!("size mismatch: expected {}, got {}", total, read_total);
+    }
+    append_history(&args.history, url, &out, read_total, crc);
+    println!("[+] done -> {}", out.display());
+    Ok(())
+}
+
 /// Media/stream download through the yt-dlp backend.
 async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathBuf>) -> anyhow::Result<()> {
     let cookie = net.cookie.as_deref();
@@ -770,6 +1138,10 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
         if let Some(h) = &args.history {
             cmd.arg("--history").arg(h);
         }
+        if args.dynamic {
+            cmd.arg("--dynamic");
+            cmd.arg("--min-split").arg(args.min_split.to_string());
+        }
         cmd.arg("--yt-dlp").arg(&args.yt_dlp);
         cmd.arg(url);
         eprintln!("[queue {}/{}] {}", i + 1, urls.len(), url);
@@ -845,6 +1217,9 @@ async fn run(args: Args) -> anyhow::Result<()> {
             .map_err(|e| anyhow::anyhow!("client: {}", e))?,
     );
     let out = resolve_out_path(&url, args.output.as_deref(), args.category_dir.as_deref());
+    if args.dynamic {
+        return run_direct_dynamic(&args, &net, client, &url, out).await;
+    }
     run_direct(&args, &net, client, &url, out).await
 }
 

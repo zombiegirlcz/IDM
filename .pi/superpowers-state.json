@@ -27,10 +27,18 @@
     }
   },
   "tdd": {
-    "phase": "idle",
-    "testFiles": [],
-    "sourceFiles": [],
-    "redVerificationPending": false
+    "phase": "red-pending",
+    "testFiles": [
+      "/root/IDM/engine/tests/dynamic.rs"
+    ],
+    "sourceFiles": [
+      "/tmp/patch_dynamic.py",
+      "/tmp/patch_dynamic2.py",
+      "/tmp/patch_dynamic3.py",
+      "/tmp/patch_host_dyn.py",
+      "/tmp/patch_media_ui.py"
+    ],
+    "redVerificationPending": true
   },
   "debug": {
     "active": false,

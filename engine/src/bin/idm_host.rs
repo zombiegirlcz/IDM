@@ -342,6 +342,12 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
             if let Some(p) = opt_str(req, "proxy") {
                 cmd.arg("--proxy").arg(p);
             }
+            if opt_bool(req, "dynamic") {
+                cmd.arg("--dynamic");
+                if let Some(ms) = opt_u64(req, "min_split") {
+                    cmd.arg("--min-split").arg(ms.to_string());
+                }
+            }
 
             cmd.arg(&url);
 

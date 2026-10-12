@@ -104,6 +104,12 @@ test('buildDownload carries media options and keeps plain downloads plain', asyn
   const cat = buildDownload({ url: 'https://example.com/movie.mp4', categoryDir: '/root/Downloads' });
   assert.equal(cat.category_dir, '/root/Downloads');
   assert.ok(!('category_dir' in plain), 'plain download must not carry category_dir');
+
+  const dyn = buildDownload({ url: 'https://example.com/big.bin', dynamic: true, minSplit: 500000 });
+  assert.equal(dyn.dynamic, true);
+  assert.equal(dyn.min_split, 500000);
+  assert.ok(!('dynamic' in plain), 'plain download must not carry dynamic');
+  assert.throws(() => buildDownload({ url: 'https://x/y', minSplit: -1 }), /minSplit/i);
 });
 
 // ---- manifest: the popup is wired as the "nabídka" ----

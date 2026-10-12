@@ -102,7 +102,7 @@ export function buildPing() {
  *          format?: string, forceMedia?: boolean, limitRate?: number,
  *          cookie?: string, referer?: string}} opts
  */
-export function buildDownload({ url, output, connections, format, forceMedia, limitRate, cookie, referer, proxy, categoryDir } = {}) {
+export function buildDownload({ url, output, connections, format, forceMedia, limitRate, cookie, referer, proxy, categoryDir, dynamic, minSplit } = {}) {
   assertHttpUrl(url);
   const req = { action: HOST_ACTIONS.DOWNLOAD, url };
   if (output !== undefined) req.output = output;
@@ -131,6 +131,12 @@ export function buildDownload({ url, output, connections, format, forceMedia, li
   if (referer !== undefined) req.referer = String(referer);
   if (proxy !== undefined) req.proxy = String(proxy);
   if (categoryDir !== undefined) req.category_dir = String(categoryDir);
+  if (dynamic !== undefined) req.dynamic = Boolean(dynamic);
+  if (minSplit !== undefined) {
+    const m = Number(minSplit);
+    if (!Number.isInteger(m) || m < 0) throw new RangeError(`minSplit out of range: ${minSplit}`);
+    req.min_split = m;
+  }
   return req;
 }
 

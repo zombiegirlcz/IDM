@@ -35,6 +35,7 @@ content.js ──postMessage──► background.js ──native messaging──
 - **Fronta** (`--queue FILE --output-dir DIR`), komentáře `#`, každá URL vlastní proces
 - **Scheduler** (`--start-in SEC`, `--start-at HH:MM` / `YYYY-MM-DDTHH:MM`)
 - **Auto-kategorizace** (`--category-dir BASE`) — Video/Music/Documents/Compressed/Programs/Other
+- **Dynamická segmentace** (`--dynamic --min-split BYTES`) — za běhu štěpí pomalé segmenty podle rychlosti (jako IDM)
 
 ## 1) Build
 
