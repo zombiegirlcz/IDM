@@ -16,7 +16,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { chromium } from 'playwright-core';
 import { fileURLToPath } from 'node:url';
@@ -93,13 +93,18 @@ function startServer(data) {
 
 test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC', { timeout: 180000 }, async () => {
   assert.ok(existsSync(CHROMIUM), `chromium not found at ${CHROMIUM}`);
-  // The host manifest path must exist (release build) or Chrome won't spawn it.
+  // Chrome only spawns the host it finds a manifest for. The committed
+  // manifest carries the absolute path of whichever checkout installed it
+  // last, so we install our own copy into the throwaway profile below,
+  // pointing at the host THIS checkout built.
   const hostManifest = JSON.parse(
     readFileSync(join(ext, 'com.tonec.idm.json'), 'utf8'),
   );
+  const hostBin = process.env.IDM_HOST_BIN
+    || join(repoRoot, 'engine/target/release/idm-host');
   assert.ok(
-    existsSync(hostManifest.path),
-    `host binary missing: ${hostManifest.path} (run: cd engine && cargo build --release)`,
+    existsSync(hostBin),
+    `host binary missing: ${hostBin} (run: cd engine && cargo build --release)`,
   );
 
   const data = makeData(1_500_000);
@@ -112,6 +117,14 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
   const outFile = join(dlDir, 'file.bin');
 
   const userDataDir = join(tmpdir(), `idm_prof_${process.pid}_${randomBytes(4).toString('hex')}`);
+  // Chromium reads native-messaging manifests from <user-data-dir>/NativeMessagingHosts,
+  // so the test is self-contained: no system-wide install required.
+  const nmDir = join(userDataDir, 'NativeMessagingHosts');
+  mkdirSync(nmDir, { recursive: true });
+  writeFileSync(
+    join(nmDir, 'com.tonec.idm.json'),
+    JSON.stringify({ ...hostManifest, path: hostBin }, null, 2),
+  );
 
   const context = await chromium.launchPersistentContext(userDataDir, {
     executablePath: CHROMIUM,
