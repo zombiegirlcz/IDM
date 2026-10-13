@@ -278,3 +278,53 @@ fn silently_short_body_without_content_length_fails() {
         err
     );
 }
+
+/// A name we derived from the URL must never overwrite a file that is already
+/// there — a captured link whose last segment collides with something in the
+/// download directory would otherwise destroy it.
+#[test]
+fn auto_named_download_does_not_overwrite_an_existing_file() {
+    let data = make_data(20_000);
+    let addr = start_server(data.clone(), None);
+    let dir = unique_dir("nooverwrite");
+    let existing = dir.join("file.bin");
+    std::fs::write(&existing, b"precious user data").unwrap();
+
+    let st = Command::new(BIN)
+        .arg("--output-dir")
+        .arg(&dir)
+        .arg(format!("{}/file.bin", addr))
+        .status()
+        .unwrap();
+    assert!(st.success());
+
+    assert_eq!(
+        std::fs::read(&existing).unwrap(),
+        b"precious user data",
+        "the existing file must be untouched"
+    );
+    let alt = dir.join("file (1).bin");
+    assert!(alt.exists(), "the download must land next to it as 'file (1).bin'");
+    assert_eq!(std::fs::read(&alt).unwrap(), *data, "content of the new file");
+}
+
+/// ... but an explicit --output is obeyed to the letter, and --resume keeps
+/// using the file its sidecar describes.
+#[test]
+fn explicit_output_still_wins() {
+    let data = make_data(20_000);
+    let addr = start_server(data.clone(), None);
+    let dir = unique_dir("explicit");
+    let target = dir.join("exact.bin");
+    std::fs::write(&target, b"stale").unwrap();
+
+    let st = Command::new(BIN)
+        .arg("-o")
+        .arg(&target)
+        .arg(format!("{}/whatever.bin", addr))
+        .status()
+        .unwrap();
+    assert!(st.success());
+    assert_eq!(std::fs::read(&target).unwrap(), *data, "--output must be used as given");
+    assert!(!dir.join("exact (1).bin").exists(), "no alternative name for --output");
+}

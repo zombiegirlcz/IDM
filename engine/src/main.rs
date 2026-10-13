@@ -241,6 +241,32 @@ fn resolve_out_path(
     out_path_for(url, None)
 }
 
+/// A free file name next to `p`: `file.bin`, `file (1).bin`, `file (2).bin`, …
+///
+/// Only used for a name we derived from the URL ourselves. An explicit
+/// `--output` is obeyed to the letter, and `--resume` must of course reuse the
+/// existing file. Without this, a captured URL whose last path segment happens
+/// to match something already in the download directory would overwrite it.
+fn free_path(p: &Path) -> PathBuf {
+    if !p.exists() {
+        return p.to_path_buf();
+    }
+    let dir = p.parent().map(|d| d.to_path_buf()).unwrap_or_default();
+    let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let ext = p.extension().map(|e| e.to_string_lossy().to_string());
+    for i in 1..10_000u32 {
+        let name = match &ext {
+            Some(e) => format!("{} ({}).{}", stem, i, e),
+            None => format!("{} ({})", stem, i),
+        };
+        let cand = dir.join(name);
+        if !cand.exists() {
+            return cand;
+        }
+    }
+    p.to_path_buf()
+}
+
 fn meta_path(out: &Path) -> PathBuf {
     let mut s = out.as_os_str().to_os_string();
     s.push(".idmmeta");
@@ -1543,25 +1569,30 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
         }
     };
 
-    if args.aria2 {
-        let out = resolve_out_path(
+    // Where the file goes, decided once. A name we invented from the URL never
+    // clobbers an existing file (see free_path); --output and --resume do
+    // exactly what they say.
+    let out = {
+        let p = resolve_out_path(
             &url,
             args.output.as_deref(),
             args.category_dir.as_deref(),
             args.output_dir.as_deref(),
         );
+        if args.output.is_none() && !args.resume {
+            free_path(&p)
+        } else {
+            p
+        }
+    };
+
+    if args.aria2 {
         return run_aria2(&args, &url, out).await;
     }
 
     let use_media =
         !args.no_media && (args.force_media || args.list_formats || media::is_media_url(&url));
     if use_media {
-        let out = resolve_out_path(
-            &url,
-            args.output.as_deref(),
-            args.category_dir.as_deref(),
-            args.output_dir.as_deref(),
-        );
         return run_media(&args, &net, &url, Some(out)).await;
     }
 
@@ -1576,12 +1607,6 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
             .build()
             .map_err(|e| anyhow::anyhow!("client: {}", e))?,
     );
-    let out = resolve_out_path(
-            &url,
-            args.output.as_deref(),
-            args.category_dir.as_deref(),
-            args.output_dir.as_deref(),
-        );
     if args.dynamic {
         return run_direct_dynamic(&args, &net, client, &url, out).await;
     }

@@ -123,3 +123,39 @@ jobs:
         run: |
           Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -ErrorAction Stop
           Invoke-ScriptAnalyzer -Path ./install.ps1 -Severity Error
+
+      # Run it for real against a locally built archive: install, check what
+      # landed, then uninstall through the copy it keeps in the prefix. Nothing
+      # here touches the network or a release.
+      - name: Install and uninstall for real
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage  = Join-Path $env:RUNNER_TEMP 'stage'
+          $prefix = Join-Path $env:RUNNER_TEMP 'idm-prefix'
+          $dl     = Join-Path $env:RUNNER_TEMP 'idm-downloads'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          # Stand-ins for the binaries: the installer only copies and registers.
+          'exit 0' | Set-Content (Join-Path $stage 'idm.exe')
+          'exit 0' | Set-Content (Join-Path $stage 'idm-host.exe')
+          '# gui'  | Set-Content (Join-Path $stage 'idm_gui.py')
+          Copy-Item ./install.ps1 $stage
+          Copy-Item ./scripts/ensure-aria2.ps1 $stage
+          $zip = Join-Path $env:RUNNER_TEMP 'idm-windows-x64.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
+          $sha = (Get-FileHash $zip -Algorithm SHA256).Hash
+          "$sha  idm-windows-x64.zip" | Set-Content "$zip.sha256"
+          $url = ([System.Uri](Resolve-Path $zip).Path).AbsoluteUri
+
+          ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir $dl
+
+          foreach ($f in 'idm.exe', 'idm-host.exe', 'install.ps1') {
+            if (-not (Test-Path (Join-Path $prefix $f))) { throw "missing after install: $f" }
+          }
+          $reg = 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.tonec.idm'
+          if (-not (Test-Path $reg)) { throw "native messaging host not registered" }
+
+          & (Join-Path $prefix 'install.ps1') -Uninstall
+          if (Test-Path $prefix) { throw "prefix still present after -Uninstall" }
+          if (Test-Path $reg) { throw "registry key still present after -Uninstall" }
+          Write-Host "install + uninstall OK"

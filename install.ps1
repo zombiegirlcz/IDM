@@ -130,6 +130,23 @@ New-Item -ItemType Directory -Force -Path $Prefix | Out-Null
 Expand-Archive -Path $zip -DestinationPath $Prefix -Force
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 
+# The last line of the output points at "$Prefix\install.ps1 -Uninstall", so
+# that file has to be there -- including after `irm ... | iex`, where
+# $PSCommandPath is empty and we take the copy from the archive (or re-fetch it).
+$selfInstalled = Join-Path $Prefix "install.ps1"
+if (-not (Test-Path $selfInstalled)) {
+    if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
+        Copy-Item $PSCommandPath $selfInstalled -Force
+    } else {
+        try {
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$Repo/master/install.ps1" `
+                -OutFile $selfInstalled -UseBasicParsing
+        } catch {
+            Write-Warn "nepodarilo se ulozit install.ps1 pro odinstalaci"
+        }
+    }
+}
+
 $engineInstalled = Join-Path $Prefix "idm.exe"
 $hostInstalled   = Join-Path $Prefix "idm-host.exe"
 $ensurePs1       = Join-Path $Prefix "ensure-aria2.ps1"
