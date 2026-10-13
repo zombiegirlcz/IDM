@@ -84,6 +84,10 @@ if (-not $ArchiveUrl) {
         $ArchiveUrl = "https://github.com/$Repo/releases/download/$Version/$Asset"
     }
 }
+# Only https from the network; a local file:// path is as trusted as the disk.
+if (($ArchiveUrl -notlike "https://*") -and ($ArchiveUrl -notlike "file://*")) {
+    Die "archiv se stahuje jen pres https (nebo file://): $ArchiveUrl"
+}
 Write-Log "stahuji $ArchiveUrl"
 $tmp = Join-Path $env:TEMP "idm_dl_tmp"
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
@@ -96,6 +100,26 @@ try {
 }
 if (-not (Test-Path $zip)) { Die "archiv se nestahl" }
 if ((Get-Item $zip).Length -lt 1000) { Die "archiv je prilis maly" }
+
+# Integrity: every release publishes <asset>.sha256 next to the archive.
+$sumFile = Join-Path $tmp "idm.zip.sha256"
+$haveSum = $false
+try {
+    Invoke-WebRequest -Uri "$ArchiveUrl.sha256" -OutFile $sumFile -UseBasicParsing
+    $haveSum = Test-Path $sumFile
+} catch {
+    $haveSum = $false
+}
+if ($haveSum) {
+    $want = ((Get-Content $sumFile -First 1) -split '\s+')[0]
+    $got  = (Get-FileHash -Path $zip -Algorithm SHA256).Hash
+    if ($want -and $got -ne $want) {
+        Die "kontrolni soucet nesouhlasi (cekano $want, ziskano $got)"
+    }
+    Write-Log "kontrolni soucet overen"
+} else {
+    Write-Warn "k archivu neni $ArchiveUrl.sha256 - pokracuji bez overeni souctu"
+}
 
 # --------------------------------------------------------------------------- #
 # 2) Unpack

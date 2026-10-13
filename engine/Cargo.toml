@@ -22,6 +22,10 @@ crc32fast = "1"
 anyhow = "1"
 chrono = "0.4"
 
+# Used only to signal a whole process group (engine + its aria2c child) on pause.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 crc32fast = "1"
 serde_json = "1"

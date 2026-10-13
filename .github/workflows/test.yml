@@ -5,10 +5,11 @@ name: test
 #   cargo test
 #   node --test extension/test/*.test.mjs  (excluding the real-Chromium E2E)
 #
-# The real-Chromium harness (extension/test/chrome_e2e.test.mjs) is NOT run
-# here: it needs a working Chromium + display and is blocked in sandboxes.
-# Run it manually where Chromium works:
-#   xvfb-run -a node --test extension/test/chrome_e2e.test.mjs
+# The real-Chromium harness (extension/test/chrome_e2e.test.mjs) runs in its own
+# `chrome-e2e` job under Xvfb (it is excluded from `npm test` because it needs a
+# working Chromium + display and is blocked in sandboxes). The Windows installer
+# gets a `windows-installer` job that at least parses install.ps1 with
+# PowerShell, which no other job can do.
 
 on:
   push:
@@ -45,3 +46,63 @@ jobs:
       # engine/target cannot cause a false "release binary is STALE".
       - name: Run full test matrix
         run: npm test
+
+  chrome-e2e:
+    # The only test that exercises the real browser -> content.js -> background
+    # -> native host chain with genuinely trusted user events. Non-blocking for
+    # now: Chromium in CI is flaky, but a failure must be visible.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Chromium + Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser xvfb || sudo apt-get install -y chromium xvfb
+          command -v chromium-browser || command -v chromium
+
+      - name: Install JS dependencies
+        run: npm install
+
+      - name: Build engine + host
+        run: cd engine && cargo build --release
+
+      - name: Run the real-Chromium E2E
+        env:
+          CHROMIUM_BIN: /usr/bin/chromium-browser
+        run: xvfb-run -a node --test extension/test/chrome_e2e.test.mjs
+
+  windows-installer:
+    # install.ps1 is Windows-only, so this is the one place it can actually be
+    # parsed by PowerShell instead of pattern-matched by a Node test.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse install.ps1
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ./install.ps1), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors -and $errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Host $_.Message }
+            throw "install.ps1 has $($errors.Count) parse error(s)"
+          }
+          Write-Host "install.ps1 parses cleanly"
+
+      - name: Lint install.ps1
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -ErrorAction Stop
+          Invoke-ScriptAnalyzer -Path ./install.ps1 -Severity Error

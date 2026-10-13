@@ -11,7 +11,7 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::fs::OpenOptions as TokioOpenOptions;
 use tokio::sync::{Mutex, Semaphore};
@@ -132,6 +132,11 @@ struct Args {
     /// Max simultaneous downloads in --serve mode
     #[arg(long, default_value_t = 2)]
     max_concurrent: usize,
+
+    /// Secret required on every /api/* request in --serve mode.
+    /// Generated and written to STATE_DIR/api-token when not given.
+    #[arg(long)]
+    api_token: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -209,15 +214,29 @@ fn category_subdir(url: &str) -> &'static str {
     }
 }
 
-/// Resolve the on-disk path for a URL, honouring --output and --category-dir.
-fn resolve_out_path(url: &str, output: Option<&Path>, category_dir: Option<&Path>) -> PathBuf {
+/// Resolve the on-disk path for a URL, honouring --output, --category-dir and
+/// --output-dir (in that order of precedence).
+///
+/// Without any of them the name is relative, i.e. it lands in the process CWD.
+/// That is fine for a shell invocation but never for a URL that arrives from
+/// the outside (scheme handler, browser), which is why the callers always pass
+/// `--output-dir` through.
+fn resolve_out_path(
+    url: &str,
+    output: Option<&Path>,
+    category_dir: Option<&Path>,
+    output_dir: Option<&Path>,
+) -> PathBuf {
     if let Some(o) = output {
         return o.to_path_buf();
     }
+    let p = out_path_for(url, None);
+    let name = p.file_name().map(|n| n.to_owned()).unwrap_or_default();
     if let Some(base) = category_dir {
-        let p = out_path_for(url, None);
-        let name = p.file_name().map(|n| n.to_owned()).unwrap_or_default();
         return base.join(category_subdir(url)).join(name);
+    }
+    if let Some(base) = output_dir {
+        return base.join(name);
     }
     out_path_for(url, None)
 }
@@ -451,6 +470,22 @@ async fn download_segment(
         if dropped {
             continue 'retry;
         }
+        // The stream ended without reporting an error. If the body was short
+        // (a truncated response, a proxy cutting the connection), the segment
+        // is NOT complete: retry from `pos` instead of reporting success and
+        // leaving a hole in the output file.
+        if pos <= end {
+            if attempt >= MAX_ATTEMPTS {
+                anyhow::bail!(
+                    "segment {}: truncated body, {} bytes missing after {} attempts",
+                    seg_index,
+                    end - pos + 1,
+                    MAX_ATTEMPTS
+                );
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            continue 'retry;
+        }
         break 'retry;
     }
     Ok(())
@@ -486,6 +521,11 @@ async fn run_direct(
             None
         } else if m.etag != probe.etag && m.etag.is_some() && probe.etag.is_some() {
             println!("[!] ETag changed — starting fresh");
+            None
+        } else if !matches!(std::fs::metadata(&out), Ok(md) if md.len() == m.total) {
+            // The sidecar claims progress, but the file it describes is gone or
+            // has a different size — its offsets cannot be trusted.
+            println!("[!] output file missing or wrong size — starting fresh");
             None
         } else {
             println!("[+] resuming: {} segments in meta", m.segments.len());
@@ -614,6 +654,36 @@ async fn run_direct(
     let _ = printer.await;
     eprintln!();
 
+    // Verify real coverage, not just the file length: the output was
+    // pre-allocated with set_len(), so its size says nothing about how much of
+    // it was actually written.
+    {
+        let m = meta.lock().await;
+        let incomplete: Vec<String> = m
+            .segments
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| !s.done || s.downloaded < s.end - s.start + 1)
+            .map(|(i, s)| format!("#{} {}/{}", i, s.downloaded, s.end - s.start + 1))
+            .collect();
+        if !incomplete.is_empty() {
+            anyhow::bail!(
+                "incomplete download: segment(s) {} (state kept in {})",
+                incomplete.join(", "),
+                mpath.display()
+            );
+        }
+        let covered: u64 = m.segments.iter().map(|s| s.end - s.start + 1).sum();
+        if covered != probe.total {
+            anyhow::bail!(
+                "segment coverage {} does not match total {} (state kept in {})",
+                covered,
+                probe.total,
+                mpath.display()
+            );
+        }
+    }
+
     let (read_total, crc) = crc32_file(&out)?;
     println!("[*] downloaded   : {} bytes", read_total);
     println!("[*] crc32        : {:08x}", crc);
@@ -690,6 +760,7 @@ async fn download_dyn_segment(
 ) -> anyhow::Result<Option<(u64, u64)>> {
     let mut pos = start;
     let mut written: u64 = 0;
+    let started = std::time::Instant::now();
     const MAX_ATTEMPTS: u32 = 6;
     let mut attempt: u32 = 0;
     'retry: loop {
@@ -743,10 +814,14 @@ async fn download_dyn_segment(
             let _ = progress_tx.send(take);
 
             if net.limit_rate > 0 {
+                // Sleep only the time we are *ahead* of schedule; sleeping the
+                // full cumulative expectation on every chunk would throttle to
+                // a tiny fraction of the requested rate.
                 let expected =
                     std::time::Duration::from_secs_f64(written as f64 / net.limit_rate as f64);
-                if expected > std::time::Duration::from_millis(5) {
-                    tokio::time::sleep(expected).await;
+                let behind = expected.saturating_sub(started.elapsed());
+                if behind > std::time::Duration::from_millis(5) {
+                    tokio::time::sleep(behind).await;
                 }
             }
 
@@ -854,10 +929,17 @@ async fn run_direct_dynamic(
     let mon_inflight = inflight.clone();
     let min_split = args.min_split;
     let n_workers = n;
+    // Set once the worker pool is joined, so the monitor also stops when the
+    // download *fails* (and never reaches `total`) instead of looping forever.
+    let stop = Arc::new(AtomicBool::new(false));
+    let mon_stop = stop.clone();
     let monitor = tokio::spawn(async move {
         let mut prev: HashMap<(u64, u64), (u64, std::time::Instant)> = HashMap::new();
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            if mon_stop.load(Ordering::SeqCst) {
+                break;
+            }
             if *mon_done.lock().await >= total {
                 break;
             }
@@ -1003,6 +1085,7 @@ async fn run_direct_dynamic(
             }
         }
     }
+    stop.store(true, Ordering::SeqCst);
     let _ = monitor.await;
     let _ = printer.await;
     eprintln!();
@@ -1047,13 +1130,23 @@ async fn ensure_aria2c(args: &Args) -> anyhow::Result<PathBuf> {
     if !args.ensure_aria2.is_empty() {
         candidates.push(PathBuf::from(&args.ensure_aria2));
     }
+    // Platform first: on Windows the PowerShell installer is the one that can
+    // actually run, on Unix the shell script.
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
+            #[cfg(windows)]
+            {
+                candidates.push(dir.join("ensure-aria2.ps1"));
+                candidates.push(dir.join("../scripts/ensure-aria2.ps1"));
+            }
             candidates.push(dir.join("ensure-aria2.sh"));
             candidates.push(dir.join("../scripts/ensure-aria2.sh"));
+            #[cfg(not(windows))]
             candidates.push(dir.join("ensure-aria2.ps1"));
         }
     }
+    #[cfg(windows)]
+    candidates.push(PathBuf::from("scripts/ensure-aria2.ps1"));
     candidates.push(PathBuf::from("scripts/ensure-aria2.sh"));
 
     let installer = candidates.into_iter().find(|c| c.exists());
@@ -1186,7 +1279,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
             tokio::fs::create_dir_all(parent).await?;
         }
     }
-    media::download(
+    let out = media::download(
         &args.yt_dlp,
         url,
         &out,
@@ -1346,7 +1439,8 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
             cmd.arg("--min-split").arg(args.min_split.to_string());
         }
         cmd.arg("--yt-dlp").arg(&args.yt_dlp);
-        cmd.arg(url);
+        // `--` so a queue line starting with `-` can never become a flag.
+        cmd.arg("--").arg(url);
         eprintln!("[queue {}/{}] {}", i + 1, urls.len(), url);
         match cmd.status().await {
             Ok(s) if s.success() => ok += 1,
@@ -1378,7 +1472,15 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
             .clone()
             .unwrap_or_else(|| PathBuf::from(".idm-gui"));
         let engine = std::env::current_exe()?;
-        return gui::serve(addr, out_dir, state_dir, args.max_concurrent, engine).await;
+        return gui::serve(
+            addr,
+            out_dir,
+            state_dir,
+            args.max_concurrent,
+            engine,
+            args.api_token.clone(),
+        )
+        .await;
     }
 
     // IDM-style scheme unwrapping: `idmdwnlmfv9://<url>` means "download <url>",
@@ -1387,6 +1489,16 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
         if is_idm_wrapped(u) {
             match unwrap_idm_scheme(u) {
                 Some(inner) => {
+                    // The wrapped scheme is registered desktop-wide, so any web
+                    // page can hand us a payload. Only http(s) targets are
+                    // accepted — never file://, never a bare local path.
+                    let l = inner.to_ascii_lowercase();
+                    if !(l.starts_with("http://") || l.starts_with("https://")) {
+                        anyhow::bail!(
+                            "refusing wrapped URL with non-http(s) target: {}",
+                            inner
+                        );
+                    }
                     println!("[*] scheme     : unwrapped {}", inner);
                     args.url = Some(inner);
                 }
@@ -1432,14 +1544,24 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
     };
 
     if args.aria2 {
-        let out = resolve_out_path(&url, args.output.as_deref(), args.category_dir.as_deref());
+        let out = resolve_out_path(
+            &url,
+            args.output.as_deref(),
+            args.category_dir.as_deref(),
+            args.output_dir.as_deref(),
+        );
         return run_aria2(&args, &url, out).await;
     }
 
     let use_media =
         !args.no_media && (args.force_media || args.list_formats || media::is_media_url(&url));
     if use_media {
-        let out = resolve_out_path(&url, args.output.as_deref(), args.category_dir.as_deref());
+        let out = resolve_out_path(
+            &url,
+            args.output.as_deref(),
+            args.category_dir.as_deref(),
+            args.output_dir.as_deref(),
+        );
         return run_media(&args, &net, &url, Some(out)).await;
     }
 
@@ -1454,7 +1576,12 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
             .build()
             .map_err(|e| anyhow::anyhow!("client: {}", e))?,
     );
-    let out = resolve_out_path(&url, args.output.as_deref(), args.category_dir.as_deref());
+    let out = resolve_out_path(
+            &url,
+            args.output.as_deref(),
+            args.category_dir.as_deref(),
+            args.output_dir.as_deref(),
+        );
     if args.dynamic {
         return run_direct_dynamic(&args, &net, client, &url, out).await;
     }

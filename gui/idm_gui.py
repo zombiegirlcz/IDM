@@ -38,7 +38,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import subprocess
+import threading
 import sys
 import time
 import urllib.request
@@ -194,13 +196,18 @@ SCHEDULER_TABS = ["Schedule", "Files in the queue"]
 class Api:
     """Thin client for the `idm --serve` queue API."""
 
-    def __init__(self, addr: str, timeout: float = 5.0):
+    def __init__(self, addr: str, timeout: float = 5.0, token: str = ""):
         self.base = "http://" + addr
         self.timeout = timeout
+        # The engine requires this on every /api/* request (CSRF protection);
+        # it is written to STATE_DIR/api-token when the engine starts.
+        self.token = token
 
     def _req(self, method: str, path: str, body: dict | None = None) -> dict:
         data = None
         headers = {}
+        if self.token:
+            headers["X-IDM-Token"] = self.token
         if body is not None:
             data = json.dumps(body).encode()
             headers["Content-Type"] = "application/json"
@@ -652,10 +659,11 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
         sel = listview.selection()
         if not sel:
             return None
-        vals = listview.item(sel[0], "values")
+        # refresh() inserts every row with iid=str(item id); the id itself is
+        # not a column, so reading values[0] would return the file name.
         try:
-            return int(vals[0])
-        except (ValueError, IndexError):
+            return int(sel[0])
+        except ValueError:
             return None
 
     def act(name):
@@ -760,25 +768,25 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
     listview.bind("<Double-1>", _on_open_properties)
     listview.bind("<Button-3>", _on_open_properties)
 
-    def refresh():
-        try:
-            items = api.items()
-        except Exception:  # noqa: BLE001
-            status.set("cannot reach idm --serve")
-            return
+    def apply_items(items):
+        """Render a queue snapshot. Must run on the Tk thread."""
         seen = set()
         for it in items:
-            iid = str(it["id"])
+            try:
+                iid = str(it["id"])
+                name = basename(it.get("url", ""))
+                dl = it.get("downloaded") or 0
+                total = it.get("total") or 0
+                size = f"{fmt_size(dl)} / {fmt_size(total)}" if total else fmt_size(dl)
+                st = it.get("status", "")
+                speed = it.get("speed") or ""
+                time_left = it.get("time_left") or ""
+                q = "*" if st in ("running", "pending") else ""
+                # One value per column in COLUMNS; the id lives in the iid.
+                vals = (name, size, st, speed, time_left, q)
+            except Exception:  # noqa: BLE001
+                continue
             seen.add(iid)
-            name = basename(it.get("url", ""))
-            dl = it.get("downloaded") or 0
-            total = it.get("total") or 0
-            size = f"{fmt_size(dl)} / {fmt_size(total)}" if total else fmt_size(dl)
-            st = it.get("status", "")
-            speed = it.get("speed") or ""
-            time_left = it.get("time_left") or ""
-            q = "*" if st in ("running", "pending") else ""
-            vals = (it["id"], name, size, st, speed, time_left, q)
             if listview.exists(iid):
                 listview.item(iid, values=vals)
             else:
@@ -788,6 +796,16 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
         for iid in list(listview.get_children()):
             if iid not in seen:
                 listview.delete(iid)
+
+    def refresh():
+        try:
+            items = api.items()
+        except Exception:  # noqa: BLE001
+            status.set("cannot reach idm --serve")
+            return
+        apply_items(items)
+
+    w["apply_items"] = apply_items
 
     root.protocol(
         "WM_DELETE_WINDOW",
@@ -803,11 +821,31 @@ def _button_has_icon(btn):
         return False
 
 
-def spawn_server(engine, addr, out_dir, state_dir):
+def token_path(state_dir: str) -> str:
+    return os.path.join(state_dir, "api-token")
+
+
+def read_token(state_dir: str) -> str:
+    """The API secret the engine wrote for us (empty if it is not there yet)."""
+    try:
+        with open(token_path(state_dir), "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def new_token() -> str:
+    return secrets.token_hex(24)
+
+
+def spawn_server(engine, addr, out_dir, state_dir, token: str = ""):
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(state_dir, exist_ok=True)
+    cmd = [engine, "--serve", addr, "--output-dir", out_dir, "--state-dir", state_dir]
+    if token:
+        cmd += ["--api-token", token]
     return subprocess.Popen(
-        [engine, "--serve", addr, "--output-dir", out_dir, "--state-dir", state_dir],
+        cmd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -825,8 +863,8 @@ def wait_alive(api, seconds=15.0):
 # --------------------------------------------------------------------------- #
 # Self-tests
 # --------------------------------------------------------------------------- #
-def selftest_api(addr, url):
-    api = Api(addr)
+def selftest_api(addr, url, token=""):
+    api = Api(addr, token=token)
     if not wait_alive(api, 15):
         print("SELFTEST-API: FAIL not-alive", file=sys.stderr)
         return 1
@@ -1050,6 +1088,11 @@ def main(argv=None):
     p.add_argument("--out-dir", default=os.environ.get("IDM_DOWNLOADS_DIR", os.path.expanduser("~/Downloads")))
     p.add_argument("--state-dir", default=os.environ.get("IDM_STATE_DIR", os.path.expanduser("~/.local/share/idm-gui")))
     p.add_argument("--autostart", action="store_true")
+    p.add_argument(
+        "--api-token",
+        default=os.environ.get("IDM_API_TOKEN", ""),
+        help="API secret (default: read STATE_DIR/api-token, or generate one with --autostart)",
+    )
     p.add_argument("--url", help="URL for --selftest-api")
     p.add_argument("--selftest-api", action="store_true")
     p.add_argument("--selftest-window", action="store_true")
@@ -1071,14 +1114,19 @@ def main(argv=None):
         if not args.url:
             print("--selftest-api needs --url", file=sys.stderr)
             return 2
-        return selftest_api(args.addr, args.url)
+        return selftest_api(args.addr, args.url, args.api_token or read_token(args.state_dir))
 
-    api = Api(args.addr)
+    # Talk to an engine that is already running with the token it wrote; if we
+    # start it ourselves, we hand it a fresh one.
+    token = args.api_token or read_token(args.state_dir)
+    api = Api(args.addr, token=token)
     proc = None
     if not api.alive():
         if args.autostart:
             print(f"[*] starting engine: {args.engine} --serve {args.addr}", flush=True)
-            proc = spawn_server(args.engine, args.addr, args.out_dir, args.state_dir)
+            token = args.api_token or new_token()
+            api.token = token
+            proc = spawn_server(args.engine, args.addr, args.out_dir, args.state_dir, token)
             wait_alive(api, 15)
         else:
             print(
@@ -1089,9 +1137,39 @@ def main(argv=None):
 
     root, refresh, _w = build_window(api, out_dir=args.out_dir)
 
+    apply_items = _w["apply_items"]
+    status_var = _w["status_var"]
+
     def tick():
-        refresh()
-        root.after(1000, tick)
+        """Poll the queue without blocking the UI.
+
+        The HTTP call runs on a worker thread (a dead or slow engine would
+        otherwise freeze the window for the whole socket timeout) and only the
+        rendering happens back on the Tk thread. The next tick is always
+        scheduled, even if this one raised, so the loop cannot die.
+        """
+
+        def work():
+            try:
+                items = api.items()
+            except Exception:  # noqa: BLE001
+                items = None
+            root.after(0, lambda: done(items))
+
+        def done(items):
+            try:
+                if items is None:
+                    status_var.set("cannot reach idm --serve")
+                else:
+                    status_var.set("Ready")
+                    apply_items(items)
+            except Exception:  # noqa: BLE001
+                pass
+
+        try:
+            threading.Thread(target=work, daemon=True).start()
+        finally:
+            root.after(1000, tick)
 
     tick()
     try:

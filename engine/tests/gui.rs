@@ -146,13 +146,16 @@ fn origin_handle(
 
 // ---------- tiny HTTP client ----------
 
+/// Every /api/* request must carry the token the server was started with.
+const API_TOKEN: &str = "testtoken0123456789";
+
 fn http_req(addr: &str, method: &str, path: &str, body: Option<&str>) -> (u16, String) {
     let mut s = TcpStream::connect(addr).expect("connect to idm --serve");
     s.set_read_timeout(Some(Duration::from_secs(20))).unwrap();
     let body = body.unwrap_or("");
     let req = format!(
-        "{} {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-        method, path, addr, body.len(), body
+        "{} {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nX-IDM-Token: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        method, path, addr, API_TOKEN, body.len(), body
     );
     s.write_all(req.as_bytes()).unwrap();
     s.flush().unwrap();
@@ -191,7 +194,9 @@ fn spawn_server(addr: &str, out_dir: &PathBuf, state_dir: &PathBuf, extra: &[&st
         .arg("--output-dir")
         .arg(out_dir)
         .arg("--state-dir")
-        .arg(state_dir);
+        .arg(state_dir)
+        .arg("--api-token")
+        .arg(API_TOKEN);
     for a in extra {
         cmd.arg(a);
     }
@@ -385,6 +390,90 @@ fn pause_resume_and_remove() {
         .iter()
         .any(|i| i["id"].as_u64() == Some(id));
     assert!(!still, "item must be gone after /api/remove: {}", items);
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}
+/// The API lives on loopback, i.e. inside reach of every page in the user's
+/// browser. A request that does not prove it comes from our own UI must be
+/// refused — otherwise any visited site can enqueue downloads (CSRF).
+#[test]
+fn api_rejects_unauthenticated_and_cross_origin_requests() {
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+    let tmp = std::env::temp_dir().join(format!("idm_gui_auth_{}", port));
+    let out = tmp.join("out");
+    let state = tmp.join("state");
+    std::fs::create_dir_all(&out).unwrap();
+    std::fs::create_dir_all(&state).unwrap();
+
+    let mut srv = spawn_server(&addr, &out, &state, &[]);
+    wait_ready(&addr);
+
+    // Raw request with full control over the headers.
+    let raw = |extra: &str, body: &str| -> u16 {
+        let mut s = TcpStream::connect(&addr).unwrap();
+        s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+        let req = format!(
+            "POST /api/add HTTP/1.1\r\nHost: {}\r\n{}Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+            addr,
+            extra,
+            body.len(),
+            body
+        );
+        s.write_all(req.as_bytes()).unwrap();
+        s.flush().unwrap();
+        let mut resp = Vec::new();
+        s.read_to_end(&mut resp).unwrap();
+        String::from_utf8_lossy(&resp)
+            .split_whitespace()
+            .nth(1)
+            .and_then(|c| c.parse().ok())
+            .unwrap_or(0)
+    };
+
+    let body = r#"{"url":"http://127.0.0.1:1/x.bin"}"#;
+
+    // No token at all.
+    assert_eq!(
+        raw("Content-Type: application/json\r\n", body),
+        403,
+        "a request without X-IDM-Token must be refused"
+    );
+
+    // Wrong token.
+    assert_eq!(
+        raw("Content-Type: application/json\r\nX-IDM-Token: nope\r\n", body),
+        403,
+        "a request with the wrong token must be refused"
+    );
+
+    // Right token, but sent from another origin / as a cross-site form post —
+    // the two shapes a hostile page can actually produce.
+    let ok_token = format!("X-IDM-Token: {}\r\n", API_TOKEN);
+    assert_eq!(
+        raw(
+            &format!(
+                "Content-Type: application/json\r\n{}Origin: http://evil.example\r\n",
+                ok_token
+            ),
+            body
+        ),
+        403,
+        "a cross-origin request must be refused even with a valid token"
+    );
+    assert_eq!(
+        raw(
+            &format!("Content-Type: text/plain\r\n{}", ok_token),
+            body
+        ),
+        403,
+        "a non-JSON content type (a plain form post) must be refused"
+    );
+
+    // And the real UI's shape still works.
+    let (st, resp) = http_req(&addr, "GET", "/api/items", None);
+    assert_eq!(st, 200, "our own UI must still be served: {}", resp);
 
     let _ = srv.kill();
     let _ = srv.wait();

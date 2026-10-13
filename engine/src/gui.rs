@@ -47,8 +47,11 @@ td,th{padding:8px 12px;border-bottom:1px solid #222;text-align:left;font-size:13
 <form id="add"><input id="url" placeholder="https://... (URL souboru nebo videa)" autocomplete="off"><button>Stáhnout</button></form>
 <table><thead><tr><th>#</th><th>Soubor</th><th>Stav</th><th>Velikost</th><th></th></tr></thead><tbody id="rows"></tbody></table>
 <script>
+const TOKEN = '__IDM_TOKEN__';
 async function api(path, body){
-  const o = body ? {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)} : {};
+  const o = body
+    ? {method:'POST',headers:{'Content-Type':'application/json','X-IDM-Token':TOKEN},body:JSON.stringify(body)}
+    : {headers:{'X-IDM-Token':TOKEN}};
   const r = await fetch(path, o); return r.json();
 }
 function fmt(n){ if(!n) return '—'; const u=['B','KB','MB','GB']; let i=0;
@@ -123,6 +126,73 @@ struct State {
     state_path: PathBuf,
     engine: PathBuf,
     sem: Arc<Semaphore>,
+    /// Shared secret every /api/* request must present (see `authorized`).
+    token: String,
+    /// Our own origin, e.g. `http://127.0.0.1:8080`.
+    origin: String,
+}
+
+/// Request headers we care about, lowercased names -> raw values.
+fn header(head: &str, name: &str) -> Option<String> {
+    for l in head.lines().skip(1) {
+        let (k, v) = l.split_once(':')?;
+        if k.trim().eq_ignore_ascii_case(name) {
+            return Some(v.trim().to_string());
+        }
+    }
+    None
+}
+
+/// Gate for the whole /api surface.
+///
+/// The server listens on loopback, which means *every* page in the user's
+/// browser can reach it. Without this a visited web page could enqueue
+/// downloads (CSRF), so we require all three of:
+///   * `X-IDM-Token` matching the secret handed to our own UI / the native GUI,
+///   * no cross-origin `Origin` header,
+///   * `Content-Type: application/json` on writes, which a browser cannot send
+///     cross-origin without a preflight we never answer.
+fn authorized(head: &str, st: &State, write: bool) -> Result<(), &'static str> {
+    match header(head, "origin") {
+        Some(o) if o != st.origin && o != "null" => return Err("cross-origin request rejected"),
+        _ => {}
+    }
+    if let Some(s) = header(head, "sec-fetch-site") {
+        if s != "same-origin" && s != "none" {
+            return Err("cross-site request rejected");
+        }
+    }
+    if write {
+        let ct = header(head, "content-type").unwrap_or_default();
+        if !ct.to_ascii_lowercase().starts_with("application/json") {
+            return Err("expected Content-Type: application/json");
+        }
+    }
+    let given = header(head, "x-idm-token").unwrap_or_default();
+    if given.as_bytes() != st.token.as_bytes() {
+        return Err("missing or invalid X-IDM-Token");
+    }
+    Ok(())
+}
+
+/// A token with no dependency on a RNG crate: OS randomness, hex-encoded.
+fn new_token() -> String {
+    let mut buf = [0u8; 24];
+    if std::fs::File::open("/dev/urandom")
+        .and_then(|mut f| std::io::Read::read_exact(&mut f, &mut buf))
+        .is_err()
+    {
+        // Windows / no /dev/urandom: mix in whatever varies per process.
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+            ^ (std::process::id() as u128) << 64;
+        for (i, b) in buf.iter_mut().enumerate() {
+            *b = ((seed >> (i % 16 * 8)) as u8) ^ (i as u8).wrapping_mul(31);
+        }
+    }
+    buf.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 /// Minimal view of the engine's `.idmmeta` sidecar (progress + total size).
@@ -153,14 +223,21 @@ fn read_meta(out: &Path) -> Option<(u64, u64)> {
     Some((m.total, dl))
 }
 
+/// File name for a URL, safe to join onto the output directory.
+///
+/// The name comes from a remote URL, so it is sanitized: no path separators
+/// (a backslash is one on Windows), no `..`, nothing that could escape the
+/// download directory.
 fn basename(url: &str) -> String {
     let u = url.trim_end_matches('/');
     let n = u.rsplit('/').next().unwrap_or("download.bin");
     let n = n.split('?').next().unwrap_or(n);
-    if n.is_empty() {
+    let n = n.split('#').next().unwrap_or(n);
+    let n = crate::media::sanitize(n);
+    if n.is_empty() || n == "." || n == ".." || n == "download" {
         "download.bin".to_string()
     } else {
-        n.to_string()
+        n
     }
 }
 
@@ -241,8 +318,30 @@ async fn add_item(st: &Arc<State>, url: String, conns: usize, aria2: bool) -> u6
     id
 }
 
+/// Kill a download child *and* everything it spawned.
+///
+/// The child runs in its own process group (see `run_item`), so one signal to
+/// `-pid` reaches an aria2c grandchild too. Without this, pause stops the
+/// engine but leaves aria2c writing into the same output file.
+async fn kill_tree(child: &mut tokio::process::Child) {
+    #[cfg(unix)]
+    if let Some(pid) = child.id() {
+        // SAFETY: plain kill(2) on a group we created ourselves.
+        unsafe {
+            libc::kill(-(pid as i32), libc::SIGKILL);
+        }
+        let _ = child.wait().await;
+        return;
+    }
+    let _ = child.kill().await;
+}
+
 /// Run one download, watching for pause/remove requests and progress updates.
 async fn run_item(st: Arc<State>, id: u64) {
+    // Belt and braces next to the /api/resume guard: never two engines per item.
+    if st.ctrl.lock().await.contains_key(&id) {
+        return;
+    }
     let permit = match st.sem.clone().acquire_owned().await {
         Ok(p) => p,
         Err(_) => return,
@@ -269,9 +368,15 @@ async fn run_item(st: Arc<State>, id: u64) {
     } else {
         cmd.arg("--resume");
     }
-    cmd.arg(&url);
+    // `--` so a URL starting with `-` is never parsed as a flag by the child.
+    cmd.arg("--").arg(&url);
     cmd.stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
+    // Own process group, so pause/remove can take down the whole tree
+    // (the engine *and* an aria2c it may have spawned) instead of orphaning a
+    // grandchild that keeps writing the same file.
+    #[cfg(unix)]
+    cmd.process_group(0);
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,
@@ -315,12 +420,12 @@ async fn run_item(st: Arc<State>, id: u64) {
             maybe = crx.recv() => {
                 match maybe {
                     Some(Ctrl::Pause) => {
-                        let _ = child.kill().await;
+                        kill_tree(&mut child).await;
                         set_status(&st, id, "paused", None).await;
                         break;
                     }
                     Some(Ctrl::Remove) => {
-                        let _ = child.kill().await;
+                        kill_tree(&mut child).await;
                         break;
                     }
                     None => break,
@@ -363,7 +468,11 @@ fn content_length(head: &str) -> usize {
     0
 }
 
-async fn read_req(sock: &mut TcpStream) -> std::io::Result<(String, String, Vec<u8>)> {
+/// Returns `(method, path, raw head, body)`.
+async fn read_req(sock: &mut TcpStream) -> std::io::Result<(String, String, String, Vec<u8>)> {
+    // A local API request is tiny; refuse to buffer more than this so a stray
+    // (or hostile) client cannot grow our memory without bound.
+    const MAX_REQ: usize = 1 << 20;
     let mut buf = Vec::new();
     let mut tmp = [0u8; 4096];
     let mut header_end: Option<usize> = None;
@@ -373,6 +482,12 @@ async fn read_req(sock: &mut TcpStream) -> std::io::Result<(String, String, Vec<
             break;
         }
         buf.extend_from_slice(&tmp[..n]);
+        if buf.len() > MAX_REQ {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "request too large",
+            ));
+        }
         if header_end.is_none() {
             if let Some(p) = find_sub(&buf, b"\r\n\r\n") {
                 header_end = Some(p + 4);
@@ -398,15 +513,17 @@ async fn read_req(sock: &mut TcpStream) -> std::io::Result<(String, String, Vec<
     } else {
         Vec::new()
     };
-    Ok((method, path, body))
+    Ok((method, path, head, body))
 }
 
 fn reason(code: u16) -> &'static str {
     match code {
         200 => "OK",
         400 => "Bad Request",
+        403 => "Forbidden",
         404 => "Not Found",
         405 => "Method Not Allowed",
+        409 => "Conflict",
         _ => "OK",
     }
 }
@@ -425,15 +542,24 @@ async fn respond(sock: &mut TcpStream, code: u16, ctype: &str, body: &[u8]) {
 }
 
 async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
-    let (method, path, body) = match read_req(&mut sock).await {
+    let (method, path, head, body) = match read_req(&mut sock).await {
         Ok(r) => r,
         Err(_) => return,
     };
     let json = "application/json";
 
+    if path.starts_with("/api/") {
+        if let Err(why) = authorized(&head, &st, method == "POST") {
+            let msg = serde_json::json!({ "ok": false, "error": why });
+            respond(&mut sock, 403, json, msg.to_string().as_bytes()).await;
+            return;
+        }
+    }
+
     match (method.as_str(), path.as_str()) {
         ("GET", "/") => {
-            respond(&mut sock, 200, "text/html; charset=utf-8", INDEX_HTML.as_bytes()).await;
+            let page = INDEX_HTML.replace("__IDM_TOKEN__", &st.token);
+            respond(&mut sock, 200, "text/html; charset=utf-8", page.as_bytes()).await;
         }
         ("GET", "/api/items") => {
             let items = st.items.lock().await.clone();
@@ -464,13 +590,31 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
         ("POST", "/api/resume") => {
             let v: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
             let id = v["id"].as_u64().unwrap_or(0);
-            let exists = st.items.lock().await.iter().any(|i| i.id == id);
-            if exists {
-                set_status(&st, id, "pending", None).await;
-                let st2 = st.clone();
-                tokio::spawn(async move { run_item(st2, id).await });
+            let status = st
+                .items
+                .lock()
+                .await
+                .iter()
+                .find(|i| i.id == id)
+                .map(|i| i.status.clone());
+            // Resuming something that is already in flight would start a second
+            // engine process writing the same file.
+            let live = st.ctrl.lock().await.contains_key(&id);
+            match status {
+                None => {
+                    respond(&mut sock, 404, json, br#"{"ok":false,"error":"no such item"}"#).await;
+                }
+                Some(s) if live || s == "running" || s == "pending" => {
+                    let msg = serde_json::json!({ "ok": false, "error": "already running" });
+                    respond(&mut sock, 409, json, msg.to_string().as_bytes()).await;
+                }
+                Some(_) => {
+                    set_status(&st, id, "pending", None).await;
+                    let st2 = st.clone();
+                    tokio::spawn(async move { run_item(st2, id).await });
+                    respond(&mut sock, 200, json, br#"{"ok":true}"#).await;
+                }
             }
-            respond(&mut sock, 200, json, br#"{"ok":true}"#).await;
         }
         ("POST", "/api/remove") => {
             let v: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
@@ -499,10 +643,22 @@ pub async fn serve(
     state_dir: PathBuf,
     max_concurrent: usize,
     engine: PathBuf,
+    api_token: Option<String>,
 ) -> anyhow::Result<()> {
     tokio::fs::create_dir_all(&output_dir).await.ok();
     tokio::fs::create_dir_all(&state_dir).await.ok();
     let state_path = state_dir.join("queue.json");
+
+    // The API secret. Callers that are not our own UI (the native GUI) read it
+    // from `STATE_DIR/api-token`, which is owner-readable only.
+    let token = api_token.unwrap_or_else(new_token);
+    let token_path = state_dir.join("api-token");
+    tokio::fs::write(&token_path, &token).await.ok();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&token_path, std::fs::Permissions::from_mode(0o600));
+    }
 
     let items = load_items(&state_path);
     let next = items.iter().map(|i| i.id).max().unwrap_or(0) + 1;
@@ -515,6 +671,8 @@ pub async fn serve(
         state_path,
         engine,
         sem: Arc::new(Semaphore::new(max_concurrent.max(1))),
+        token,
+        origin: format!("http://{}", addr),
     });
 
     let listener = TcpListener::bind(&addr)
@@ -522,6 +680,7 @@ pub async fn serve(
         .map_err(|e| anyhow::anyhow!("cannot bind {}: {}", addr, e))?;
     println!("[*] IDM GUI on http://{}", addr);
     println!("[*] downloads -> {}", st.output_dir.display());
+    println!("[*] api token -> {}", token_path.display());
 
     loop {
         match listener.accept().await {

@@ -29,6 +29,7 @@ fn free_port() -> u16 {
 fn spawn_server(addr: &str, out: &PathBuf, state: &PathBuf) -> Child {
     let mut cmd = Command::new(IDM);
     cmd.arg("--serve").arg(addr).arg("--output-dir").arg(out).arg("--state-dir").arg(state)
+        .arg("--api-token").arg("testtoken0123456789")
         .stdout(Stdio::null()).stderr(Stdio::null());
     cmd.spawn().unwrap()
 }
@@ -38,7 +39,7 @@ fn http(addr: &str, method: &str, path: &str, body: Option<&str>) -> (u16, Strin
     s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
     let b = body.unwrap_or("");
     let req = format!(
-        "{} {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        "{} {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nX-IDM-Token: testtoken0123456789\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
         method, path, addr, b.len(), b
     );
     s.write_all(req.as_bytes()).unwrap();

@@ -78,11 +78,25 @@ jobs:
           cp gui/idm_gui.py dist/
           cp scripts/ensure-aria2.sh dist/ 2>/dev/null || true
           cp scripts/ensure-aria2.ps1 dist/ 2>/dev/null || true
+          cp install.sh dist/
           tar -czf ${{ matrix.archive }} -C dist .
+
+      - name: Checksum
+        shell: bash
+        run: |
+          # install.sh / install.ps1 verify this before unpacking.
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum ${{ matrix.archive }} > ${{ matrix.archive }}.sha256
+          else
+            shasum -a 256 ${{ matrix.archive }} > ${{ matrix.archive }}.sha256
+          fi
+          cat ${{ matrix.archive }}.sha256
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: ${{ matrix.archive }}
+          files: |
+            ${{ matrix.archive }}
+            ${{ matrix.archive }}.sha256
           fail_on_unmatched_files: true
