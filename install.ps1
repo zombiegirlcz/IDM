@@ -40,6 +40,17 @@ function Write-Log  { param([string]$m) Write-Host "==> $m" -ForegroundColor Cya
 function Write-Warn { param([string]$m) Write-Host "[!] $m" -ForegroundColor Yellow }
 function Die        { param([string]$m) Write-Host "[x] $m" -ForegroundColor Red; exit 1 }
 
+# Fetch a URL to a file. Invoke-WebRequest does not support the file scheme, so
+# a local archive (offline install, installer tests) is copied instead.
+function Fetch-File {
+    param([string]$Uri, [string]$OutFile)
+    if ($Uri -like "file://*") {
+        Copy-Item ([System.Uri]$Uri).LocalPath $OutFile -Force
+    } else {
+        Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+    }
+}
+
 if (-not $Prefix)       { $Prefix = Join-Path $env:LOCALAPPDATA "idm" }
 if (-not $DownloadsDir) { $DownloadsDir = Join-Path $env:USERPROFILE "Downloads" }
 
@@ -94,7 +105,7 @@ Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 $zip = Join-Path $tmp "idm.zip"
 try {
-    Invoke-WebRequest -Uri $ArchiveUrl -OutFile $zip -UseBasicParsing
+    Fetch-File -Uri $ArchiveUrl -OutFile $zip
 } catch {
     Die "stazeni selhalo: $_"
 }
@@ -105,7 +116,7 @@ if ((Get-Item $zip).Length -lt 1000) { Die "archiv je prilis maly" }
 $sumFile = Join-Path $tmp "idm.zip.sha256"
 $haveSum = $false
 try {
-    Invoke-WebRequest -Uri "$ArchiveUrl.sha256" -OutFile $sumFile -UseBasicParsing
+    Fetch-File -Uri "$ArchiveUrl.sha256" -OutFile $sumFile
     $haveSum = Test-Path $sumFile
 } catch {
     $haveSum = $false
@@ -139,8 +150,8 @@ if (-not (Test-Path $selfInstalled)) {
         Copy-Item $PSCommandPath $selfInstalled -Force
     } else {
         try {
-            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$Repo/master/install.ps1" `
-                -OutFile $selfInstalled -UseBasicParsing
+            Fetch-File -Uri "https://raw.githubusercontent.com/$Repo/master/install.ps1" `
+                -OutFile $selfInstalled
         } catch {
             Write-Warn "nepodarilo se ulozit install.ps1 pro odinstalaci"
         }
