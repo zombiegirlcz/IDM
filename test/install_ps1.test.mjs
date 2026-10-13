@@ -24,6 +24,11 @@ const src = () => readFileSync(ps1, 'utf8');
 
 test('keeps a copy of itself in the prefix for -Uninstall', () => {
   const s = src();
+  assert.match(
+    s,
+    /PSScriptRoot/,
+    'the copy in the prefix must act on that installation, not the default path',
+  );
   // The final output tells the user to run "$Prefix\install.ps1 -Uninstall",
   // so the file has to get there even for `irm ... | iex`.
   assert.match(s, /\$selfInstalled/, 'must install a copy of itself');

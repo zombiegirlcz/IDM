@@ -51,7 +51,17 @@ function Fetch-File {
     }
 }
 
-if (-not $Prefix)       { $Prefix = Join-Path $env:LOCALAPPDATA "idm" }
+if (-not $Prefix) {
+    # Running from inside an installation (the copy this script keeps in the
+    # prefix) means that installation is the one to act on -- otherwise
+    # "$Prefix\install.ps1 -Uninstall" would silently target the default
+    # location when the user installed somewhere else.
+    if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "idm-host.exe"))) {
+        $Prefix = $PSScriptRoot
+    } else {
+        $Prefix = Join-Path $env:LOCALAPPDATA "idm"
+    }
+}
 if (-not $DownloadsDir) { $DownloadsDir = Join-Path $env:USERPROFILE "Downloads" }
 
 $BrowserRegRoots = @(
