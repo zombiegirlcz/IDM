@@ -103,6 +103,19 @@ test('idm_gui.py exists and is valid Python', () => {
   execFileSync('python3', ['-m', 'py_compile', guiPy], { stdio: 'pipe' });
 });
 
+test('spawned engine stays headless on Windows (no console window)', () => {
+  // The engine is an internal backend. If it is spawned without
+  // CREATE_NO_WINDOW, Windows shows a console window next to the GUI. We can
+  // not run Windows here, so assert on the source that the flags are set.
+  const py = readFileSync(guiPy, 'utf8');
+  const fn = py.slice(py.indexOf('def spawn_server'), py.indexOf('def wait_alive'));
+  assert.match(fn, /os\.name == "nt"/, 'must special-case Windows');
+  assert.match(fn, /CREATE_NO_WINDOW/, 'must use CREATE_NO_WINDOW on Windows');
+  assert.match(fn, /DETACHED_PROCESS/, 'must detach from the parent process');
+  assert.match(fn, /creationflags/, 'must pass creationflags to Popen');
+  assert.match(fn, /start_new_session/, 'must detach on POSIX too');
+});
+
 test('API client drives a real download through idm --serve', async () => {
   const engine = findEngine();
   const data = makeData(800_000);

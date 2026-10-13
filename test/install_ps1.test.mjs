@@ -93,6 +93,24 @@ test('creates Desktop and Start-Menu shortcuts', () => {
   assert.match(s, /IDM\.lnk/, 'shortcut must be named IDM.lnk');
 });
 
+test('shortcut launches the GUI directly, without a cmd.exe console', () => {
+  const s = src();
+  // The whole point: double-clicking the icon must not flash/open a console.
+  // So when Python is available the shortcut targets pythonw.exe itself (the
+  // GUI-subsystem interpreter) with the script as an argument -- NOT the
+  // idm-gui.cmd launcher, which would spawn a cmd.exe window.
+  assert.match(s, /\$lnk\.TargetPath = \$python/, 'shortcut must target the Python interpreter');
+  assert.match(s, /\$lnk\.Arguments = \$guiArgs/, 'shortcut must pass the GUI args directly');
+  // Python is resolved by Find-Python, which must try pythonw.exe (the
+  // GUI-subsystem interpreter, no console) before python.exe.
+  assert.match(s, /function Find-Python/, 'must resolve the Python interpreter');
+  assert.match(
+    s,
+    /@\("pythonw\.exe", "python\.exe"\)/,
+    'must prefer pythonw.exe (no console) over python.exe',
+  );
+});
+
 test('persists IDM_ALLOWED_DIR for the fail-closed host', () => {
   assert.match(src(), /SetEnvironmentVariable\(\s*"IDM_ALLOWED_DIR"/, 'must persist IDM_ALLOWED_DIR');
 });

@@ -219,13 +219,17 @@ $guiPy  = Join-Path $Prefix "idm_gui.py"
 $stateDir = Join-Path $Prefix "state"
 New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
 
-# A small .cmd launcher keeps the shortcut target simple and avoids quoting hell.
+# The shortcut targets pythonw.exe (the GUI-subsystem Python) directly, so
+# double-clicking it opens ONLY the IDM window -- no cmd.exe console and no
+# terminal. The engine backend is spawned by the GUI with CREATE_NO_WINDOW
+# (see spawn_server in idm_gui.py), so it stays headless too.
+#
+# A .cmd launcher is still written for people who want to run it from a shell,
+# but the shortcuts never point at it.
+$guiArgs = "`"$guiPy`" --engine `"$engineInstalled`" --out-dir `"$DownloadsDir`" --state-dir `"$stateDir`" --autostart"
 $launcher = Join-Path $Prefix "idm-gui.cmd"
 if ($python -and (Test-Path $guiPy)) {
-    $lines = @(
-        "@echo off",
-        "`"$python`" `"$guiPy`" --engine `"$engineInstalled`" --out-dir `"$DownloadsDir`" --state-dir `"$stateDir`" --autostart"
-    )
+    $lines = @("@echo off", "`"$python`" $guiArgs")
 } else {
     $lines = @("@echo off", "`"$engineInstalled`" --serve 127.0.0.1:8080 --output-dir `"$DownloadsDir`" --state-dir `"$stateDir`"")
 }
@@ -238,7 +242,13 @@ function New-IdmShortcut {
     param([string]$Path)
     $ws = New-Object -ComObject WScript.Shell
     $lnk = $ws.CreateShortcut($Path)
-    $lnk.TargetPath = $launcher
+    if ($python -and (Test-Path $guiPy)) {
+        # Direct GUI launch: no cmd.exe, no console window.
+        $lnk.TargetPath = $python
+        $lnk.Arguments = $guiArgs
+    } else {
+        $lnk.TargetPath = $launcher
+    }
     $lnk.WorkingDirectory = $Prefix
     $lnk.Description = "IDM - spravce stahovani"
     $lnk.IconLocation = "$env:SystemRoot\System32\shell32.dll,167"

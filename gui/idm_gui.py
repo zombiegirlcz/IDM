@@ -46,6 +46,7 @@ import time
 import urllib.request
 
 DEFAULT_ADDR = "127.0.0.1:8080"
+VERSION = "1.0.0"
 
 # Category names exactly as IDM shows them in the left tree.
 CATEGORIES = [
@@ -280,6 +281,130 @@ def category_of(url: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Settings (persisted to STATE_DIR/settings.json)
+# --------------------------------------------------------------------------- #
+# The real IDM keeps every Options-tab value in the registry. We keep the same
+# structure in a JSON file next to the queue, so the Options dialog is not just
+# decoration: values survive a restart and the ones that map to engine flags
+# are actually used when a download is added.
+DEFAULT_SETTINGS = {
+    "general": {
+        "launch_on_startup": True,
+        "integrate_browsers": True,
+        "monitor_clipboard": True,
+        "run_ie_monitor": False,
+        "force_keys": "Ctrl",
+        "prevent_keys": "Alt",
+        "browsers": [],
+    },
+    "file_types": {
+        "auto": [
+            "3gp", "7z", "aac", "ace", "aif", "arj", "asf", "avi", "bin",
+            "bz2", "deb", "dmg", "doc", "docx", "epub", "exe", "flac", "flv",
+            "gz", "iso", "m4a", "m4v", "mkv", "mov", "mp3", "mp4", "mpeg",
+            "msi", "ogg", "pdf", "ppt", "pptx", "rar", "rpm", "tar", "tgz",
+            "txt", "wav", "webm", "wma", "wmv", "xls", "xlsx", "zip",
+        ],
+        "exclude_sites": [],
+        "exclude_addresses": [],
+    },
+    "connection": {
+        "max_connections": 8,
+        "exceptions": [],  # [{"server": "host", "connections": N}]
+        "download_limits": False,
+        "limit_amount_mb": 40,
+        "limit_period_h": 1,
+    },
+    "save_to": {
+        "default_dir": "",
+        "category_dirs": {},  # category name -> directory
+        "temp_dir": "",
+        "change_on_last": False,
+    },
+    "downloads": {
+        "show_start_dialog": True,
+        "show_complete_dialog": True,
+        "start_immediately": True,
+        "ignore_mtime": False,
+        "show_progress": "normal",  # normal | minimized | don't show
+        "user_agent": "",
+        "virus_checker": "",
+        "virus_params": "[File]",
+    },
+    "proxy": {
+        "use_system": True,
+        "http": "",
+        "https": "",
+        "ftp": "",
+        "socks": "",
+        "no_proxy": [],
+        "ftp_pasv": True,
+        "proxy_auth": False,
+        "proxy_user": "",
+        "proxy_pass": "",
+    },
+    "site_logins": [],  # [{"url": ..., "user": ..., "password": ...}]
+    "dialup": {
+        "connection": "",
+        "username": "",
+        "password": "",
+        "redials": 3,
+        "interval_s": 5,
+        "save_password": False,
+    },
+    "sounds": {
+        "enabled": False,
+        "events": {},  # event name -> sound file path
+    },
+}
+
+# Events IDM can play a sound for (docs/idm/options.txt, Sounds tab).
+SOUND_EVENTS = [
+    "Download complete",
+    "Download failed",
+    "Download started",
+    "Queue started",
+    "Queue stopped",
+]
+
+
+def settings_path(state_dir: str) -> str:
+    return os.path.join(state_dir or ".", "settings.json")
+
+
+def _deep_merge(base: dict, over: dict) -> dict:
+    """Recursively overlay `over` on top of `base` (returns a new dict)."""
+    out = dict(base)
+    for k, v in (over or {}).items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def load_settings(state_dir: str) -> dict:
+    """Load settings.json, merged over the defaults (never fails)."""
+    try:
+        with open(settings_path(state_dir), encoding="utf-8") as f:
+            return _deep_merge(DEFAULT_SETTINGS, json.load(f))
+    except Exception:  # noqa: BLE001
+        return _deep_merge(DEFAULT_SETTINGS, {})
+
+
+def save_settings(state_dir: str, settings: dict) -> None:
+    """Atomically write settings.json under STATE_DIR."""
+    if not state_dir:
+        return
+    os.makedirs(state_dir, exist_ok=True)
+    path = settings_path(state_dir)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
+# --------------------------------------------------------------------------- #
 # Dialog windows (each mirrors an IDM dialog)
 # --------------------------------------------------------------------------- #
 def _dialog_add_url(parent):
@@ -330,43 +455,302 @@ def _dialog_file_info(parent, url, folder, category):
     return win, start, later
 
 
-def _dialog_options(parent):
-    """IDM 'Options' dialog with its tabs."""
+def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir=""):
+    """IDM 'Options' dialog: all 9 tabs, wired to persisted settings.
+
+    Every tab mirrors docs/idm/options.txt instead of showing only its name.
+    The values live in STATE_DIR/settings.json; the ones the engine understands
+    (max connections, user-agent, temp dir, proxy, ...) are used when a download
+    is added. Returns (window, notebook, controls) where `controls` is the
+    per-tab widget registry used by --selftest-dump.
+    """
     import tkinter as tk
-    from tkinter import ttk
+    from tkinter import ttk, filedialog
+
+    s = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    if not s["save_to"]["default_dir"] and out_dir:
+        s["save_to"]["default_dir"] = out_dir
 
     win = tk.Toplevel(parent)
     win.title("Options")
-    win.geometry("520x360")
+    win.geometry("660x520")
     nb = ttk.Notebook(win)
     nb.pack(fill="both", expand=True, padx=8, pady=8)
-    for name in OPTIONS_TABS:
-        frame = ttk.Frame(nb)
-        nb.add(frame, text=name)
-        ttk.Label(frame, text=name).pack(anchor="w", padx=10, pady=10)
+
+    controls = {}
+    vals = {}  # dotted key -> (tk variable, kind)
+
+    def tab(name):
+        f = ttk.Frame(nb)
+        nb.add(f, text=name)
+        controls[name] = {
+            "labels": [], "checkboxes": [], "entries": [],
+            "buttons": [], "lists": [], "combos": [],
+        }
+        return f
+
+    def add_check(f, name, text, key, value):
+        v = tk.BooleanVar(value=bool(value))
+        vals[key] = (v, "bool")
+        controls[name]["checkboxes"].append(text)
+        ttk.Checkbutton(f, text=text, variable=v).pack(anchor="w", padx=10, pady=2)
+
+    def add_row(f, name, text, key, value, browse=False, show=None):
+        row = ttk.Frame(f)
+        row.pack(fill="x", padx=10, pady=2)
+        controls[name]["labels"].append(text)
+        ttk.Label(row, text=text).pack(side="left")
+        v = tk.StringVar(value=str(value or ""))
+        vals[key] = (v, "str")
+        controls[name]["entries"].append(text)
+        ttk.Entry(row, textvariable=v, show=show).pack(
+            side="left", fill="x", expand=True, padx=4
+        )
+        if browse:
+            controls[name]["buttons"].append("Browse...")
+
+            def pick():
+                d = filedialog.askdirectory(parent=win)
+                if d:
+                    v.set(d)
+
+            ttk.Button(row, text="Browse...", command=pick).pack(side="left")
+        return v
+
+    def add_int(f, name, text, key, value):
+        row = ttk.Frame(f)
+        row.pack(fill="x", padx=10, pady=2)
+        controls[name]["labels"].append(text)
+        ttk.Label(row, text=text).pack(side="left")
+        v = tk.IntVar(value=int(value or 0))
+        vals[key] = (v, "int")
+        controls[name]["entries"].append(text)
+        ttk.Spinbox(row, from_=0, to=9999, textvariable=v, width=6).pack(side="left", padx=4)
+        return v
+
+    def add_combo(f, name, text, key, value, options):
+        row = ttk.Frame(f)
+        row.pack(fill="x", padx=10, pady=2)
+        controls[name]["labels"].append(text)
+        ttk.Label(row, text=text).pack(side="left")
+        v = tk.StringVar(value=str(value or ""))
+        vals[key] = (v, "str")
+        controls[name]["combos"].append(text)
+        ttk.Combobox(row, values=options, textvariable=v, width=16,
+                     state="readonly").pack(side="left", padx=4)
+        return v
+
+    def add_list(f, name, text, items, key=None):
+        controls[name]["labels"].append(text)
+        ttk.Label(f, text=text).pack(anchor="w", padx=10, pady=(6, 2))
+        lb = tk.Listbox(f, height=6)
+        for it in (items or []):
+            lb.insert("end", it)
+        lb.pack(fill="both", expand=True, padx=10)
+        controls[name]["lists"].append(text)
+        if key:
+            vals[key] = (lb, "list")
+        return lb
+
+    def add_buttons(f, name, labels):
+        row = ttk.Frame(f)
+        row.pack(anchor="w", padx=10, pady=4)
+        for lab in labels:
+            controls[name]["buttons"].append(lab)
+            ttk.Button(row, text=lab).pack(side="left", padx=2)
+
+    # --- General -----------------------------------------------------------
+    g = tab("General")
+    add_check(g, "General", "Start IDM on system startup",
+              "general.launch_on_startup", s["general"]["launch_on_startup"])
+    add_check(g, "General", "Integrate into browsers",
+              "general.integrate_browsers", s["general"]["integrate_browsers"])
+    add_check(g, "General", "Monitor clipboard for URLs",
+              "general.monitor_clipboard", s["general"]["monitor_clipboard"])
+    add_check(g, "General", "Run module for click monitoring for IE-based browsers",
+              "general.run_ie_monitor", s["general"]["run_ie_monitor"])
+    add_row(g, "General", "Use the following key(s) to force downloading:",
+            "general.force_keys", s["general"]["force_keys"])
+    add_row(g, "General", "Prevent downloading with key(s):",
+            "general.prevent_keys", s["general"]["prevent_keys"])
+    add_list(g, "General", "Browsers:", s["general"]["browsers"], "general.browsers")
+    add_buttons(g, "General", ["Add Browser..."])
+
+    # --- File Types --------------------------------------------------------
+    ft = tab("File Types")
+    add_list(ft, "File Types",
+             "Automatically start downloading the following file types:",
+             s["file_types"]["auto"], "file_types.auto")
+    add_list(ft, "File Types",
+             "Don't start downloading automatically from the following sites:",
+             s["file_types"]["exclude_sites"], "file_types.exclude_sites")
+    add_buttons(ft, "File Types", ["Add", "Remove", "Edit list..."])
+
+    # --- Connection --------------------------------------------------------
+    cn = tab("Connection")
+    add_int(cn, "Connection", "Max connections per server:",
+            "connection.max_connections", s["connection"]["max_connections"])
+    add_list(cn, "Connection", "Exceptions (server -> connections):",
+             [f"{e.get('server', '')} -> {e.get('connections', '')}"
+              for e in s["connection"]["exceptions"]])
+    add_buttons(cn, "Connection", ["Add", "Remove"])
+    add_check(cn, "Connection", "Download Limits",
+              "connection.download_limits", s["connection"]["download_limits"])
+    add_int(cn, "Connection", "Download no more than (MB):",
+            "connection.limit_amount_mb", s["connection"]["limit_amount_mb"])
+    add_int(cn, "Connection", "every (hours):",
+            "connection.limit_period_h", s["connection"]["limit_period_h"])
+
+    # --- Save To -----------------------------------------------------------
+    st = tab("Save To")
+    add_row(st, "Save To", "Default download directory:",
+            "save_to.default_dir", s["save_to"]["default_dir"], browse=True)
+    add_list(st, "Save To", "Category directories:",
+             [f"{k}: {v}" for k, v in s["save_to"]["category_dirs"].items()])
+    add_row(st, "Save To", "Temporary directory:",
+            "save_to.temp_dir", s["save_to"]["temp_dir"], browse=True)
+    add_check(st, "Save To", "Change folder for a category on last selected",
+              "save_to.change_on_last", s["save_to"]["change_on_last"])
+
+    # --- Downloads ---------------------------------------------------------
+    dl = tab("Downloads")
+    add_check(dl, "Downloads", "Show start download dialog",
+              "downloads.show_start_dialog", s["downloads"]["show_start_dialog"])
+    add_check(dl, "Downloads", "Show download complete dialog",
+              "downloads.show_complete_dialog", s["downloads"]["show_complete_dialog"])
+    add_check(dl, "Downloads",
+              "Start download immediately while showing Download File Info dialog",
+              "downloads.start_immediately", s["downloads"]["start_immediately"])
+    add_check(dl, "Downloads",
+              "Ignore file modification time changes when resuming a download",
+              "downloads.ignore_mtime", s["downloads"]["ignore_mtime"])
+    add_combo(dl, "Downloads", "Customize 'Download Progress' dialog:",
+              "downloads.show_progress", s["downloads"]["show_progress"],
+              ["normal", "minimized", "don't show"])
+    add_row(dl, "Downloads", "User agent for manually added downloads:",
+            "downloads.user_agent", s["downloads"]["user_agent"])
+    add_row(dl, "Downloads", "Virus checking executable:",
+            "downloads.virus_checker", s["downloads"]["virus_checker"], browse=True)
+    add_row(dl, "Downloads", "Virus checking parameters:",
+            "downloads.virus_params", s["downloads"]["virus_params"])
+
+    # --- Proxy / Socks -----------------------------------------------------
+    px = tab("Proxy / Socks")
+    add_check(px, "Proxy / Socks", "Use proxy/socks from a browser's request",
+              "proxy.use_system", s["proxy"]["use_system"])
+    add_buttons(px, "Proxy / Socks", ["Get System"])
+    add_row(px, "Proxy / Socks", "HTTP proxy:", "proxy.http", s["proxy"]["http"])
+    add_row(px, "Proxy / Socks", "HTTPS proxy:", "proxy.https", s["proxy"]["https"])
+    add_row(px, "Proxy / Socks", "FTP proxy:", "proxy.ftp", s["proxy"]["ftp"])
+    add_row(px, "Proxy / Socks", "SOCKS proxy:", "proxy.socks", s["proxy"]["socks"])
+    add_list(px, "Proxy / Socks", "Don't use proxy for the following addresses:",
+             s["proxy"]["no_proxy"], "proxy.no_proxy")
+    add_check(px, "Proxy / Socks", "Use FTP in PASV mode",
+              "proxy.ftp_pasv", s["proxy"]["ftp_pasv"])
+    add_check(px, "Proxy / Socks", "Proxy requires authorization",
+              "proxy.proxy_auth", s["proxy"]["proxy_auth"])
+    add_row(px, "Proxy / Socks", "User name:", "proxy.proxy_user", s["proxy"]["proxy_user"])
+    add_row(px, "Proxy / Socks", "Password:", "proxy.proxy_pass",
+            s["proxy"]["proxy_pass"], show="*")
+
+    # --- Site Logins -------------------------------------------------------
+    sl = tab("Site Logins")
+    add_list(sl, "Site Logins", "Sites requiring authorization:",
+             [x.get("url", "") for x in s["site_logins"]])
+    add_buttons(sl, "Site Logins", ["New", "Remove"])
+    add_row(sl, "Site Logins", "URL:", "site_logins.url", "")
+    add_row(sl, "Site Logins", "User name:", "site_logins.user", "")
+    add_row(sl, "Site Logins", "Password:", "site_logins.password", "", show="*")
+
+    # --- Dial-Up / VPN -----------------------------------------------------
+    du = tab("Dial-Up / VPN")
+    add_combo(du, "Dial-Up / VPN", "Connection:", "dialup.connection",
+              s["dialup"]["connection"], [s["dialup"]["connection"]] if s["dialup"]["connection"] else [])
+    add_row(du, "Dial-Up / VPN", "User name:", "dialup.username", s["dialup"]["username"])
+    add_row(du, "Dial-Up / VPN", "Password:", "dialup.password",
+            s["dialup"]["password"], show="*")
+    add_check(du, "Dial-Up / VPN", "Save password",
+              "dialup.save_password", s["dialup"]["save_password"])
+    add_int(du, "Dial-Up / VPN", "Number of redials (0 = endlessly):",
+            "dialup.redials", s["dialup"]["redials"])
+    add_int(du, "Dial-Up / VPN", "Time interval between redials (s):",
+            "dialup.interval_s", s["dialup"]["interval_s"])
+
+    # --- Sounds ------------------------------------------------------------
+    so = tab("Sounds")
+    add_check(so, "Sounds", "Enable sounds", "sounds.enabled", s["sounds"]["enabled"])
+    add_list(so, "Sounds", "Events:", SOUND_EVENTS)
+    add_row(so, "Sounds", "Sound file:", "sounds.file", "")
+    add_buttons(so, "Sounds", ["Browse...", "Play"])
+
+    def collect():
+        out = _deep_merge(DEFAULT_SETTINGS, s)
+
+        def setv(dotted, value):
+            parts = dotted.split(".")
+            cur = out
+            for p in parts[:-1]:
+                cur = cur.setdefault(p, {})
+            cur[parts[-1]] = value
+
+        for key, (var, kind) in vals.items():
+            try:
+                if kind == "bool":
+                    setv(key, bool(var.get()))
+                elif kind == "int":
+                    setv(key, int(var.get()))
+                elif kind == "list":
+                    setv(key, [var.get(i) for i in range(var.size())])
+                else:
+                    setv(key, var.get())
+            except Exception:  # noqa: BLE001
+                pass
+        return out
+
+    def apply():
+        if on_save:
+            try:
+                on_save(collect())
+            except Exception:  # noqa: BLE001
+                pass
+
     bar = ttk.Frame(win)
     bar.pack(fill="x", padx=8, pady=(0, 8))
-    ttk.Button(bar, text="OK", command=win.destroy).pack(side="right", padx=4)
+
+    def ok():
+        apply()
+        win.destroy()
+
+    ttk.Button(bar, text="OK", command=ok).pack(side="right", padx=4)
     ttk.Button(bar, text="Cancel", command=win.destroy).pack(side="right", padx=4)
-    ttk.Button(bar, text="Apply").pack(side="right", padx=4)
-    return win, nb
+    ttk.Button(bar, text="Apply", command=apply).pack(side="right", padx=4)
+    return win, nb, controls
 
 
-def _dialog_scheduler(parent):
-    """IDM 'Scheduler' dialog: queue list + Schedule / Files in the queue."""
+def _dialog_scheduler(parent, api=None, queue_names=None):
+    """IDM 'Scheduler' dialog: queue list + Schedule / Files in the queue.
+
+    With an `api` the "Files in the queue" tab shows the real queue and
+    Start Now / Stop / Delete act on the selected download, matching IDM
+    (docs/idm/idm-scheduler_idm_scheduler.txt).
+    """
     import tkinter as tk
     from tkinter import ttk
 
+    queues = list(queue_names or ("Main download queue", "Synchronization queue"))
+
     win = tk.Toplevel(parent)
     win.title("Scheduler")
-    win.geometry("560x400")
+    win.geometry("620x430")
 
     left = ttk.Frame(win)
     left.pack(side="left", fill="y", padx=8, pady=8)
     ttk.Label(left, text="Queues").pack(anchor="w")
     qlist = tk.Listbox(left, width=20, height=14)
-    for q in ("Main download queue", "Synchronization queue"):
+    for q in queues:
         qlist.insert("end", q)
+    if queues:
+        qlist.selection_set(0)
     qlist.pack(fill="y", expand=True)
 
     right = ttk.Frame(win)
@@ -401,13 +785,74 @@ def _dialog_scheduler(parent):
     qfiles.heading("status", text="Status")
     qfiles.pack(fill="both", expand=True, padx=6, pady=6)
 
+    def selected_qid():
+        sel = qfiles.selection()
+        if not sel:
+            return None
+        try:
+            return int(sel[0])
+        except ValueError:
+            return None
+
+    def refresh_queue():
+        if api is None:
+            return
+        try:
+            items = api.items()
+        except Exception:  # noqa: BLE001
+            return
+        seen = set()
+        for it in items:
+            iid = str(it["id"])
+            name = basename(it.get("url", ""))
+            st = it.get("status", "")
+            seen.add(iid)
+            if qfiles.exists(iid):
+                qfiles.item(iid, values=(name, st))
+            else:
+                qfiles.insert("", "end", iid=iid, values=(name, st))
+        for iid in list(qfiles.get_children("")):
+            if iid not in seen:
+                qfiles.delete(iid)
+
+    def _start_now():
+        i = selected_qid()
+        if api is not None and i is not None:
+            try:
+                api.resume(i)
+            except Exception:  # noqa: BLE001
+                pass
+        refresh_queue()
+
+    def _stop():
+        i = selected_qid()
+        if api is not None and i is not None:
+            try:
+                api.pause(i)
+            except Exception:  # noqa: BLE001
+                pass
+        refresh_queue()
+
+    def _delete():
+        i = selected_qid()
+        if api is not None and i is not None:
+            try:
+                api.remove(i)
+            except Exception:  # noqa: BLE001
+                pass
+        refresh_queue()
+
     bar = ttk.Frame(win)
     bar.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
-    ttk.Button(bar, text="Start Now").pack(side="left", padx=4)
-    ttk.Button(bar, text="Stop").pack(side="left", padx=4)
-    ttk.Button(bar, text="Delete").pack(side="left", padx=4)
+    ttk.Button(bar, text="Start Now", command=_start_now).pack(side="left", padx=4)
+    ttk.Button(bar, text="Stop", command=_stop).pack(side="left", padx=4)
+    ttk.Button(bar, text="Delete", command=_delete).pack(side="left", padx=4)
     ttk.Button(bar, text="Apply").pack(side="right", padx=4)
     ttk.Button(bar, text="Close", command=win.destroy).pack(side="right", padx=4)
+
+    refresh_queue()
+    win._idm_qfiles = qfiles
+    win._idm_refresh_queue = refresh_queue
     return win, nb
 
 
@@ -450,6 +895,36 @@ def _dialog_complete(parent, path):
     ttk.Button(win, text="Open", command=win.destroy).pack(anchor="w", padx=10, pady=6)
     ttk.Checkbutton(win, text="Don't show this dialog again").pack(anchor="w", padx=10)
     ttk.Button(win, text="Close", command=win.destroy).pack(anchor="e", padx=10, pady=6)
+    return win
+
+
+def _dialog_about(parent):
+    """IDM 'About' dialog: version, registration state, links."""
+    import tkinter as tk
+    from tkinter import ttk
+
+    win = tk.Toplevel(parent)
+    win.title("About Internet Download Manager")
+    win.geometry("440x320")
+    ttk.Label(win, text="Internet Download Manager",
+              font=("", 12, "bold")).pack(anchor="w", padx=12, pady=(12, 2))
+    ttk.Label(win, text=f"Version {VERSION}").pack(anchor="w", padx=12)
+    ttk.Label(win, text="IDM-like download manager (POC)").pack(
+        anchor="w", padx=12, pady=(2, 8))
+    info = tk.Text(win, height=7, width=50, wrap="word")
+    info.insert("1.0",
+                "Registered to: (unregistered POC)\n"
+                "Serial number: ------\n\n"
+                "Replication of Internet Download Manager\n"
+                "architecture for testing and interoperability.\n"
+                "Not affiliated with Tonec Inc.")
+    info.config(state="disabled")
+    info.pack(padx=12, pady=4)
+    row = ttk.Frame(win)
+    row.pack(fill="x", padx=12, pady=8)
+    ttk.Button(row, text="Registration...").pack(side="left", padx=2)
+    ttk.Button(row, text="Check for updates").pack(side="left", padx=2)
+    ttk.Button(row, text="Close", command=win.destroy).pack(side="right")
     return win
 
 
@@ -564,7 +1039,7 @@ def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None)
     return win, canvas, bars
 
 
-def build_window(api: Api, out_dir: str = "", on_close=None):
+def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""):
     """Construct the main window and return (root, refresh_fn, widgets)."""
     import tkinter as tk
     from tkinter import ttk
@@ -633,6 +1108,14 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
     )
     body.add(left, weight=1)
 
+    # --- category context menu (right click), like IDM ---
+    cat_menu = tk.Menu(root, tearoff=0)
+    cat_menu.add_command(label="Add category...")
+    cat_menu.add_command(label="Edit category...")
+    cat_menu.add_command(label="Delete category")
+    w["cat_menu"] = cat_menu
+    w["cat_menu_items"] = ["Add category...", "Edit category...", "Delete category"]
+
     right = ttk.Frame(body)
     listview = ttk.Treeview(
         right, columns=[c[0] for c in COLUMNS], show="headings", selectmode="extended"
@@ -643,6 +1126,15 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
     listview.pack(fill="both", expand=True)
     w["list"] = listview
     body.add(right, weight=4)
+
+    # --- download-list context menu (right click), like IDM ---
+    list_menu = tk.Menu(root, tearoff=0)
+    for _lab in ("Resume", "Stop", "Delete", "Delete Completed",
+                 "Add to Queue", "Delete from Queue", "Properties"):
+        list_menu.add_command(label=_lab)
+    w["list_menu"] = list_menu
+    w["list_menu_items"] = ["Resume", "Stop", "Delete", "Delete Completed",
+                            "Add to Queue", "Delete from Queue", "Properties"]
 
     # --- progress + status bar at the bottom ---
     progress = ttk.Progressbar(root, mode="determinate", maximum=100)
@@ -689,19 +1181,34 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
         elif name in ("Resume", "Stop", "Stop All", "Delete"):
             btn.config(command=lambda n=name: act(n))
         elif name == "Options":
-            btn.config(command=lambda: _dialog_options(root))
+            btn.config(command=lambda: _open_options())
         elif name == "Scheduler":
-            btn.config(command=lambda: _dialog_scheduler(root))
+            btn.config(command=lambda: _dialog_scheduler(root, api=api))
         elif name == "Delete Completed":
             btn.config(command=lambda: _delete_completed())
         elif name in ("Start Queue", "Stop Queue"):
-            btn.config(command=lambda n=name: status.set(f"{n} pressed"))
+            btn.config(command=lambda n=name: _queue_all(n))
 
     def _delete_completed():
         try:
             for it in api.items():
                 if it.get("status") == "done":
                     api.remove(it["id"])
+        except Exception as e:  # noqa: BLE001
+            status.set(f"error: {e}")
+        refresh()
+
+    def _queue_all(name):
+        # Start Queue resumes every paused/failed download; Stop Queue pauses
+        # every pending/running one (IDM's queue semantics).
+        try:
+            for it in api.items():
+                st = it.get("status")
+                if name == "Start Queue" and st in ("paused", "error", "pending"):
+                    api.resume(it["id"])
+                elif name == "Stop Queue" and st in ("running", "pending"):
+                    api.pause(it["id"])
+            status.set(name)
         except Exception as e:  # noqa: BLE001
             status.set(f"error: {e}")
         refresh()
@@ -719,10 +1226,17 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
                 root, u, out_dir or ".", category_of(u)
             )
 
+            def _conns():
+                # Honour the Connection tab's "max connections" setting.
+                try:
+                    return int(load_settings(state_dir)["connection"]["max_connections"])
+                except Exception:  # noqa: BLE001
+                    return 4
+
             def do_start():
                 info_win.destroy()
                 try:
-                    api.add(u, aria2=bool(aria2_var.get()))
+                    api.add(u, connections=_conns(), aria2=bool(aria2_var.get()))
                     status.set(f"added: {basename(u)}")
                 except Exception as e:  # noqa: BLE001
                     status.set(f"error: {e}")
@@ -731,7 +1245,7 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
             def do_later():
                 info_win.destroy()
                 try:
-                    api.add(u, aria2=bool(aria2_var.get()))
+                    api.add(u, connections=_conns(), aria2=bool(aria2_var.get()))
                     status.set(f"queued: {basename(u)}")
                 except Exception as e:  # noqa: BLE001
                     status.set(f"error: {e}")
@@ -766,7 +1280,76 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
             _dialog_properties(root, it.get("url", ""), it.get("output", ""))
 
     listview.bind("<Double-1>", _on_open_properties)
-    listview.bind("<Button-3>", _on_open_properties)
+
+    def _on_list_menu(event):
+        # Windows does NOT select a Treeview row on right-click, so
+        # listview.selection() would be empty and the menu would act on
+        # nothing (the original silent no-op bug). Resolve the row under the
+        # cursor explicitly and select it before showing the menu.
+        row = listview.identify_row(event.y)
+        if row:
+            listview.selection_set(row)
+            listview.focus(row)
+        if not listview.selection():
+            return
+        try:
+            list_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            list_menu.grab_release()
+
+    listview.bind("<Button-3>", _on_list_menu)
+
+    def _queue_toggle(label):
+        # A download is "in a queue" while it is pending/running; Add to Queue
+        # resumes it, Delete from Queue pauses it (mirrors IDM's Q column).
+        i = selected_id()
+        if i is None:
+            return
+        try:
+            if label == "Add to Queue":
+                api.resume(i)
+            else:
+                api.pause(i)
+            status.set(f"{label}: {i}")
+        except Exception as e:  # noqa: BLE001
+            status.set(f"error: {e}")
+        refresh()
+
+    list_menu.entryconfig("Resume", command=lambda: act("Resume"))
+    list_menu.entryconfig("Stop", command=lambda: act("Stop"))
+    list_menu.entryconfig("Delete", command=lambda: act("Delete"))
+    list_menu.entryconfig("Delete Completed", command=lambda: _delete_completed())
+    list_menu.entryconfig("Add to Queue", command=lambda: _queue_toggle("Add to Queue"))
+    list_menu.entryconfig("Delete from Queue",
+                          command=lambda: _queue_toggle("Delete from Queue"))
+    list_menu.entryconfig("Properties", command=lambda: _on_open_properties())
+
+    def _on_cat_menu(event):
+        row = tree.identify_row(event.y)
+        if row:
+            tree.selection_set(row)
+            tree.focus(row)
+        try:
+            cat_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            cat_menu.grab_release()
+
+    tree.bind("<Button-3>", _on_cat_menu)
+    cat_menu.entryconfig("Add category...",
+                         command=lambda: status.set("Add category: not implemented yet"))
+    cat_menu.entryconfig("Edit category...",
+                         command=lambda: status.set("Edit category: not implemented yet"))
+    cat_menu.entryconfig("Delete category",
+                         command=lambda: status.set("Delete category: not implemented yet"))
+
+    def _open_options():
+        _dialog_options(
+            root,
+            settings=load_settings(state_dir),
+            on_save=lambda st: save_settings(state_dir, st),
+            state_dir=state_dir,
+            out_dir=out_dir,
+        )
 
     def apply_items(items):
         """Render a queue snapshot. Must run on the Tk thread."""
@@ -807,6 +1390,43 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
 
     w["apply_items"] = apply_items
 
+    # --- menu bar, like IDM (File / Downloads / View / Help) ---
+    menubar = tk.Menu(root)
+
+    file_menu = tk.Menu(menubar, tearoff=0)
+    file_menu.add_command(label="Add URL...", command=lambda: _on_add())
+    file_menu.add_command(label="Options...", command=lambda: _open_options())
+    file_menu.add_separator()
+    file_menu.add_command(label="Exit", command=root.destroy)
+    menubar.add_cascade(label="File", menu=file_menu)
+
+    downloads_menu = tk.Menu(menubar, tearoff=0)
+    downloads_menu.add_command(label="Resume", command=lambda: act("Resume"))
+    downloads_menu.add_command(label="Stop", command=lambda: act("Stop"))
+    downloads_menu.add_command(label="Stop All", command=lambda: act("Stop All"))
+    downloads_menu.add_command(label="Delete", command=lambda: act("Delete"))
+    downloads_menu.add_command(label="Delete Completed",
+                               command=lambda: _delete_completed())
+    menubar.add_cascade(label="Downloads", menu=downloads_menu)
+
+    view_menu = tk.Menu(menubar, tearoff=0)
+    view_menu.add_command(label="Scheduler...",
+                          command=lambda: _dialog_scheduler(root, api=api))
+    view_menu.add_command(label="Options...", command=lambda: _open_options())
+    menubar.add_cascade(label="View", menu=view_menu)
+
+    help_menu = tk.Menu(menubar, tearoff=0)
+    help_menu.add_command(label="About IDM...",
+                          command=lambda: _dialog_about(root))
+    menubar.add_cascade(label="Help", menu=help_menu)
+
+    try:
+        root.config(menu=menubar)
+    except Exception:  # noqa: BLE001
+        pass
+    w["menubar"] = menubar
+    w["menus"] = ["File", "Downloads", "View", "Help"]
+
     root.protocol(
         "WM_DELETE_WINDOW",
         lambda: ((on_close and on_close()), root.destroy()) if True else root.destroy(),
@@ -844,11 +1464,22 @@ def spawn_server(engine, addr, out_dir, state_dir, token: str = ""):
     cmd = [engine, "--serve", addr, "--output-dir", out_dir, "--state-dir", state_dir]
     if token:
         cmd += ["--api-token", token]
-    return subprocess.Popen(
-        cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    kwargs = {
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    # The engine is a headless backend, never something the user should see.
+    # On Windows a console-subsystem binary spawned from a GUI process would
+    # otherwise flash (or keep) a black console window; CREATE_NO_WINDOW keeps
+    # it invisible and DETACHED_PROCESS makes it independent of our terminal.
+    if os.name == "nt":
+        CREATE_NO_WINDOW = 0x08000000
+        DETACHED_PROCESS = 0x00000008
+        kwargs["creationflags"] = CREATE_NO_WINDOW | DETACHED_PROCESS
+    else:
+        # Fully detach from our session so a closed terminal cannot kill it.
+        kwargs["start_new_session"] = True
+    return subprocess.Popen(cmd, **kwargs)
 
 
 def wait_alive(api, seconds=15.0):
@@ -887,6 +1518,26 @@ def selftest_api(addr, url, token=""):
         time.sleep(0.2)
     print(f"SELFTEST-API: FAIL timeout last={last}", file=sys.stderr)
     return 1
+
+
+def selftest_settings(state_dir):
+    """Exercise the settings layer: change -> save -> reload must round-trip."""
+    s = load_settings(state_dir)
+    s["connection"]["max_connections"] = 3
+    s["downloads"]["show_complete_dialog"] = False
+    save_settings(state_dir, s)
+    r = load_settings(state_dir)
+    if r["connection"]["max_connections"] != 3:
+        print("SETTINGS: FAIL max_connections not persisted", file=sys.stderr)
+        return 1
+    if r["downloads"]["show_complete_dialog"] is not False:
+        print("SETTINGS: FAIL show_complete_dialog not persisted", file=sys.stderr)
+        return 1
+    if not os.path.exists(settings_path(state_dir)):
+        print("SETTINGS: FAIL settings.json missing", file=sys.stderr)
+        return 1
+    print("SETTINGS: OK", flush=True)
+    return 0
 
 
 def selftest_live_graph(meta_path):
@@ -1008,11 +1659,12 @@ def selftest_dump(engine):
     _collect_widgets(fw, acc)
     dialogs.append({"title": fw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
 
-    ow, onb = _dialog_options(root)
+    ow, onb, octrl = _dialog_options(root)
     ow.withdraw()
     acc = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(ow, acc)
-    dialogs.append({"title": ow.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
+    dialogs.append({"title": ow.title(), "widgets": acc["labels"] + acc["buttons"],
+                    "tabs": acc["tabs"], "controls": octrl})
 
     sw, _snb = _dialog_scheduler(root)
     sw.withdraw()
@@ -1031,6 +1683,12 @@ def selftest_dump(engine):
     acc = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(cw, acc)
     dialogs.append({"title": cw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
+
+    abw = _dialog_about(root)
+    abw.withdraw()
+    acc = {"buttons": [], "labels": [], "tabs": []}
+    _collect_widgets(abw, acc)
+    dialogs.append({"title": abw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
 
     # Download Progress dialog: carries a canvas with one bar per connection.
     pw2, pcanvas, pbars = _dialog_progress(root, "movie.mp4", connections=4)
@@ -1062,11 +1720,17 @@ def selftest_dump(engine):
         "has_category_tree": len(cats) > 0,
         "tree_left_of_list": True,
         "columns": columns,
+        "has_list_context_menu": "list_menu" in w,
+        "list_menu_items": w.get("list_menu_items", []),
+        "has_category_context_menu": "cat_menu" in w,
+        "category_menu_items": w.get("cat_menu_items", []),
+        "has_menubar": "menubar" in w,
+        "menus": w.get("menus", []),
         "dialogs": dialogs,
     }
 
     # Cleanup.
-    for win in (aw, fw, ow, sw, pw, cw, pw2):
+    for win in (aw, fw, ow, sw, pw, cw, abw, pw2):
         try:
             win.destroy()
         except Exception:  # noqa: BLE001
@@ -1097,6 +1761,7 @@ def main(argv=None):
     p.add_argument("--selftest-api", action="store_true")
     p.add_argument("--selftest-window", action="store_true")
     p.add_argument("--selftest-dump", action="store_true")
+    p.add_argument("--selftest-settings", action="store_true")
     p.add_argument("--selftest-live-graph", action="store_true")
     p.add_argument("--meta", help="path to a .idmmeta for --selftest-live-graph")
     args = p.parse_args(argv)
@@ -1106,6 +1771,8 @@ def main(argv=None):
             print("--selftest-live-graph needs --meta", file=sys.stderr)
             return 2
         return selftest_live_graph(args.meta)
+    if args.selftest_settings:
+        return selftest_settings(args.state_dir)
     if args.selftest_dump:
         return selftest_dump(args.engine)
     if args.selftest_window:
@@ -1135,7 +1802,7 @@ def main(argv=None):
                 file=sys.stderr,
             )
 
-    root, refresh, _w = build_window(api, out_dir=args.out_dir)
+    root, refresh, _w = build_window(api, out_dir=args.out_dir, state_dir=args.state_dir)
 
     apply_items = _w["apply_items"]
     status_var = _w["status_var"]
