@@ -42,6 +42,12 @@ jobs:
       - name: Install JS dependencies
         run: npm install
 
+      # The .desktop files the installers generate are validated with
+      # desktop-file-validate; without it those suites silently skip (locally)
+      # or fail (here).
+      - name: Install desktop-file-utils
+        run: sudo apt-get update && sudo apt-get install -y desktop-file-utils
+
       # Note: `npm test` runs `cargo build --release` first, so a cached
       # engine/target cannot cause a false "release binary is STALE".
       - name: Run full test matrix
