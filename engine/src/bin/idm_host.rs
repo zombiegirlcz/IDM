@@ -54,8 +54,24 @@ fn read_frame<R: Read>(r: &mut R) -> std::io::Result<Option<Vec<u8>>> {
     if len == 0 {
         return Ok(Some(Vec::new()));
     }
+    // Chrome never sends a frame larger than 1 MiB; refuse to allocate for a
+    // bogus length instead of trusting it.
+    const MAX_FRAME: usize = 1 << 20;
+    if len > MAX_FRAME {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "native messaging frame too large",
+        ));
+    }
     let mut body = vec![0u8; len];
-    read_exact_or_eof(r, &mut body)?;
+    if !read_exact_or_eof(r, &mut body)? {
+        // A length header with no body at all is a truncated frame, not an
+        // empty message.
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "truncated frame body",
+        ));
+    }
     Ok(Some(body))
 }
 
@@ -355,7 +371,8 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
                 }
             }
 
-            cmd.arg(&url);
+            // `--` so a URL starting with `-` cannot become a flag.
+            cmd.arg("--").arg(&url);
 
             cmd.stdout(std::process::Stdio::null());
             cmd.stderr(std::process::Stdio::null());

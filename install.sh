@@ -86,13 +86,41 @@ else
   else
     URL="https://github.com/$REPO/releases/download/$VERSION/$ASSET"
   fi
+  # Only https from the network. A local file:// path (used by the installer
+  # tests and offline installs) is already as trusted as the filesystem.
+  case "$URL" in
+    https://*|file://*) ;;
+    *) die "archiv se stahuje jen přes https (nebo file://): $URL" ;;
+  esac
   log "stahuji $URL"
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$URL" -o "$TMP/idm.tar.gz" || die "stažení selhalo"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -qO "$TMP/idm.tar.gz" "$URL" || die "stažení selhalo"
+  fetch() { # fetch URL DEST
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL "$1" -o "$2"
+    elif command -v wget >/dev/null 2>&1; then
+      wget -qO "$2" "$1"
+    else
+      die "chybí curl i wget"
+    fi
+  }
+  fetch "$URL" "$TMP/idm.tar.gz" || die "stažení selhalo"
+
+  # Integrity: every release publishes <asset>.sha256 next to the archive.
+  if fetch "$URL.sha256" "$TMP/idm.tar.gz.sha256" 2>/dev/null; then
+    WANT="$(tr -d '\r' < "$TMP/idm.tar.gz.sha256" | awk 'NF{print $1; exit}')"
+    if command -v sha256sum >/dev/null 2>&1; then
+      GOT="$(sha256sum "$TMP/idm.tar.gz" | awk '{print $1}')"
+    elif command -v shasum >/dev/null 2>&1; then
+      GOT="$(shasum -a 256 "$TMP/idm.tar.gz" | awk '{print $1}')"
+    else
+      GOT=""
+      warn "chybí sha256sum/shasum — kontrolní součet nelze ověřit"
+    fi
+    if [[ -n "$GOT" ]]; then
+      [[ "$GOT" == "$WANT" ]] || die "kontrolní součet nesouhlasí (čekáno $WANT, získáno $GOT)"
+      log "kontrolní součet ověřen"
+    fi
   else
-    die "chybí curl i wget"
+    warn "k archivu není $URL.sha256 — pokračuji bez ověření součtu"
   fi
   mkdir -p "$TMP/unpack"
   tar -xzf "$TMP/idm.tar.gz" -C "$TMP/unpack" || die "rozbalení selhalo"
@@ -111,8 +139,17 @@ log "instaluji do $PREFIX"
 mkdir -p "$PREFIX/bin" "$PREFIX/gui" "$PREFIX/extension" "$DOWNLOADS_DIR"
 install -m 0755 "$ENGINE_BIN_SRC" "$PREFIX/bin/idm"
 install -m 0755 "$HOST_BIN_SRC"   "$PREFIX/bin/idm-host"
+# `--uninstall` is documented as `bash $PREFIX/install.sh --uninstall`, so this
+# file has to be there — including after `curl ... | bash`, where BASH_SOURCE
+# is not a readable file and we re-fetch it instead.
 if [[ -f "${BASH_SOURCE[0]:-}" ]]; then
   install -m 0755 "${BASH_SOURCE[0]}" "$PREFIX/install.sh" 2>/dev/null || true
+elif [[ -f "$TMP/unpack/install.sh" ]]; then
+  install -m 0755 "$TMP/unpack/install.sh" "$PREFIX/install.sh" 2>/dev/null || true
+else
+  curl -fsSL "https://raw.githubusercontent.com/$REPO/master/install.sh" \
+    -o "$PREFIX/install.sh" 2>/dev/null && chmod +x "$PREFIX/install.sh" || \
+    warn "nepodařilo se uložit install.sh pro odinstalaci"
 fi
 if [[ -n "${GUI_PY_SRC:-}" && -f "$GUI_PY_SRC" ]]; then
   install -m 0755 "$GUI_PY_SRC" "$PREFIX/gui/idm_gui.py"
@@ -124,6 +161,14 @@ fi
 for f in ensure-aria2.sh ensure-aria2.ps1; do
   if [[ -n "${SRC:-}" && -f "$SRC/scripts/$f" ]]; then
     install -m 0755 "$SRC/scripts/$f" "$PREFIX/bin/$f" 2>/dev/null || true
+  elif [[ -f "$TMP/unpack/$f" ]]; then
+    # The release archive ships them next to the binaries.
+    install -m 0755 "$TMP/unpack/$f" "$PREFIX/bin/$f" 2>/dev/null || true
+  else
+    # Last resort (e.g. an older archive): fetch the tiny script from the repo.
+    curl -fsSL "https://raw.githubusercontent.com/$REPO/master/scripts/$f" \
+      -o "$PREFIX/bin/$f" 2>/dev/null && chmod +x "$PREFIX/bin/$f" || \
+      warn "nestáhl $f (--aria2 si ho zkusí doinstalovat sám)"
   fi
 done
 

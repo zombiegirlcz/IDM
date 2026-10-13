@@ -40,7 +40,28 @@ function Write-Log  { param([string]$m) Write-Host "==> $m" -ForegroundColor Cya
 function Write-Warn { param([string]$m) Write-Host "[!] $m" -ForegroundColor Yellow }
 function Die        { param([string]$m) Write-Host "[x] $m" -ForegroundColor Red; exit 1 }
 
-if (-not $Prefix)       { $Prefix = Join-Path $env:LOCALAPPDATA "idm" }
+# Fetch a URL to a file. Invoke-WebRequest does not support the file scheme, so
+# a local archive (offline install, installer tests) is copied instead.
+function Fetch-File {
+    param([string]$Uri, [string]$OutFile)
+    if ($Uri -like "file://*") {
+        Copy-Item ([System.Uri]$Uri).LocalPath $OutFile -Force
+    } else {
+        Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+    }
+}
+
+if (-not $Prefix) {
+    # Running from inside an installation (the copy this script keeps in the
+    # prefix) means that installation is the one to act on -- otherwise
+    # "$Prefix\install.ps1 -Uninstall" would silently target the default
+    # location when the user installed somewhere else.
+    if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "idm-host.exe"))) {
+        $Prefix = $PSScriptRoot
+    } else {
+        $Prefix = Join-Path $env:LOCALAPPDATA "idm"
+    }
+}
 if (-not $DownloadsDir) { $DownloadsDir = Join-Path $env:USERPROFILE "Downloads" }
 
 $BrowserRegRoots = @(
@@ -84,18 +105,42 @@ if (-not $ArchiveUrl) {
         $ArchiveUrl = "https://github.com/$Repo/releases/download/$Version/$Asset"
     }
 }
+# Only https from the network; a local file:// path is as trusted as the disk.
+if (($ArchiveUrl -notlike "https://*") -and ($ArchiveUrl -notlike "file://*")) {
+    Die "archiv se stahuje jen pres https (nebo file://): $ArchiveUrl"
+}
 Write-Log "stahuji $ArchiveUrl"
 $tmp = Join-Path $env:TEMP "idm_dl_tmp"
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 $zip = Join-Path $tmp "idm.zip"
 try {
-    Invoke-WebRequest -Uri $ArchiveUrl -OutFile $zip -UseBasicParsing
+    Fetch-File -Uri $ArchiveUrl -OutFile $zip
 } catch {
     Die "stazeni selhalo: $_"
 }
 if (-not (Test-Path $zip)) { Die "archiv se nestahl" }
 if ((Get-Item $zip).Length -lt 1000) { Die "archiv je prilis maly" }
+
+# Integrity: every release publishes <asset>.sha256 next to the archive.
+$sumFile = Join-Path $tmp "idm.zip.sha256"
+$haveSum = $false
+try {
+    Fetch-File -Uri "$ArchiveUrl.sha256" -OutFile $sumFile
+    $haveSum = Test-Path $sumFile
+} catch {
+    $haveSum = $false
+}
+if ($haveSum) {
+    $want = ((Get-Content $sumFile -First 1) -split '\s+')[0]
+    $got  = (Get-FileHash -Path $zip -Algorithm SHA256).Hash
+    if ($want -and $got -ne $want) {
+        Die "kontrolni soucet nesouhlasi (cekano $want, ziskano $got)"
+    }
+    Write-Log "kontrolni soucet overen"
+} else {
+    Write-Warn "k archivu neni $ArchiveUrl.sha256 - pokracuji bez overeni souctu"
+}
 
 # --------------------------------------------------------------------------- #
 # 2) Unpack
@@ -105,6 +150,23 @@ if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix -ErrorAction Silent
 New-Item -ItemType Directory -Force -Path $Prefix | Out-Null
 Expand-Archive -Path $zip -DestinationPath $Prefix -Force
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+
+# The last line of the output points at "$Prefix\install.ps1 -Uninstall", so
+# that file has to be there -- including after `irm ... | iex`, where
+# $PSCommandPath is empty and we take the copy from the archive (or re-fetch it).
+$selfInstalled = Join-Path $Prefix "install.ps1"
+if (-not (Test-Path $selfInstalled)) {
+    if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
+        Copy-Item $PSCommandPath $selfInstalled -Force
+    } else {
+        try {
+            Fetch-File -Uri "https://raw.githubusercontent.com/$Repo/master/install.ps1" `
+                -OutFile $selfInstalled
+        } catch {
+            Write-Warn "nepodarilo se ulozit install.ps1 pro odinstalaci"
+        }
+    }
+}
 
 $engineInstalled = Join-Path $Prefix "idm.exe"
 $hostInstalled   = Join-Path $Prefix "idm-host.exe"

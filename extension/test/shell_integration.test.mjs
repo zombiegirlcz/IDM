@@ -15,7 +15,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, statSync, mkdtempSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync, mkdtempSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -133,21 +133,65 @@ test('scheme wrapper passes the URL through to the engine', () => {
   assert.ok(isExec(wrapper), 'wrapper must be executable');
 });
 
-test('installs file-manager context-menu actions that wrap the selection', () => {
+test('file-manager actions feed the selection to the engine queue', () => {
   const home = freshHome();
   run(home);
+
+  // The queue wrapper both actions call.
+  const queue = join(nativeDir(home), 'idm-queue-wrapper.sh');
+  assert.ok(existsSync(queue), `queue wrapper missing: ${queue}`);
+  assert.ok(isExec(queue), 'queue wrapper must be executable');
+  const q = readFileSync(queue, 'utf8');
+  assert.ok(/--queue/.test(q), 'wrapper must hand the file to the engine queue');
+  assert.ok(/--output-dir/.test(q), 'wrapper must pin the download directory');
+  assert.ok(
+    !/idmdwnlmfv9:\/\/file:/.test(q),
+    'a local path must not be wrapped as a download target (the engine refuses non-http)',
+  );
 
   // Nautilus script.
   const nautilus = join(home, '.local', 'share', 'nautilus', 'scripts', 'Stahnout s IDM');
   assert.ok(existsSync(nautilus), `nautilus script missing: ${nautilus}`);
-  const n = readFileSync(nautilus, 'utf8');
-  assert.ok(/idmdwnlmfv9:\/\//.test(n), 'context action must wrap as idmdwnlmfv9://');
   assert.ok(isExec(nautilus), 'nautilus script must be executable');
+  assert.ok(
+    readFileSync(nautilus, 'utf8').includes(queue),
+    'nautilus script must call the queue wrapper',
+  );
 
   // Thunar custom action.
   const thunar = join(home, '.config', 'Thunar', 'uca.xml');
   assert.ok(existsSync(thunar), `thunar custom action missing: ${thunar}`);
-  assert.ok(/idmdwnlmfv9:\/\//.test(readFileSync(thunar, 'utf8')));
+  assert.ok(readFileSync(thunar, 'utf8').includes(queue), 'thunar action must call the wrapper');
+});
+
+test('the queue wrapper downloads a list of URLs and rejects a non-list file', () => {
+  const home = freshHome();
+  run(home);
+  const queue = join(nativeDir(home), 'idm-queue-wrapper.sh');
+
+  // A file with no URL in it must fail loudly instead of silently doing nothing.
+  const notes = join(home, 'notes.txt');
+  writeFileSync(notes, 'just some text\n');
+  assert.throws(
+    () => execFileSync('bash', [queue, notes], { env: { ...process.env, HOME: home }, stdio: 'pipe' }),
+    /neobsahuje|No such|/,
+    'a file without URLs must exit non-zero',
+  );
+
+  // A real list is handed to the engine; we stand in for it with a stub that
+  // records its arguments, so this stays a unit test of the wrapper.
+  const stub = join(home, 'fake-idm');
+  const log = join(home, 'args.log');
+  writeFileSync(stub, `#!/bin/sh\nprintf '%s\\n' "$@" > ${log}\n`, { mode: 0o755 });
+  const list = join(home, 'links.txt');
+  writeFileSync(list, 'https://example.com/a.bin\nhttps://example.com/b.bin\n');
+  execFileSync('bash', [queue, list], {
+    env: { ...process.env, HOME: home, IDM_ENGINE_BIN: stub },
+    stdio: 'pipe',
+  });
+  const args = readFileSync(log, 'utf8');
+  assert.match(args, /--queue/, 'the engine must be called with --queue');
+  assert.ok(args.includes(list), 'the selected file must be passed as the queue');
 });
 
 test('--uninstall removes the integration', () => {

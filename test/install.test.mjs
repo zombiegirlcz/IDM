@@ -32,8 +32,15 @@ function fakeArchive() {
     writeFileSync(join(dir, b), `#!/bin/sh\necho ${b}\n`, { mode: 0o755 });
   }
   writeFileSync(join(dir, 'idm_gui.py'), '# fake gui\n');
+  // The real release archive also ships the aria2 helper and the installer
+  // itself (the latter is what `--uninstall` is documented to run).
+  writeFileSync(join(dir, 'ensure-aria2.sh'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  copyFileSync(join(repoRoot, 'install.sh'), join(dir, 'install.sh'));
   const tar = join(dir, 'idm-linux-x64.tar.gz');
-  execFileSync('tar', ['-czf', tar, '-C', dir, 'idm', 'idm-host', 'idm_gui.py']);
+  execFileSync('tar', [
+    '-czf', tar, '-C', dir,
+    'idm', 'idm-host', 'idm_gui.py', 'ensure-aria2.sh', 'install.sh',
+  ]);
   return tar;
 }
 
@@ -83,9 +90,49 @@ test('download path installs binaries, launcher, desktop icon', () => {
   assert.ok(existsSync(join(prefix, 'bin', 'idm-gui')), 'gui launcher must exist');
   assert.ok(existsSync(join(prefix, 'gui', 'idm_gui.py')), 'gui script must be installed');
 
+  // The aria2 auto-installer must travel with the binaries, otherwise
+  // `--aria2` cannot install aria2c on a clean machine.
+  assert.ok(
+    existsSync(join(prefix, 'bin', 'ensure-aria2.sh')),
+    'ensure-aria2.sh must be installed on the release path',
+  );
+  // The documented uninstall command is `bash $PREFIX/install.sh --uninstall`.
+  assert.ok(existsSync(join(prefix, 'install.sh')), 'install.sh must be kept in the prefix');
+
   const icon = join(home, 'Desktop', 'idm.desktop');
   assert.ok(existsSync(icon), `desktop icon missing: ${icon}`);
   execFileSync('desktop-file-validate', [icon], { stdio: 'pipe' });
+});
+
+test('uninstall works through the copy kept in the prefix (curl | bash case)', () => {
+  const home = freshHome();
+  const arch = fakeArchive();
+  // stdin-piped install: BASH_SOURCE is not a readable file, exactly like
+  // `curl -fsSL ... | bash`.
+  execFileSync('bash', ['-s'], {
+    env: { ...baseEnv(home), IDM_ARCHIVE_URL: `file://${arch}` },
+    input: readFileSync(installer),
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+
+  const prefix = join(home, '.local', 'share', 'idm');
+  const kept = join(prefix, 'install.sh');
+  assert.ok(existsSync(kept), 'install.sh must be available for --uninstall');
+
+  execFileSync('bash', [kept, '--uninstall'], {
+    env: { ...baseEnv(home), IDM_ARCHIVE_URL: `file://${arch}` },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  assert.ok(!existsSync(prefix), 'prefix should be gone after --uninstall');
+});
+
+test('refuses a plain-http archive URL', () => {
+  const home = freshHome();
+  assert.throws(
+    () => run(home, { IDM_ARCHIVE_URL: 'http://example.invalid/idm-linux-x64.tar.gz' }),
+    /https/,
+    'an http:// archive must be refused',
+  );
 });
 
 test('--uninstall removes the icon and prefix', () => {
