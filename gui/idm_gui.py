@@ -84,6 +84,7 @@ TOOLBAR = [
     "Scheduler",
     "Start Queue",
     "Stop Queue",
+    "Grabber",
 ]
 
 # --------------------------------------------------------------------------- #
@@ -159,6 +160,7 @@ TOOLBAR_ICONS = {
     "Scheduler": ("#6a1b9a", "clock"),
     "Start Queue": ("#2e7d32", "resume"),
     "Stop Queue": ("#c62828", "stop"),
+    "Grabber": ("#455a64", "gear"),
 }
 
 # Per-category icon spec.
@@ -356,6 +358,9 @@ DEFAULT_SETTINGS = {
         "enabled": False,
         "events": {},  # event name -> sound file path
     },
+    # Custom categories the user added. Empty = use the built-in CATEGORIES.
+    # Each entry: {"name": str, "extensions": [str], "dir": str, "sites": [str]}
+    "categories": [],
 }
 
 # Events IDM can play a sound for (docs/idm/options.txt, Sounds tab).
@@ -402,6 +407,368 @@ def save_settings(state_dir: str, settings: dict) -> None:
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(settings, f, indent=2, ensure_ascii=False)
     os.replace(tmp, path)
+
+
+# Categories that always exist in the tree and cannot be deleted.
+BUILTIN_CATEGORIES = [
+    "All Downloads", "Compressed", "Documents", "Music", "Programs",
+    "Video", "Unfinished", "Finished", "Grabber projects", "Queues",
+]
+PROTECTED_CATEGORIES = {"All Downloads", "Unfinished", "Finished",
+                        "Grabber projects", "Queues"}
+
+
+def list_categories(settings: dict) -> list:
+    """Built-in categories plus any custom ones from settings (no dups)."""
+    cats = list(BUILTIN_CATEGORIES)
+    for c in (settings or {}).get("categories", []):
+        name = (c or {}).get("name")
+        if name and name not in cats:
+            cats.append(name)
+    return cats
+
+
+def _find_category(settings: dict, name: str):
+    for c in (settings or {}).get("categories", []):
+        if (c or {}).get("name") == name:
+            return c
+    return None
+
+
+def _upsert_category(settings: dict, entry: dict, old_name: str = None) -> dict:
+    """Add or edit a custom category, returning a new settings dict."""
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    cats = [c for c in out.get("categories", [])
+            if (c or {}).get("name") not in (entry["name"], old_name)]
+    cats.append(entry)
+    out["categories"] = cats
+    return out
+
+
+def _delete_category(settings: dict, name: str) -> dict:
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    out["categories"] = [c for c in out.get("categories", [])
+                         if (c or {}).get("name") != name]
+    return out
+
+
+def _dialog_category(parent, settings=None):
+    """IDM 'Edit categories properties' dialog (Add/Edit a category).
+
+    Mirrors docs/idm/using_idm_using_idm.txt: a name, the associated file
+    extensions, the default download directory, and optional site filters.
+    Returns (window, getter) where getter() -> dict or None.
+    """
+    import tkinter as tk
+    from tkinter import ttk, filedialog
+
+    s = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    win = tk.Toplevel(parent)
+    win.title("Edit category")
+    win.geometry("480x300")
+
+    ttk.Label(win, text="Category name:").grid(row=0, column=0, sticky="w", padx=10, pady=6)
+    name = ttk.Entry(win, width=40)
+    name.grid(row=0, column=1, padx=10, pady=6)
+
+    ttk.Label(win, text="File extensions (space separated):").grid(
+        row=1, column=0, sticky="w", padx=10, pady=6)
+    exts = ttk.Entry(win, width=40)
+    exts.grid(row=1, column=1, padx=10, pady=6)
+
+    ttk.Label(win, text="Default download directory:").grid(
+        row=2, column=0, sticky="w", padx=10, pady=6)
+    row2 = ttk.Frame(win)
+    row2.grid(row=2, column=1, sticky="ew", padx=10, pady=6)
+    folder = ttk.Entry(row2, width=30)
+    folder.pack(side="left", fill="x", expand=True)
+
+    def pick():
+        d = filedialog.askdirectory(parent=win)
+        if d:
+            folder.delete(0, "end")
+            folder.insert(0, d)
+
+    ttk.Button(row2, text="Browse...", command=pick).pack(side="left", padx=4)
+
+    ttk.Label(win, text="Only from sites (space separated, optional):").grid(
+        row=3, column=0, sticky="w", padx=10, pady=6)
+    sites = ttk.Entry(win, width=40)
+    sites.grid(row=3, column=1, padx=10, pady=6)
+
+    result = {"value": None}
+
+    def ok():
+        n = name.get().strip()
+        if not n:
+            return
+        result["value"] = {
+            "name": n,
+            "extensions": exts.get().split(),
+            "dir": folder.get().strip(),
+            "sites": sites.get().split(),
+        }
+        win.destroy()
+
+    bar = ttk.Frame(win)
+    bar.grid(row=4, column=0, columnspan=2, sticky="e", padx=10, pady=10)
+    ttk.Button(bar, text="OK", command=ok).pack(side="right", padx=4)
+    ttk.Button(bar, text="Cancel", command=win.destroy).pack(side="right", padx=4)
+
+    def getter():
+        return result["value"]
+
+    return win, getter
+
+
+def looks_like_url(text: str) -> bool:
+    """True for http(s)/ftp URLs, the ones IDM picks up from the clipboard."""
+    t = (text or "").strip()
+    if not t or any(ch in t for ch in ("\n", "\r", " ")):
+        return False
+    return t.lower().startswith(("http://", "https://", "ftp://"))
+
+
+def _same_site(a: str, b: str) -> bool:
+    try:
+        from urllib.parse import urlparse
+        return urlparse(a).netloc == urlparse(b).netloc
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def crawl_site(start_url: str, max_pages: int = 50,
+               file_exts=None, same_site_only: bool = True,
+               timeout: float = 8.0) -> list:
+    """Explore a site breadth-first and return file URLs (the IDM Grabber).
+
+    Only HTML pages are followed; anything whose path ends in one of
+    `file_exts` (or that is not an HTML page) is collected as a file. Returns a
+    de-duplicated, sorted list of absolute URLs.
+    """
+    import re
+    from urllib.parse import urljoin, urlparse
+
+    exts = set(e.lower().lstrip(".") for e in (file_exts or []))
+    start = start_url.strip()
+    if not looks_like_url(start):
+        return []
+    seen_pages = set()
+    found = set()
+    queue = [start]
+    href_re = re.compile(r'''(?:href|src)\s*=\s*["']([^"']+)["']''', re.I)
+    while queue and len(seen_pages) < max_pages:
+        url = queue.pop(0)
+        if url in seen_pages:
+            continue
+        seen_pages.add(url)
+        try:
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (compatible; idm-grabber/1.0)"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                ctype = (resp.headers.get("Content-Type") or "").lower()
+                if "html" not in ctype and "xml" not in ctype:
+                    found.add(url)
+                    continue
+                body = resp.read(2_000_000).decode("utf-8", "ignore")
+        except Exception:  # noqa: BLE001
+            continue
+        for raw in href_re.findall(body):
+            link = urljoin(url, raw.strip())
+            if not link.lower().startswith(("http://", "https://", "ftp://")):
+                continue
+            if same_site_only and not _same_site(link, start):
+                continue
+            path = urlparse(link).path.lower()
+            ext = path.rsplit(".", 1)[-1] if "." in path else ""
+            if ext in exts:
+                found.add(link)
+            elif ext in ("", "html", "htm", "php", "asp", "aspx", "jsp"):
+                if link not in seen_pages:
+                    queue.append(link)
+            else:
+                if not exts or ext in exts:
+                    found.add(link)
+    return sorted(found)
+
+
+def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
+    """IDM Grabber: a 4-step wizard plus the main action dialog.
+
+    Mirrors docs/idm/idm-grabber_grabber_wizard.txt and
+    idm-grabber_grabber_main_dialog.txt. Step 1 is the start page, step 2 the
+    save folder, steps 3/4 are filters; the main dialog then explores the site
+    and can add the checked files to the main download list.
+    """
+    import tkinter as tk
+    from tkinter import ttk, filedialog, messagebox
+
+    win = tk.Toplevel(parent)
+    win.title("IDM Grabber")
+    win.geometry("720x520")
+
+    state = {"files": [], "checked": set()}
+
+    wiz = ttk.Notebook(win)
+    wiz.pack(fill="x", padx=8, pady=8)
+
+    s1 = ttk.Frame(wiz)
+    wiz.add(s1, text="1. Start page")
+    ttk.Label(s1, text="Grabber Project Name:").grid(row=0, column=0, sticky="w", padx=6, pady=4)
+    proj = ttk.Entry(s1, width=40)
+    proj.insert(0, "My project")
+    proj.grid(row=0, column=1, padx=6, pady=4, sticky="w")
+    ttk.Label(s1, text="Start page (URL):").grid(row=1, column=0, sticky="w", padx=6, pady=4)
+    start = ttk.Entry(s1, width=50)
+    start.insert(0, "https://")
+    start.grid(row=1, column=1, padx=6, pady=4, sticky="w")
+    ttk.Label(s1, text="Project template:").grid(row=2, column=0, sticky="w", padx=6, pady=4)
+    template = ttk.Combobox(s1, values=["custom", "All files from a web site",
+                                        "All images from a web site",
+                                        "All video from a web site",
+                                        "All audio from a web site"], width=30)
+    template.set("All files from a web site")
+    template.grid(row=2, column=1, sticky="w", padx=6, pady=4)
+
+    s2 = ttk.Frame(wiz)
+    wiz.add(s2, text="2. Save to")
+    ttk.Label(s2, text="Save files to:").grid(row=0, column=0, sticky="w", padx=6, pady=4)
+    folder = ttk.Entry(s2, width=50)
+    folder.insert(0, out_dir or os.path.expanduser("~/Downloads"))
+    folder.grid(row=0, column=1, padx=6, pady=4, sticky="w")
+
+    def pick():
+        d = filedialog.askdirectory(parent=win)
+        if d:
+            folder.delete(0, "end")
+            folder.insert(0, d)
+
+    ttk.Button(s2, text="Browse...", command=pick).grid(row=0, column=2, padx=6)
+    ttk.Checkbutton(s2, text="Save each file to the folder of its category").grid(
+        row=1, column=1, sticky="w", padx=6)
+    ttk.Checkbutton(s2, text="Add checked files to IDM on close").grid(
+        row=2, column=1, sticky="w", padx=6)
+
+    s3 = ttk.Frame(wiz)
+    wiz.add(s3, text="3. Explore")
+    same_site = tk.BooleanVar(value=True)
+    ttk.Checkbutton(s3, text="Explore the current site only",
+                    variable=same_site).grid(row=0, column=0, sticky="w", padx=6, pady=4)
+    ttk.Label(s3, text="Max pages to explore:").grid(row=1, column=0, sticky="w", padx=6, pady=4)
+    max_pages = ttk.Spinbox(s3, from_=1, to=1000, width=6)
+    max_pages.set(50)
+    max_pages.grid(row=1, column=1, sticky="w", padx=6)
+
+    s4 = ttk.Frame(wiz)
+    wiz.add(s4, text="4. Filters")
+    ttk.Label(s4, text="File types to download (space separated):").grid(
+        row=0, column=0, sticky="w", padx=6, pady=4)
+    exts = ttk.Entry(s4, width=50)
+    exts.insert(0, "zip rar 7z pdf doc docx mp3 mp4 mkv avi jpg jpeg png gif exe msi")
+    exts.grid(row=0, column=1, padx=6, pady=4, sticky="w")
+
+    main = ttk.Frame(win)
+    main.pack(fill="both", expand=True, padx=8, pady=4)
+
+    toolbar = ttk.Frame(main)
+    toolbar.pack(fill="x")
+    ttk.Button(toolbar, text="Start Exploring").pack(side="left", padx=2)
+    ttk.Button(toolbar, text="Stop Exploring").pack(side="left", padx=2)
+    ttk.Button(toolbar, text="Check All Files").pack(side="left", padx=2)
+    ttk.Button(toolbar, text="Uncheck All Files").pack(side="left", padx=2)
+    ttk.Button(toolbar, text="Start Downloading").pack(side="left", padx=2)
+    ttk.Button(toolbar, text="Add to IDM").pack(side="left", padx=2)
+    ttk.Button(toolbar, text="Statistics").pack(side="left", padx=2)
+
+    files = ttk.Treeview(main, columns=("check", "url"), show="headings", height=12)
+    files.heading("check", text="D")
+    files.heading("url", text="File URL")
+    files.column("check", width=30, anchor="center")
+    files.column("url", width=600)
+    files.pack(fill="both", expand=True)
+
+    info = tk.StringVar(value="Ready.")
+    ttk.Label(win, textvariable=info, relief="sunken", anchor="w").pack(
+        fill="x", side="bottom")
+
+    def render():
+        files.delete(*files.get_children(""))
+        for i, url in enumerate(state["files"]):
+            mark = "x" if i in state["checked"] else ""
+            files.insert("", "end", iid=str(i), values=(mark, url))
+        info.set(f"{len(state['files'])} files found.")
+
+    def toggle(_e):
+        for iid in files.selection():
+            i = int(iid)
+            if i in state["checked"]:
+                state["checked"].discard(i)
+            else:
+                state["checked"].add(i)
+        render()
+
+    files.bind("<Double-1>", toggle)
+
+    def check_all():
+        state["checked"] = set(range(len(state["files"])))
+        render()
+
+    def uncheck_all():
+        state["checked"] = set()
+        render()
+
+    def explore():
+        url = start.get().strip()
+        if not looks_like_url(url):
+            messagebox.showwarning("Grabber", "Zadej platnou start URL.", parent=win)
+            return
+        info.set("Exploring...")
+        win.update_idletasks()
+        try:
+            found = crawl_site(
+                url,
+                max_pages=int(max_pages.get() or 50),
+                file_exts=exts.get().split(),
+                same_site_only=bool(same_site.get()),
+            )
+        except Exception as e:  # noqa: BLE001
+            messagebox.showerror("Grabber", f"Exploring failed: {e}", parent=win)
+            return
+        state["files"] = found
+        state["checked"] = set(range(len(found)))
+        render()
+
+    def add_to_idm():
+        if api is None:
+            return
+        added = 0
+        for i in sorted(state["checked"]):
+            try:
+                api.add(state["files"][i])
+                added += 1
+            except Exception:  # noqa: BLE001
+                pass
+        info.set(f"Added {added} files to IDM.")
+
+    def stats():
+        messagebox.showinfo(
+            "IDM Grabber Statistics",
+            f"Files found: {len(state['files'])}\n"
+            f"Checked: {len(state['checked'])}\n"
+            f"Start page: {start.get().strip()}\n"
+            f"Save to: {folder.get().strip()}", parent=win)
+
+    btns = toolbar.winfo_children()
+    btns[0].config(command=explore)
+    btns[2].config(command=check_all)
+    btns[3].config(command=uncheck_all)
+    btns[4].config(command=add_to_idm)
+    btns[5].config(command=add_to_idm)
+    btns[6].config(command=stats)
+
+    wiz.select(0)
+    win._idm_grabber = {"state": state, "start": start, "render": render}
+    return win
 
 
 # --------------------------------------------------------------------------- #
@@ -1093,19 +1460,25 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     ttk.Label(left, text="Categories").pack(anchor="w")
     tree = ttk.Treeview(left, show="tree", selectmode="browse")
     tree.pack(fill="both", expand=True)
-    parent = ""
-    for c in CATEGORIES:
-        spec = CATEGORY_ICONS.get(c)
-        img = _icon(spec[0], spec[1], 14, master=root) if spec else None
-        if img is not None:
-            w["icons"].append(img)
-            tree.insert(parent, "end", text=c, image=img)
-        else:
-            tree.insert(parent, "end", text=c)
+
+    def rebuild_tree():
+        """Fill the category tree from the persisted settings."""
+        tree.delete(*tree.get_children(""))
+        for c in list_categories(load_settings(state_dir)):
+            spec = CATEGORY_ICONS.get(c)
+            img = _icon(spec[0], spec[1], 14, master=root) if spec else None
+            if img is not None:
+                w["icons"].append(img)
+                tree.insert("", "end", text=c, image=img)
+            else:
+                tree.insert("", "end", text=c)
+        w["categories"] = [tree.item(i, "text") for i in tree.get_children("")]
+        w["categories_with_icons"] = sum(
+            1 for i in tree.get_children("") if tree.item(i, "image")
+        )
+
+    rebuild_tree()
     w["tree"] = tree
-    w["categories_with_icons"] = sum(
-        1 for i in tree.get_children("") if tree.item(i, "image")
-    )
     body.add(left, weight=1)
 
     # --- category context menu (right click), like IDM ---
@@ -1188,6 +1561,9 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             btn.config(command=lambda: _delete_completed())
         elif name in ("Start Queue", "Stop Queue"):
             btn.config(command=lambda n=name: _queue_all(n))
+        elif name == "Grabber":
+            btn.config(command=lambda: _dialog_grabber(
+                root, api=api, state_dir=state_dir, out_dir=out_dir))
 
     def _delete_completed():
         try:
@@ -1335,12 +1711,48 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             cat_menu.grab_release()
 
     tree.bind("<Button-3>", _on_cat_menu)
-    cat_menu.entryconfig("Add category...",
-                         command=lambda: status.set("Add category: not implemented yet"))
-    cat_menu.entryconfig("Edit category...",
-                         command=lambda: status.set("Edit category: not implemented yet"))
-    cat_menu.entryconfig("Delete category",
-                         command=lambda: status.set("Delete category: not implemented yet"))
+
+    def _selected_category():
+        sel = tree.selection()
+        return tree.item(sel[0], "text") if sel else None
+
+    def _add_category():
+        cw, getter = _dialog_category(root, load_settings(state_dir))
+        root.wait_window(cw)
+        entry = getter()
+        if entry:
+            save_settings(state_dir, _upsert_category(
+                load_settings(state_dir), entry))
+            rebuild_tree()
+            status.set(f"category added: {entry['name']}")
+
+    def _edit_category():
+        name = _selected_category()
+        if not name:
+            return
+        cw, getter = _dialog_category(root, load_settings(state_dir))
+        root.wait_window(cw)
+        entry = getter()
+        if entry:
+            save_settings(state_dir, _upsert_category(
+                load_settings(state_dir), entry, old_name=name))
+            rebuild_tree()
+            status.set(f"category saved: {entry['name']}")
+
+    def _del_category():
+        name = _selected_category()
+        if not name:
+            return
+        if name in PROTECTED_CATEGORIES:
+            status.set(f"category '{name}' cannot be deleted")
+            return
+        save_settings(state_dir, _delete_category(load_settings(state_dir), name))
+        rebuild_tree()
+        status.set(f"category deleted: {name}")
+
+    cat_menu.entryconfig("Add category...", command=_add_category)
+    cat_menu.entryconfig("Edit category...", command=_edit_category)
+    cat_menu.entryconfig("Delete category", command=_del_category)
 
     def _open_options():
         _dialog_options(
@@ -1413,6 +1825,9 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     view_menu.add_command(label="Scheduler...",
                           command=lambda: _dialog_scheduler(root, api=api))
     view_menu.add_command(label="Options...", command=lambda: _open_options())
+    view_menu.add_command(label="Grabber...",
+                          command=lambda: _dialog_grabber(
+                              root, api=api, state_dir=state_dir, out_dir=out_dir))
     menubar.add_cascade(label="View", menu=view_menu)
 
     help_menu = tk.Menu(menubar, tearoff=0)
@@ -1426,6 +1841,68 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         pass
     w["menubar"] = menubar
     w["menus"] = ["File", "Downloads", "View", "Help"]
+
+    # --- clipboard monitor (Options -> General) -------------------------
+    # IDM watches the clipboard for URLs and offers to download them
+    # (docs/idm/using_idm_starting.txt). We poll, since Tk has no clipboard
+    # event, and remember the last seen value so we only react to new URLs.
+    clip_state = {"last": ""}
+
+    def _add_url_now(url):
+        try:
+            conns = int(load_settings(state_dir)["connection"]["max_connections"])
+        except Exception:  # noqa: BLE001
+            conns = 4
+        try:
+            api.add(url, connections=conns, aria2=bool(aria2_var.get()))
+            status.set(f"added: {basename(url)}")
+        except Exception as e:  # noqa: BLE001
+            status.set(f"error: {e}")
+        refresh()
+
+    def _poll_clipboard():
+        try:
+            if load_settings(state_dir)["general"].get("monitor_clipboard", True):
+                text = ""
+                try:
+                    text = root.clipboard_get()
+                except Exception:  # noqa: BLE001
+                    text = ""
+                if (text and text != clip_state["last"]
+                        and looks_like_url(text)):
+                    clip_state["last"] = text
+                    _prompt_clipboard(text)
+        except Exception:  # noqa: BLE001
+            pass
+        root.after(1000, _poll_clipboard)
+
+    def _prompt_clipboard(url):
+        import tkinter.messagebox as mb
+        if mb.askyesno("Internet Download Manager",
+                       f"Stáhnout tento odkaz?\n\n{url}"):
+            _add_url_now(url)
+
+    root.after(1500, _poll_clipboard)
+    w["add_url_now"] = _add_url_now
+
+    # --- drag & drop onto the window (best effort) ----------------------
+    # IDM accepts hyperlinks dragged from a browser. That needs an optional
+    # extension; when it is missing we still accept dropped text/URLs through
+    # Tk's own selection mechanism on the list area.
+    try:
+        from tkinterdnd2 import DND_TEXT, TkinterDnD  # noqa: F401
+        _have_dnd = True
+    except Exception:  # noqa: BLE001
+        _have_dnd = False
+    w["has_dnd"] = _have_dnd
+
+    def _drop_text(_event, data=None):
+        url = (data or "").strip()
+        if looks_like_url(url):
+            _add_url_now(url)
+        return "break"
+
+    w["drop_text"] = _drop_text
 
     root.protocol(
         "WM_DELETE_WINDOW",
@@ -1690,6 +2167,13 @@ def selftest_dump(engine):
     _collect_widgets(abw, acc)
     dialogs.append({"title": abw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
 
+    grw = _dialog_grabber(root)
+    grw.withdraw()
+    acc = {"buttons": [], "labels": [], "tabs": []}
+    _collect_widgets(grw, acc)
+    dialogs.append({"title": grw.title(), "widgets": acc["labels"] + acc["buttons"],
+                    "tabs": acc["tabs"]})
+
     # Download Progress dialog: carries a canvas with one bar per connection.
     pw2, pcanvas, pbars = _dialog_progress(root, "movie.mp4", connections=4)
     pw2.withdraw()
@@ -1730,7 +2214,7 @@ def selftest_dump(engine):
     }
 
     # Cleanup.
-    for win in (aw, fw, ow, sw, pw, cw, abw, pw2):
+    for win in (aw, fw, ow, sw, pw, cw, abw, grw, pw2):
         try:
             win.destroy()
         except Exception:  # noqa: BLE001
