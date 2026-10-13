@@ -27,16 +27,14 @@
     }
   },
   "tdd": {
-    "phase": "red-pending",
-    "testFiles": [
-      "/root/IDM/test/icon.test.mjs"
-    ],
+    "phase": "idle",
+    "testFiles": [],
     "sourceFiles": [],
-    "redVerificationPending": true
+    "redVerificationPending": false
   },
   "debug": {
     "active": false,
-    "investigated": true,
+    "investigated": false,
     "fixAttempts": 0
   },
   "verification": {
