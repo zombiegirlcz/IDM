@@ -117,19 +117,26 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
   const outFile = join(dlDir, 'file.bin');
 
   const userDataDir = join(tmpdir(), `idm_prof_${process.pid}_${randomBytes(4).toString('hex')}`);
-  // Chromium reads native-messaging manifests from <user-data-dir>/NativeMessagingHosts,
-  // so the test is self-contained: no system-wide install required.
-  const nmDir = join(userDataDir, 'NativeMessagingHosts');
-  mkdirSync(nmDir, { recursive: true });
-  writeFileSync(
-    join(nmDir, 'com.tonec.idm.json'),
-    JSON.stringify({ ...hostManifest, path: hostBin }, null, 2),
-  );
+  // Chromium looks for native-messaging manifests under
+  // $HOME/.config/<browser>/NativeMessagingHosts (NOT under --user-data-dir).
+  // We therefore give the browser its own HOME inside the temp dir and install
+  // the manifest there: self-contained, and the user's real registration is
+  // left alone.
+  const fakeHome = join(userDataDir, 'home');
+  for (const browser of ['chromium', 'google-chrome', 'chrome']) {
+    const nmDir = join(fakeHome, '.config', browser, 'NativeMessagingHosts');
+    mkdirSync(nmDir, { recursive: true });
+    writeFileSync(
+      join(nmDir, 'com.tonec.idm.json'),
+      JSON.stringify({ ...hostManifest, path: hostBin }, null, 2),
+    );
+  }
 
   const context = await chromium.launchPersistentContext(userDataDir, {
     executablePath: CHROMIUM,
     headless: false, // real Chromium under Xvfb; extensions need a display
     cwd: dlDir,
+    env: { ...process.env, HOME: fakeHome },
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
