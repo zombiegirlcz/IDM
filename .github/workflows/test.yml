@@ -45,11 +45,13 @@ jobs:
       # What the suites need beyond Rust/Node:
       #   desktop-file-validate  — validates the generated .desktop files
       #   python3-tk + xvfb      — the native Tk window tests build a real window
+      #   python3-pil(.imagetk)  — the toolbar/category icons are drawn with PIL
       # Without these the suites either silently skip (locally) or fail (here).
       - name: Install test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y desktop-file-utils python3-tk xvfb
+          sudo apt-get install -y desktop-file-utils python3-tk xvfb \
+                                  python3-pil python3-pil.imagetk
 
       # Note: `npm test` runs `cargo build --release` first, so a cached
       # engine/target cannot cause a false "release binary is STALE".
