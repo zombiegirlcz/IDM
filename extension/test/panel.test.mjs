@@ -73,20 +73,21 @@ test('content.js injects a download panel over a <video>', () => {
   assert.match(btn.textContent, /download|stáhnout/i, `button label: ${btn.textContent}`);
 });
 
-test('clicking the panel button requests a download of the video', () => {
+test('the panel button ignores a synthesized click and acts on a user click', () => {
   const { dom, sent } = runContent(
     '<!doctype html><html><body><video src="https://example.com/movie.mp4"></video></body></html>',
   );
 
   const btn = panelOf(dom).querySelector('button');
+  // Script-dispatched: untrusted (jsdom cannot forge a trusted event), so the
+  // download must NOT be requested. A real user press is covered by
+  // extension/test/chrome_e2e.test.mjs.
   btn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
-
-  const op = hasOp(sent, 42);
-  assert.ok(
-    op,
-    `clicking must emit opcode 42 (media download), got: ${JSON.stringify(sent.map((m) => m[0]))}`,
+  assert.equal(
+    hasOp(sent, 42),
+    undefined,
+    `an untrusted click must not emit opcode 42, got: ${JSON.stringify(sent.map((m) => m[0]))}`,
   );
-  assert.match(String(op[2]), /movie\.mp4$/, 'opcode 42 must carry the video src');
 });
 
 test('a page without media gets no panel', () => {

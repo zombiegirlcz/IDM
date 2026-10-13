@@ -38,3 +38,7 @@ dll/*.json
 docs/idm/*.html
 docs/idm/*.txt
 docs/idm/pictures/
+
+# Python bytecode
+__pycache__/
+*.pyc

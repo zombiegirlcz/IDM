@@ -21,8 +21,15 @@
         port = null;
         window.__idm_init__ = false;
       });
-      for (var i = 0; i < queued.length; i++) port.postMessage(queued[i]);
-      queued = [];
+      while (queued.length) {
+        var m = queued.shift();
+        try {
+          port.postMessage(m);
+        } catch (e) {
+          // Drop a message that cannot be delivered rather than stalling the
+          // whole queue behind it.
+        }
+      }
     } catch (e) {
       port = null;
     }
@@ -35,10 +42,14 @@
         port.postMessage(msg);
         return;
       } catch (e) {
+        // A message the structured clone algorithm rejects would fail forever;
+        // only a transport failure is worth re-queueing.
+        if (/clone|serial/i.test(String(e && e.message))) return;
         port = null;
       }
     }
-    queued.push(msg);
+    // Bounded: a page we can never reach must not grow this without limit.
+    if (queued.length < 200) queued.push(msg);
   }
 
   // --- opcode 29: activity/click ---
@@ -80,6 +91,10 @@
   }
 
   function onLinkClick(e) {
+    // Only a real user gesture may trigger a download: a page can dispatch a
+    // synthetic click on a crafted <a download> and would otherwise get the
+    // native host to fetch an arbitrary URL without the user doing anything.
+    if (!e.isTrusted) return;
     var el = e.target;
     while (el && el.localName !== 'a') el = el.parentElement;
     if (!isDownloadLink(el)) return;
@@ -116,8 +131,10 @@
     var src = el.currentSrc || el.src || el.data || '';
     // 22: notify background of the media element + its geometry
     post([22, kind, src, rectOf(el)[0], rectOf(el)[1]]);
-    // 41: full media element descriptor
-    post([41, el, kind, src, 0, 0, 0]);
+    // 41: full media element descriptor. The element slot carries a serialized
+    // snippet, never the live node — a DOM node cannot be structured-cloned and
+    // the throw would take the whole port down.
+    post([41, serialize(el), kind, src, 0, 0, 0]);
     // 34: serialized DOM snippet for debugging
     post([34, serialize(el)]);
   }
@@ -163,6 +180,7 @@
       'font:12px system-ui,sans-serif',
     ].join(';');
     btn.addEventListener('click', function (e) {
+      if (!e.isTrusted) return;
       e.preventDefault();
       e.stopPropagation();
       onPanelDownload(kind, el.currentSrc || el.src || el.data || src);
@@ -178,6 +196,25 @@
     box.style.top = (r[1] + window.scrollY + 8) + 'px';
   }
 
+  // One scroll/resize handler for all panels, instead of a pair per media
+  // element that nothing ever removes. Panels whose element left the document
+  // are dropped here, which is also what cleans up their DOM nodes.
+  var panels = [];
+  function repositionPanels() {
+    for (var i = panels.length - 1; i >= 0; i--) {
+      var p = panels[i];
+      if (!p.el.isConnected) {
+        p.box.remove();
+        p.el.removeAttribute('data-idm-panel-for');
+        panels.splice(i, 1);
+        continue;
+      }
+      positionPanel(p.box, p.el);
+    }
+  }
+  window.addEventListener('scroll', repositionPanels, { passive: true });
+  window.addEventListener('resize', repositionPanels);
+
   function injectPanel(el) {
     var kind = mediaKind(el);
     if (!kind) return;
@@ -188,8 +225,7 @@
     var box = makePanel(el, kind, src);
     document.body.appendChild(box);
     positionPanel(box, el);
-    window.addEventListener('scroll', function () { positionPanel(box, el); }, { passive: true });
-    window.addEventListener('resize', function () { positionPanel(box, el); });
+    panels.push({ box: box, el: el });
   }
 
   function injectPanels() {
@@ -217,6 +253,8 @@
     scanMedia();
   }
 
-  // Expose for tests/debug.
+  // Expose for tests/debug. Pure predicates only — never anything that could
+  // make the page itself start a download.
   window.__idm_serialize__ = serialize;
+  window.__idm_is_download_link__ = isDownloadLink;
 })();

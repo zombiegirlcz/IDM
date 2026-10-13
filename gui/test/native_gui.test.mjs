@@ -156,6 +156,10 @@ test('API client drives a real download through idm --serve', async () => {
         '--selftest-api',
         '--addr',
         addr,
+        // The engine writes its API token into STATE_DIR/api-token; the client
+        // reads it from there, so the state dir has to be passed along.
+        '--state-dir',
+        stateDir,
         '--url',
         `${url}/file.bin`,
       ], { env: { ...process.env, IDM_ENGINE_BIN: engine } });

@@ -16,7 +16,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { chromium } from 'playwright-core';
 import { fileURLToPath } from 'node:url';
@@ -93,14 +93,23 @@ function startServer(data) {
 
 test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC', { timeout: 180000 }, async () => {
   assert.ok(existsSync(CHROMIUM), `chromium not found at ${CHROMIUM}`);
-  // The host manifest path must exist (release build) or Chrome won't spawn it.
+  // Chrome only spawns the host it finds a manifest for. The committed
+  // manifest carries the absolute path of whichever checkout installed it
+  // last, so we install our own copy into the throwaway profile below,
+  // pointing at the host THIS checkout built.
   const hostManifest = JSON.parse(
     readFileSync(join(ext, 'com.tonec.idm.json'), 'utf8'),
   );
-  assert.ok(
-    existsSync(hostManifest.path),
-    `host binary missing: ${hostManifest.path} (run: cd engine && cargo build --release)`,
-  );
+  const hostBin = process.env.IDM_HOST_BIN
+    || join(repoRoot, 'engine/target/release/idm-host');
+  const engineBin = process.env.IDM_ENGINE_BIN
+    || join(repoRoot, 'engine/target/release/idm');
+  for (const bin of [hostBin, engineBin]) {
+    assert.ok(
+      existsSync(bin),
+      `binary missing: ${bin} (run: cd engine && cargo build --release)`,
+    );
+  }
 
   const data = makeData(1_500_000);
   const expectedCrc = crc32(data);
@@ -112,11 +121,47 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
   const outFile = join(dlDir, 'file.bin');
 
   const userDataDir = join(tmpdir(), `idm_prof_${process.pid}_${randomBytes(4).toString('hex')}`);
+  // Chromium looks for native-messaging manifests under
+  // $HOME/.config/<browser>/NativeMessagingHosts (NOT under --user-data-dir).
+  // We therefore give the browser its own HOME inside the temp dir and install
+  // the manifest there: self-contained, and the user's real registration is
+  // left alone.
+  const fakeHome = join(userDataDir, 'home');
+  const fakeConfig = join(fakeHome, '.config');
+  const nmDirs = [
+    // XDG config dir per browser flavour (what install-host.sh writes to).
+    ...['chromium', 'google-chrome', 'chrome'].map((b) =>
+      join(fakeConfig, b, 'NativeMessagingHosts')),
+    // Some builds resolve the manifest dir from the user data dir instead.
+    join(userDataDir, 'NativeMessagingHosts'),
+  ];
+  // idm-host is fail-closed: with no --allowed-dir it exits immediately. The
+  // real installer therefore registers a wrapper that supplies it (see
+  // extension/install-host.sh); the manifest must point at the same shape of
+  // wrapper here, or Chrome just reports "Native host has exited".
+  const wrapper = join(fakeHome, 'idm-host-wrapper.sh');
+  mkdirSync(fakeHome, { recursive: true });
+  writeFileSync(
+    wrapper,
+    `#!/usr/bin/env bash\nexec "${hostBin}" --engine "${engineBin}" `
+      + `--allowed-dir "${dlDir}" "$@"\n`,
+    { mode: 0o755 },
+  );
+  for (const nmDir of nmDirs) {
+    mkdirSync(nmDir, { recursive: true });
+    writeFileSync(
+      join(nmDir, 'com.tonec.idm.json'),
+      JSON.stringify({ ...hostManifest, path: wrapper }, null, 2),
+    );
+  }
 
   const context = await chromium.launchPersistentContext(userDataDir, {
     executablePath: CHROMIUM,
     headless: false, // real Chromium under Xvfb; extensions need a display
     cwd: dlDir,
+    // HOME *and* XDG_CONFIG_HOME: an inherited XDG_CONFIG_HOME would otherwise
+    // win over HOME when Chromium resolves its config directory.
+    env: { ...process.env, HOME: fakeHome, XDG_CONFIG_HOME: fakeConfig },
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
@@ -172,7 +217,9 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
 
     assert.ok(
       onDisk,
-      `download never produced a byte-exact ${outFile}\n` +
+      `download never produced a byte-exact ${outFile}\n`
+      + `host: ${hostBin}, engine: ${engineBin}, wrapper: ${wrapper}\n`
+      + `manifest dirs: ${nmDirs.join(', ')}\n` +
         `page logs:\n${pageLogs.join('\n')}\nservice worker logs:\n${swLogs.join('\n')}`,
     );
     assert.ok(onDisk.equals(data), 'file bytes must equal served bytes');

@@ -169,7 +169,7 @@ pub fn output_name(meta: &serde_json::Value, format: Option<&str>) -> PathBuf {
     PathBuf::from(format!("{}.{}", sanitize(title), ext))
 }
 
-/// Download via yt-dlp into `out`.
+/// Download via yt-dlp into `out`; returns the file that was actually written.
 #[allow(clippy::too_many_arguments)]
 pub async fn download(
     yt_dlp: &Path,
@@ -181,7 +181,7 @@ pub async fn download(
     cookie: Option<&str>,
     referer: Option<&str>,
     proxy: Option<&str>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<PathBuf> {
     let mut cmd = tokio::process::Command::new(yt_dlp);
     cmd.arg("--no-playlist").arg("--no-warnings");
     if let Some(p) = proxy {
@@ -198,7 +198,8 @@ pub async fn download(
     }
     apply_auth(&mut cmd, cookie, referer);
     cmd.arg("-o").arg(out);
-    cmd.arg(url);
+    // `--` so a URL starting with `-` is never parsed as an option.
+    cmd.arg("--").arg(url);
     let status = cmd
         .status()
         .await
@@ -206,10 +207,47 @@ pub async fn download(
     if !status.success() {
         bail!("yt-dlp exited with {}", status);
     }
-    if !out.exists() {
-        bail!("yt-dlp reported success but {} was not created", out.display());
+    if out.exists() {
+        return Ok(out.to_path_buf());
     }
-    Ok(())
+    // yt-dlp's merger picks the container, so `video.mp4` can legitimately come
+    // out as `video.webm` / `video.mkv`. Find the file it actually wrote before
+    // declaring failure.
+    if let Some(actual) = sibling_with_stem(out) {
+        return Ok(actual);
+    }
+    bail!("yt-dlp reported success but {} was not created", out.display())
+}
+
+/// Newest `<stem>.*` file next to `out` (the file yt-dlp really produced).
+fn sibling_with_stem(out: &Path) -> Option<PathBuf> {
+    let dir = match out.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
+        _ => PathBuf::from("."),
+    };
+    let stem = out.file_stem()?.to_owned();
+    let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
+    for e in std::fs::read_dir(dir).ok()?.flatten() {
+        let p = e.path();
+        if p.file_stem() != Some(stem.as_os_str()) || !p.is_file() {
+            continue;
+        }
+        // Skip yt-dlp's own leftovers (.part, .ytdl).
+        if matches!(
+            p.extension().and_then(|x| x.to_str()),
+            Some("part") | Some("ytdl")
+        ) {
+            continue;
+        }
+        let mtime = e
+            .metadata()
+            .and_then(|m| m.modified())
+            .unwrap_or(std::time::UNIX_EPOCH);
+        if best.as_ref().map(|(t, _)| mtime > *t).unwrap_or(true) {
+            best = Some((mtime, p));
+        }
+    }
+    best.map(|(_, p)| p)
 }
 
 #[cfg(test)]

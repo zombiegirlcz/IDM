@@ -18,6 +18,30 @@ const repoRoot = join(here, '..');
 const ps1 = join(repoRoot, 'install.ps1');
 const src = () => readFileSync(ps1, 'utf8');
 
+// NOTE: real execution (install + -Uninstall against a locally built archive)
+// happens in the `windows-installer` CI job, which also parses the script with
+// PowerShell. What follows is what can be checked without Windows.
+
+test('keeps a copy of itself in the prefix for -Uninstall', () => {
+  const s = src();
+  assert.match(
+    s,
+    /PSScriptRoot/,
+    'the copy in the prefix must act on that installation, not the default path',
+  );
+  // The final output tells the user to run "$Prefix\install.ps1 -Uninstall",
+  // so the file has to get there even for `irm ... | iex`.
+  assert.match(s, /\$selfInstalled/, 'must install a copy of itself');
+  assert.match(s, /PSCommandPath/, 'must use its own path when it has one');
+});
+
+test('verifies the archive checksum and refuses plain http', () => {
+  const s = src();
+  assert.match(s, /Get-FileHash/, 'must hash the downloaded archive');
+  assert.match(s, /\.sha256/, 'must fetch the published checksum');
+  assert.match(s, /https:\/\/\*/, 'must require https for the archive URL');
+});
+
 test('install.ps1 exists and has balanced braces', () => {
   assert.ok(existsSync(ps1), `missing ${ps1}`);
   let depth = 0;

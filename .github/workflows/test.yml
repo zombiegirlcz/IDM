@@ -5,10 +5,11 @@ name: test
 #   cargo test
 #   node --test extension/test/*.test.mjs  (excluding the real-Chromium E2E)
 #
-# The real-Chromium harness (extension/test/chrome_e2e.test.mjs) is NOT run
-# here: it needs a working Chromium + display and is blocked in sandboxes.
-# Run it manually where Chromium works:
-#   xvfb-run -a node --test extension/test/chrome_e2e.test.mjs
+# The real-Chromium harness (extension/test/chrome_e2e.test.mjs) runs in its own
+# `chrome-e2e` job under Xvfb (it is excluded from `npm test` because it needs a
+# working Chromium + display and is blocked in sandboxes). The Windows installer
+# gets a `windows-installer` job that at least parses install.ps1 with
+# PowerShell, which no other job can do.
 
 on:
   push:
@@ -41,7 +42,120 @@ jobs:
       - name: Install JS dependencies
         run: npm install
 
+      # What the suites need beyond Rust/Node:
+      #   desktop-file-validate  — validates the generated .desktop files
+      #   python3-tk + xvfb      — the native Tk window tests build a real window
+      #   python3-pil(.imagetk)  — the toolbar/category icons are drawn with PIL
+      # Without these the suites either silently skip (locally) or fail (here).
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y desktop-file-utils python3-tk xvfb \
+                                  python3-pil python3-pil.imagetk
+
       # Note: `npm test` runs `cargo build --release` first, so a cached
       # engine/target cannot cause a false "release binary is STALE".
       - name: Run full test matrix
         run: npm test
+
+  chrome-e2e:
+    # The only test that exercises the real browser -> content.js -> background
+    # -> native host chain with genuinely trusted user events. Non-blocking for
+    # now: Chromium in CI is flaky, but a failure must be visible.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install JS dependencies
+        run: npm install
+
+      # NOT Ubuntu's chromium-browser: on noble it is a snap shim, and snap
+      # confinement makes Chrome unable to find a native-messaging host outside
+      # the snap's own directories ("Specified native messaging host not
+      # found"), which is exactly what this test exercises. Playwright's
+      # unconfined build has no such limitation.
+      - name: Install Playwright Chromium + Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          node node_modules/playwright-core/cli.js install --with-deps chromium
+
+      - name: Build engine + host
+        run: cd engine && cargo build --release
+
+      - name: Run the real-Chromium E2E
+        run: |
+          CHROMIUM_BIN="$(node -e "console.log(require('playwright-core').chromium.executablePath())")"
+          echo "using $CHROMIUM_BIN"
+          CHROMIUM_BIN="$CHROMIUM_BIN" xvfb-run -a node --test extension/test/chrome_e2e.test.mjs
+
+  windows-installer:
+    # install.ps1 is Windows-only, so this is the one place it can actually be
+    # parsed by PowerShell instead of pattern-matched by a Node test.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse install.ps1
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ./install.ps1), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors -and $errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Host $_.Message }
+            throw "install.ps1 has $($errors.Count) parse error(s)"
+          }
+          Write-Host "install.ps1 parses cleanly"
+
+      - name: Lint install.ps1
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -ErrorAction Stop
+          Invoke-ScriptAnalyzer -Path ./install.ps1 -Severity Error
+
+      # Run it for real against a locally built archive: install, check what
+      # landed, then uninstall through the copy it keeps in the prefix. Nothing
+      # here touches the network or a release.
+      - name: Install and uninstall for real
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage  = Join-Path $env:RUNNER_TEMP 'stage'
+          $prefix = Join-Path $env:RUNNER_TEMP 'idm-prefix'
+          $dl     = Join-Path $env:RUNNER_TEMP 'idm-downloads'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          # Stand-ins for the binaries: the installer only copies and registers.
+          'exit 0' | Set-Content (Join-Path $stage 'idm.exe')
+          'exit 0' | Set-Content (Join-Path $stage 'idm-host.exe')
+          '# gui'  | Set-Content (Join-Path $stage 'idm_gui.py')
+          Copy-Item ./install.ps1 $stage
+          Copy-Item ./scripts/ensure-aria2.ps1 $stage
+          $zip = Join-Path $env:RUNNER_TEMP 'idm-windows-x64.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
+          $sha = (Get-FileHash $zip -Algorithm SHA256).Hash
+          "$sha  idm-windows-x64.zip" | Set-Content "$zip.sha256"
+          $url = ([System.Uri](Resolve-Path $zip).Path).AbsoluteUri
+
+          ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir $dl
+
+          foreach ($f in 'idm.exe', 'idm-host.exe', 'install.ps1') {
+            if (-not (Test-Path (Join-Path $prefix $f))) { throw "missing after install: $f" }
+          }
+          $reg = 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.tonec.idm'
+          if (-not (Test-Path $reg)) { throw "native messaging host not registered" }
+
+          & (Join-Path $prefix 'install.ps1') -Uninstall
+          if (Test-Path $prefix) { throw "prefix still present after -Uninstall" }
+          if (Test-Path $reg) { throw "registry key still present after -Uninstall" }
+          Write-Host "install + uninstall OK"

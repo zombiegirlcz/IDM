@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ext = join(here, '..');
+const repoRoot = join(ext, '..');
 const manifestPath = join(ext, 'manifest.json');
 const schemaPath = join(ext, 'schema.js');
 const bgPath = join(ext, 'background.js');
@@ -140,11 +141,18 @@ test('native messaging host manifest is valid', () => {
   assert.ok(bg.includes(`'${m.name}'`) || bg.includes(`"${m.name}"`), 'background must connect to this host name');
 });
 
-test('host manifest path exists on disk and is executable', () => {
+test('the host binary the manifest names is built and executable', () => {
   const m = JSON.parse(readFileSync(join(ext, 'com.tonec.idm.json'), 'utf8'));
-  assert.ok(existsSync(m.path), `host binary must exist on disk: ${m.path}`);
-  const st = statSync(m.path);
-  assert.ok((st.mode & 0o111) !== 0, `host binary must be executable: ${m.path}`);
+  // The committed manifest carries the absolute path of whichever checkout it
+  // was last installed from (install-host.sh / install.sh rewrite it), so only
+  // its file name is portable. What must hold everywhere is that THIS checkout
+  // has that binary built — otherwise the browser would have nothing to talk to.
+  const name = m.path.split('/').pop();
+  assert.equal(name, 'idm-host', `manifest must point at idm-host, not ${m.path}`);
+  const built = join(repoRoot, 'engine/target/release', name);
+  assert.ok(existsSync(built), `host binary must be built: ${built}`);
+  const st = statSync(built);
+  assert.ok((st.mode & 0o111) !== 0, `host binary must be executable: ${built}`);
 });
 
 test('extension ID is pinned and matches allowed_origins', () => {

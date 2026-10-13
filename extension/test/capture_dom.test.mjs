@@ -109,6 +109,10 @@ function runContent(html, url = 'https://example.com/') {
     dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));
   }
 
+  // NOTE: an event dispatched from script is never trusted, and jsdom makes
+  // `isTrusted` a non-configurable own accessor, so this is exactly the
+  // page-synthesized click that content.js must ignore. The trusted path (a
+  // real user click) is covered by extension/test/chrome_e2e.test.mjs.
   function clickAnchor(sel) {
     const a = dom.window.document.querySelector(sel);
     // jsdom has no navigation; stop the default action so it stays a pure event.
@@ -139,19 +143,26 @@ test('content.js emits [22]/[41] for a real <video>', () => {
   assert.match(String(op41[3]), /movie\.mp4$/, 'opcode 41 src');
 });
 
-test('content.js emits [39] on a real click of <a download>', () => {
-  const { sent, clickAnchor } = runContent(
+test('content.js recognizes a download link but ignores a synthesized click', () => {
+  const { dom, sent, clickAnchor } = runContent(
     '<!doctype html><html><body><a id="d" download="file.bin" href="https://example.com/file.bin">x</a></body></html>',
   );
+  const a = dom.window.document.querySelector('#d');
+  assert.ok(
+    dom.window.__idm_is_download_link__(a),
+    'an <a download> must be classified as a download link',
+  );
+
+  // A page can dispatch a click on an <a download> it crafted itself. Acting on
+  // it would let any site make the native host fetch an arbitrary URL, so the
+  // capture must not fire.
   clickAnchor('#d');
-
-  const op39 = hasOp(sent, 39);
-  assert.ok(op39, `opcode 39 must be emitted, got: ${JSON.stringify(sent.map((m) => m[0]))}`);
-  assert.equal(op39[1], true, 'opcode 39 hasDownload flag');
-  assert.equal(op39[2], 'https://example.com/file.bin', 'opcode 39 href');
-  assert.equal(op39[3], 'file.bin', 'opcode 39 download name');
-
-  // A click also bumps the activity signal [29].
+  assert.equal(
+    hasOp(sent, 39),
+    undefined,
+    `an untrusted click must not emit opcode 39, got: ${JSON.stringify(sent.map((m) => m[0]))}`,
+  );
+  // Activity signalling is not a download and still happens.
   assert.ok(hasOp(sent, 29), 'opcode 29 (activity) should accompany the click');
 });
 
@@ -223,16 +234,18 @@ test('full chain: DOM -> content.js opcode -> background.js -> real idm-host -> 
 
   try {
     // 1) Real DOM with a download anchor pointing at our local server.
-    const { sent, clickAnchor } = runContent(
+    const { dom } = runContent(
       `<!doctype html><html><body>` +
         `<video src="${url}/movie.mp4"></video>` +
         `<a id="d" download="out.bin" href="${fileUrl}">dl</a>` +
         `</body></html>`,
     );
-    clickAnchor('#d');
-
-    const captured = hasOp(sent, 39);
-    assert.ok(captured, 'content.js must capture the click as opcode 39');
+    const a = dom.window.document.querySelector('#d');
+    assert.ok(dom.window.__idm_is_download_link__(a), 'the anchor is a download link');
+    // The real click -> opcode 39 step needs a trusted event, which jsdom
+    // cannot produce (see chrome_e2e.test.mjs); from here on we feed the
+    // background exactly the message content.js emits for this anchor.
+    const captured = [39, true, a.href, a.getAttribute('download') || ''];
     assert.equal(captured[2], fileUrl, 'captured href is the server URL');
 
     // 2) Import background.js (ESM) AFTER the chrome mock is installed.
