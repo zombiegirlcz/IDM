@@ -102,10 +102,14 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
   );
   const hostBin = process.env.IDM_HOST_BIN
     || join(repoRoot, 'engine/target/release/idm-host');
-  assert.ok(
-    existsSync(hostBin),
-    `host binary missing: ${hostBin} (run: cd engine && cargo build --release)`,
-  );
+  const engineBin = process.env.IDM_ENGINE_BIN
+    || join(repoRoot, 'engine/target/release/idm');
+  for (const bin of [hostBin, engineBin]) {
+    assert.ok(
+      existsSync(bin),
+      `binary missing: ${bin} (run: cd engine && cargo build --release)`,
+    );
+  }
 
   const data = makeData(1_500_000);
   const expectedCrc = crc32(data);
@@ -131,11 +135,23 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
     // Some builds resolve the manifest dir from the user data dir instead.
     join(userDataDir, 'NativeMessagingHosts'),
   ];
+  // idm-host is fail-closed: with no --allowed-dir it exits immediately. The
+  // real installer therefore registers a wrapper that supplies it (see
+  // extension/install-host.sh); the manifest must point at the same shape of
+  // wrapper here, or Chrome just reports "Native host has exited".
+  const wrapper = join(fakeHome, 'idm-host-wrapper.sh');
+  mkdirSync(fakeHome, { recursive: true });
+  writeFileSync(
+    wrapper,
+    `#!/usr/bin/env bash\nexec "${hostBin}" --engine "${engineBin}" `
+      + `--allowed-dir "${dlDir}" "$@"\n`,
+    { mode: 0o755 },
+  );
   for (const nmDir of nmDirs) {
     mkdirSync(nmDir, { recursive: true });
     writeFileSync(
       join(nmDir, 'com.tonec.idm.json'),
-      JSON.stringify({ ...hostManifest, path: hostBin }, null, 2),
+      JSON.stringify({ ...hostManifest, path: wrapper }, null, 2),
     );
   }
 
@@ -202,7 +218,7 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
     assert.ok(
       onDisk,
       `download never produced a byte-exact ${outFile}\n`
-      + `host binary: ${hostBin} (exists: ${existsSync(hostBin)})\n`
+      + `host: ${hostBin}, engine: ${engineBin}, wrapper: ${wrapper}\n`
       + `manifest dirs: ${nmDirs.join(', ')}\n` +
         `page logs:\n${pageLogs.join('\n')}\nservice worker logs:\n${swLogs.join('\n')}`,
     );
