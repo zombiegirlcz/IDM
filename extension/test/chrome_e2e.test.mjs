@@ -123,8 +123,15 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
   // the manifest there: self-contained, and the user's real registration is
   // left alone.
   const fakeHome = join(userDataDir, 'home');
-  for (const browser of ['chromium', 'google-chrome', 'chrome']) {
-    const nmDir = join(fakeHome, '.config', browser, 'NativeMessagingHosts');
+  const fakeConfig = join(fakeHome, '.config');
+  const nmDirs = [
+    // XDG config dir per browser flavour (what install-host.sh writes to).
+    ...['chromium', 'google-chrome', 'chrome'].map((b) =>
+      join(fakeConfig, b, 'NativeMessagingHosts')),
+    // Some builds resolve the manifest dir from the user data dir instead.
+    join(userDataDir, 'NativeMessagingHosts'),
+  ];
+  for (const nmDir of nmDirs) {
     mkdirSync(nmDir, { recursive: true });
     writeFileSync(
       join(nmDir, 'com.tonec.idm.json'),
@@ -136,7 +143,9 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
     executablePath: CHROMIUM,
     headless: false, // real Chromium under Xvfb; extensions need a display
     cwd: dlDir,
-    env: { ...process.env, HOME: fakeHome },
+    // HOME *and* XDG_CONFIG_HOME: an inherited XDG_CONFIG_HOME would otherwise
+    // win over HOME when Chromium resolves its config directory.
+    env: { ...process.env, HOME: fakeHome, XDG_CONFIG_HOME: fakeConfig },
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
@@ -192,7 +201,9 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
 
     assert.ok(
       onDisk,
-      `download never produced a byte-exact ${outFile}\n` +
+      `download never produced a byte-exact ${outFile}\n`
+      + `host binary: ${hostBin} (exists: ${existsSync(hostBin)})\n`
+      + `manifest dirs: ${nmDirs.join(', ')}\n` +
         `page logs:\n${pageLogs.join('\n')}\nservice worker logs:\n${swLogs.join('\n')}`,
     );
     assert.ok(onDisk.equals(data), 'file bytes must equal served bytes');
