@@ -75,22 +75,28 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install Chromium + Xvfb
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-browser xvfb || sudo apt-get install -y chromium xvfb
-          command -v chromium-browser || command -v chromium
-
       - name: Install JS dependencies
         run: npm install
+
+      # NOT Ubuntu's chromium-browser: on noble it is a snap shim, and snap
+      # confinement makes Chrome unable to find a native-messaging host outside
+      # the snap's own directories ("Specified native messaging host not
+      # found"), which is exactly what this test exercises. Playwright's
+      # unconfined build has no such limitation.
+      - name: Install Playwright Chromium + Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          node node_modules/playwright-core/cli.js install --with-deps chromium
 
       - name: Build engine + host
         run: cd engine && cargo build --release
 
       - name: Run the real-Chromium E2E
-        env:
-          CHROMIUM_BIN: /usr/bin/chromium-browser
-        run: xvfb-run -a node --test extension/test/chrome_e2e.test.mjs
+        run: |
+          CHROMIUM_BIN="$(node -e "console.log(require('playwright-core').chromium.executablePath())")"
+          echo "using $CHROMIUM_BIN"
+          CHROMIUM_BIN="$CHROMIUM_BIN" xvfb-run -a node --test extension/test/chrome_e2e.test.mjs
 
   windows-installer:
     # install.ps1 is Windows-only, so this is the one place it can actually be
