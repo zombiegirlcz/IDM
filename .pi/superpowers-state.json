@@ -27,12 +27,12 @@
     }
   },
   "tdd": {
-    "phase": "idle",
-    "testFiles": [],
-    "sourceFiles": [
-      "/tmp/live_patch.py"
+    "phase": "red-pending",
+    "testFiles": [
+      "/root/IDM/test/icon.test.mjs"
     ],
-    "redVerificationPending": false
+    "sourceFiles": [],
+    "redVerificationPending": true
   },
   "debug": {
     "active": false,
