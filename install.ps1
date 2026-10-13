@@ -108,6 +108,7 @@ Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 
 $engineInstalled = Join-Path $Prefix "idm.exe"
 $hostInstalled   = Join-Path $Prefix "idm-host.exe"
+$ensurePs1       = Join-Path $Prefix "ensure-aria2.ps1"
 if (-not (Test-Path $engineInstalled)) { Die "chybi idm.exe v archivu" }
 if (-not (Test-Path $hostInstalled))   { Die "chybi idm-host.exe v archivu" }
 New-Item -ItemType Directory -Force -Path $DownloadsDir | Out-Null
@@ -192,6 +193,9 @@ Write-Host "  Engine     : $engineInstalled"
 Write-Host "  Okno       : dvojklik na ikonu 'IDM' na plose (nebo v menu Start)"
 Write-Host "  Stazeni    : $DownloadsDir"
 Write-Host "  Rozsireni  : chrome://extensions -> Load unpacked"
+if (Test-Path $ensurePs1) {
+    Write-Host "  aria2      : prepinac 'Via aria2' v okne; aria2c se doinstaluje sam"
+}
 Write-Host ""
 Write-Host "  Odinstalace: irm <tento-skript> | iex; potom:"
 Write-Host "               (dostupne take: $Prefix\install.ps1 -Uninstall)"

@@ -118,6 +118,15 @@ test('Add URL dialog follows IDM (URL box, authorization, Start/Download Later)'
   );
 });
 
+test('main window has the aria2 download switch', () => {
+  const d = dumpWindow();
+  assert.ok(d.has_aria2_switch, 'the window must offer an aria2 on/off switch');
+  assert.ok(
+    d.widget_labels.some((l) => /aria2/i.test(l)),
+    `some label must mention aria2: ${d.widget_labels.join(', ')}`,
+  );
+});
+
 test('toolbar buttons and category tree carry icons (not just text)', () => {
   const d = dumpWindow();
   // IDM draws coloured icons on its toolbar and category tree; we render ours

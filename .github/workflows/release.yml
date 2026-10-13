@@ -64,6 +64,8 @@ jobs:
           cp gui/idm_gui.py dist/
           cp extension/manifest.json dist/ 2>/dev/null || true
           cp install.ps1 dist/
+          cp scripts/ensure-aria2.ps1 dist/ 2>/dev/null || true
+          cp scripts/ensure-aria2.sh dist/ 2>/dev/null || true
           (cd dist && 7z a ../${{ matrix.archive }} .)
 
       - name: Stage artifacts (Linux)
@@ -74,6 +76,8 @@ jobs:
           cp engine/target/${{ matrix.target }}/release/idm dist/
           cp engine/target/${{ matrix.target }}/release/idm-host dist/
           cp gui/idm_gui.py dist/
+          cp scripts/ensure-aria2.sh dist/ 2>/dev/null || true
+          cp scripts/ensure-aria2.ps1 dist/ 2>/dev/null || true
           tar -czf ${{ matrix.archive }} -C dist .
 
       - name: Upload to release

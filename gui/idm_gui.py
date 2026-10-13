@@ -212,8 +212,11 @@ class Api:
     def items(self) -> list[dict]:
         return self._req("GET", "/api/items").get("items", [])
 
-    def add(self, url: str, connections: int = 4) -> int:
-        r = self._req("POST", "/api/add", {"url": url, "connections": connections})
+    def add(self, url: str, connections: int = 4, aria2: bool = False) -> int:
+        body = {"url": url, "connections": connections}
+        if aria2:
+            body["aria2"] = True
+        r = self._req("POST", "/api/add", body)
         return int(r.get("id", 0))
 
     def pause(self, i: int) -> dict:
@@ -446,7 +449,36 @@ def _dialog_complete(parent, path):
 # --------------------------------------------------------------------------- #
 # Main window (IDM layout: toolbar above, category tree left, list right)
 # --------------------------------------------------------------------------- #
-def _dialog_progress(parent, name, connections=4, on_pause=None):
+def _read_meta_segments(meta_path):
+    """Per-segment progress from an engine .idmmeta sidecar.
+
+    Returns (fractions, overall, total); fractions is one fill fraction (0..1)
+    per segment, matching the bars in the progress dialog.
+    """
+    try:
+        with open(meta_path, encoding="utf-8") as f:
+            m = json.load(f)
+    except Exception:  # noqa: BLE001
+        return [], 0.0, 0
+    total = int(m.get("total") or 0)
+    segs = m.get("segments") or []
+    fracs = []
+    done_sum = 0
+    for seg in segs:
+        try:
+            start = int(seg.get("start", 0))
+            end = int(seg.get("end", 0))
+            dl = int(seg.get("downloaded", 0))
+        except Exception:  # noqa: BLE001
+            continue
+        span = max(1, end - start + 1)
+        fracs.append(min(1.0, dl / span))
+        done_sum += dl
+    overall = (done_sum / total) if total else 0.0
+    return fracs, overall, total
+
+
+def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None):
     """IDM 'Download Progress' (File Download) dialog with a segment graph."""
     import tkinter as tk
     from tkinter import ttk
@@ -463,7 +495,7 @@ def _dialog_progress(parent, name, connections=4, on_pause=None):
                        highlightbackground="#999")
     canvas.pack(fill="x", padx=10, pady=8)
 
-    n = max(1, connections)
+    n = max(0, connections)
     bars = []
     top, height, gap = 8, 12, 4
     width = 480
@@ -485,10 +517,43 @@ def _dialog_progress(parent, name, connections=4, on_pause=None):
     cancel.pack(side="left", padx=6)
     ttk.Button(btns, text="Options on completion").pack(side="right")
 
-    win._idm_segment_bars = bars  # type: ignore[attr-defined]
-    win._idm_overall_bar = overall  # type: ignore[attr-defined]
-    win._idm_canvas = canvas  # type: ignore[attr-defined]
-    win._idm_info = info  # type: ignore[attr-defined]
+    bar_geo = []
+    for i in range(n):
+        y = top + i * (height + gap)
+        bar_geo.append((6, width, y, y + height))
+    overall_geo = (6, width, oy, oy + height)
+
+    def update_from_meta():
+        """Refresh the bars from the current .idmmeta (live, like IDM)."""
+        if not meta_path:
+            return
+        fracs, ov, total = _read_meta_segments(meta_path)
+        for i, frac in enumerate(fracs):
+            if i >= len(bars):
+                break
+            x0, x1, y0, y1 = bar_geo[i]
+            fx = x0 + int((x1 - x0) * max(0.0, min(1.0, frac)))
+            canvas.coords(bars[i], x0, y0, fx, y1)
+        x0, x1, oy0, oy1 = overall_geo
+        canvas.coords(overall, x0, oy0, x0 + int((x1 - x0) * max(0.0, min(1.0, ov))), oy1)
+        info.config(text=f"{int(ov * 100)}%  ({total} bytes)")
+
+    win._idm_segment_bars = bars
+    win._idm_overall_bar = overall
+    win._idm_canvas = canvas
+    win._idm_info = info
+    win._idm_update = update_from_meta
+    win._idm_bar_geo = bar_geo
+
+    def _tick():
+        if not win.winfo_exists():
+            return
+        update_from_meta()
+        win.after(500, _tick)
+
+    if meta_path:
+        win.after(300, _tick)
+
     return win, canvas, bars
 
 
@@ -530,6 +595,13 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
     ttk.Label(search_row, text="Search:").pack(side="left")
     w["search"] = ttk.Entry(search_row)
     w["search"].pack(side="left", fill="x", expand=True, padx=(4, 0))
+    # Aria2 switch: when on, downloads go through aria2c (auto-installed if
+    # missing). Default on if aria2c is already present on PATH.
+    import shutil as _shutil
+    aria2_var = tk.BooleanVar(value=bool(_shutil.which("aria2c")))
+    w["aria2_var"] = aria2_var
+    w["aria2_check"] = ttk.Checkbutton(search_row, text="Via aria2", variable=aria2_var)
+    w["aria2_check"].pack(side="left", padx=(8, 0))
 
     # --- body: category tree LEFT, download list RIGHT ---
     body = ttk.Panedwindow(root, orient="horizontal")
@@ -642,7 +714,7 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
             def do_start():
                 info_win.destroy()
                 try:
-                    api.add(u)
+                    api.add(u, aria2=bool(aria2_var.get()))
                     status.set(f"added: {basename(u)}")
                 except Exception as e:  # noqa: BLE001
                     status.set(f"error: {e}")
@@ -651,7 +723,7 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
             def do_later():
                 info_win.destroy()
                 try:
-                    api.add(u)
+                    api.add(u, aria2=bool(aria2_var.get()))
                     status.set(f"queued: {basename(u)}")
                 except Exception as e:  # noqa: BLE001
                     status.set(f"error: {e}")
@@ -670,7 +742,19 @@ def build_window(api: Api, out_dir: str = "", on_close=None):
         if i is None:
             return
         it = next((x for x in api.items() if x["id"] == i), None)
-        if it:
+        if not it:
+            return
+        # IDM shows the Download Progress dialog (per-connection graph) while a
+        # download runs, and Properties once it is done.
+        if it.get("status") in ("running", "pending"):
+            _dialog_progress(
+                root,
+                basename(it.get("url", "")),
+                connections=int(it.get("connections") or 4),
+                on_pause=lambda: (api.pause(i), refresh()),
+                meta_path=str(it.get("output", "")) + ".idmmeta",
+            )
+        else:
             _dialog_properties(root, it.get("url", ""), it.get("output", ""))
 
     listview.bind("<Double-1>", _on_open_properties)
@@ -765,6 +849,41 @@ def selftest_api(addr, url):
         time.sleep(0.2)
     print(f"SELFTEST-API: FAIL timeout last={last}", file=sys.stderr)
     return 1
+
+
+def selftest_live_graph(meta_path):
+    """Build the progress dialog from a real .idmmeta and report fill fractions."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    fracs, _ov, total = _read_meta_segments(meta_path)
+    n = len(fracs) if fracs else 0
+    win, canvas, bars = _dialog_progress(root, "live", connections=n, meta_path=meta_path)
+    win.withdraw()
+    win.update_idletasks()
+    win._idm_update()
+    win.update_idletasks()
+
+    geo = win._idm_bar_geo
+    reported = []
+    for i, bar in enumerate(bars):
+        coords = canvas.coords(bar)
+        if len(coords) == 4 and i < len(geo):
+            x0, x1, _y0, _y1 = geo[i]
+            reported.append((coords[2] - x0) / max(1, x1 - x0))
+        else:
+            reported.append(0.0)
+
+    oc = canvas.coords(win._idm_overall_bar)
+    overall_frac = (oc[2] - oc[0]) / (480 - 6) if len(oc) == 4 else 0.0
+    print("LIVE:" + json.dumps({"bars": reported, "overall": overall_frac, "total": total}), flush=True)
+    try:
+        win.destroy()
+        root.destroy()
+    except Exception:  # noqa: BLE001
+        pass
+    return 0
 
 
 def selftest_window():
@@ -889,8 +1008,14 @@ def selftest_dump(engine):
         "has_pause": any("pause" in b.lower() for b in acc["buttons"]),
     })
 
+    acc_all = {"buttons": [], "labels": [], "tabs": []}
+    _collect_widgets(main_root, acc_all)
+    widget_labels = acc_all["labels"] + acc_all["buttons"]
+
     dump = {
         "buttons": buttons,
+        "has_aria2_switch": "aria2_check" in w,
+        "widget_labels": widget_labels,
         "buttons_with_icons": w.get("buttons_with_icons", 0),
         "categories_with_icons": w.get("categories_with_icons", 0),
         "has_toolbar_frame": has_toolbar,
@@ -929,8 +1054,15 @@ def main(argv=None):
     p.add_argument("--selftest-api", action="store_true")
     p.add_argument("--selftest-window", action="store_true")
     p.add_argument("--selftest-dump", action="store_true")
+    p.add_argument("--selftest-live-graph", action="store_true")
+    p.add_argument("--meta", help="path to a .idmmeta for --selftest-live-graph")
     args = p.parse_args(argv)
 
+    if args.selftest_live_graph:
+        if not args.meta:
+            print("--selftest-live-graph needs --meta", file=sys.stderr)
+            return 2
+        return selftest_live_graph(args.meta)
     if args.selftest_dump:
         return selftest_dump(args.engine)
     if args.selftest_window:

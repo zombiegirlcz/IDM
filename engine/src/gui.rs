@@ -92,6 +92,9 @@ struct Item {
     output: PathBuf,
     #[serde(default = "default_conns")]
     connections: usize,
+    /// Download through aria2c instead of the built-in engine.
+    #[serde(default)]
+    aria2: bool,
     #[serde(default)]
     status: String,
     #[serde(default)]
@@ -217,7 +220,7 @@ async fn finish_item(st: &State, id: u64, size: u64) {
     save(st).await;
 }
 
-async fn add_item(st: &Arc<State>, url: String, conns: usize) -> u64 {
+async fn add_item(st: &Arc<State>, url: String, conns: usize, aria2: bool) -> u64 {
     let id = st.next_id.fetch_add(1, Ordering::SeqCst);
     let output = st.output_dir.join(basename(&url));
     let item = Item {
@@ -225,6 +228,7 @@ async fn add_item(st: &Arc<State>, url: String, conns: usize) -> u64 {
         url,
         output,
         connections: conns.max(1),
+        aria2,
         status: "pending".to_string(),
         downloaded: 0,
         total: 0,
@@ -243,10 +247,10 @@ async fn run_item(st: Arc<State>, id: u64) {
         Ok(p) => p,
         Err(_) => return,
     };
-    let (url, output, conns) = {
+    let (url, output, conns, aria2) = {
         let g = st.items.lock().await;
         match g.iter().find(|i| i.id == id) {
-            Some(i) => (i.url.clone(), i.output.clone(), i.connections),
+            Some(i) => (i.url.clone(), i.output.clone(), i.connections, i.aria2),
             None => return,
         }
     };
@@ -257,9 +261,15 @@ async fn run_item(st: Arc<State>, id: u64) {
     cmd.arg("-n")
         .arg(conns.to_string())
         .arg("-o")
-        .arg(&output)
-        .arg("--resume")
-        .arg(&url);
+        .arg(&output);
+    if aria2 {
+        // The engine auto-installs aria2c if missing, so this works on a clean
+        // machine too.
+        cmd.arg("--aria2");
+    } else {
+        cmd.arg("--resume");
+    }
+    cmd.arg(&url);
     cmd.stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
 
@@ -438,7 +448,8 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 return;
             }
             let conns = v["connections"].as_u64().unwrap_or(4) as usize;
-            let id = add_item(&st, url, conns).await;
+            let use_aria2 = v["aria2"].as_bool().unwrap_or(false);
+            let id = add_item(&st, url, conns, use_aria2).await;
             let out = serde_json::json!({ "ok": true, "id": id });
             respond(&mut sock, 200, json, out.to_string().as_bytes()).await;
         }

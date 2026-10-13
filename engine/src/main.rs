@@ -53,6 +53,10 @@ struct Args {
     #[arg(long, default_value = "aria2c")]
     aria2_path: PathBuf,
 
+    /// Script that installs aria2c when it is missing (used with --aria2)
+    #[arg(long, default_value = "")]
+    ensure_aria2: String,
+
     /// Never use yt-dlp; always download the URL directly
     #[arg(long, default_value_t = false)]
     no_media: bool,
@@ -1017,6 +1021,86 @@ async fn run_direct_dynamic(
     Ok(())
 }
 
+/// Return the aria2c path to use, installing it first if it is missing.
+///
+/// When `--aria2` is requested but aria2c is not present, we run the platform
+/// installer (`scripts/ensure-aria2.sh` on Linux, `ensure-aria2.ps1` on Windows
+/// — or whatever `--ensure-aria2` points at) so the user never has to install it
+/// by hand. If no installer is available or it fails, the error says exactly
+/// what to do.
+async fn ensure_aria2c(args: &Args) -> anyhow::Result<PathBuf> {
+    // Already present?
+    if tokio::process::Command::new(&args.aria2_path)
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await
+        .map(|s| s.success())
+        .unwrap_or(false)
+    {
+        return Ok(args.aria2_path.clone());
+    }
+
+    // Find an installer.
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if !args.ensure_aria2.is_empty() {
+        candidates.push(PathBuf::from(&args.ensure_aria2));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            candidates.push(dir.join("ensure-aria2.sh"));
+            candidates.push(dir.join("../scripts/ensure-aria2.sh"));
+            candidates.push(dir.join("ensure-aria2.ps1"));
+        }
+    }
+    candidates.push(PathBuf::from("scripts/ensure-aria2.sh"));
+
+    let installer = candidates.into_iter().find(|c| c.exists());
+    let Some(installer) = installer else {
+        anyhow::bail!(
+            "aria2c not found and no installer (scripts/ensure-aria2.sh) available; \
+             install aria2 manually or drop --aria2"
+        );
+    };
+
+    println!("[*] aria2c     : missing, running {}", installer.display());
+
+    let is_ps1 = installer.extension().map(|e| e == "ps1").unwrap_or(false);
+    let status = if is_ps1 {
+        tokio::process::Command::new("powershell")
+            .arg("-NoProfile")
+            .arg("-ExecutionPolicy")
+            .arg("Bypass")
+            .arg("-File")
+            .arg(&installer)
+            .status()
+            .await?
+    } else {
+        tokio::process::Command::new("bash")
+            .arg(&installer)
+            .status()
+            .await?
+    };
+    if !status.success() {
+        anyhow::bail!("aria2 auto-install failed ({} exited {})", installer.display(), status);
+    }
+
+    // Re-check. We accept a file that now exists and is executable: an
+    // installer may drop the binary somewhere the running PATH does not cover
+    // yet, and probing with --version would misfire on wrappers/stubs.
+    if Path::new(&args.aria2_path).exists() {
+        return Ok(args.aria2_path.clone());
+    }
+    for cand in ["/usr/bin/aria2c", "/usr/local/bin/aria2c"] {
+        if Path::new(cand).exists() {
+            return Ok(PathBuf::from(cand));
+        }
+    }
+
+    anyhow::bail!("aria2c still missing after install")
+}
+
 /// Delegate a download to aria2c.
 async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
     let dir = out
@@ -1035,7 +1119,8 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
     println!("[*] output       : {}", out.display());
     println!("[*] backend      : aria2c ({})", args.aria2_path.display());
 
-    let mut cmd = tokio::process::Command::new(&args.aria2_path);
+    let aria2c = ensure_aria2c(args).await?;
+    let mut cmd = tokio::process::Command::new(&aria2c);
     cmd.arg("-x").arg(args.connections.max(1).to_string());
     cmd.arg("-s").arg(args.connections.max(1).to_string());
     cmd.arg("-c");
@@ -1252,6 +1337,9 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
         if args.aria2 {
             cmd.arg("--aria2");
             cmd.arg("--aria2-path").arg(&args.aria2_path);
+            if !args.ensure_aria2.is_empty() {
+                cmd.arg("--ensure-aria2").arg(&args.ensure_aria2);
+            }
         }
         if args.dynamic {
             cmd.arg("--dynamic");

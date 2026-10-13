@@ -36,6 +36,11 @@ content.js ──postMessage──► background.js ──native messaging──
 - **Scheduler** (`--start-in SEC`, `--start-at HH:MM` / `YYYY-MM-DDTHH:MM`)
 - **Auto-kategorizace** (`--category-dir BASE`) — Video/Music/Documents/Compressed/Programs/Other
 - **Dynamická segmentace** (`--dynamic --min-split BYTES`) — za běhu štěpí pomalé segmenty podle rychlosti (jako IDM)
+- **Přepínač „Via aria2"** v GUI i `--aria2` v CLI — když `aria2c` chybí, **sám se
+  doinstaluje** (`scripts/ensure-aria2.sh` / `ensure-aria2.ps1`: apt/dnf/pacman,
+  winget/choco/scoop). Escape hatch `IDM_ARIA2_NO_INSTALL=1`.
+- **Živý graf segmentů** v Download Progress dialogu — pruhy se plní v reálném
+  čase z `.idmmeta` (jeden pruh na spojení + celkový), jako IDM
 - **aria2 backend** (`--aria2 [--aria2-path BIN]`) — volitelně deleguje stahování na
   hotový `aria2c` (spolehlivý open-source multi-connection downloader); předává
   spojení, resume, limit, cookie, referer i proxy
@@ -302,6 +307,9 @@ Pokrývá:
 - `category.rs` — auto-kategorizace do `Video/`, `Music/`, `Documents/`, `Compressed/`, `Programs/`, `Other/`
 - `host_category.rs` — host respektuje `category_dir` a soubor reálně skončí ve správné podsložce
 - `aria2_backend.rs` — `--aria2`: reálné stažení přes `aria2c` (CRC) i předání voleb (stub loguje argv)
+- `aria2_autinstall.rs` — `--aria2` bez nainstalovaného aria2c spustí ensure skript a použije výsledek
+- `gui_aria2.rs` — `/api/add` přijme `aria2:true` a položka si ho pamatuje
+- `gui/test/live_graph.test.mjs` — živý graf: pruhy se plní z `.idmmeta` (1.0/0.5/0.0/1.0)
 - `scheme.rs` — IDM schémata: `idmdwnlmfv9://<url>` se rozbalí a stáhne (CRC), `idmreg:` trigger je no-op success
 - `gui/test/native_gui.test.mjs`
 - `gui/test/idm_look.test.mjs` — struktura okna podle IDM (toolbar, strom, sloupce včetně Q, ikony, Download Progress s grafem segmentů) — nativní okno: Tk se postaví pod xvfb, API klient reálně stáhne soubor přes `idm --serve` (CRC)

@@ -119,6 +119,14 @@ if [[ -n "${GUI_PY_SRC:-}" && -f "$GUI_PY_SRC" ]]; then
 fi
 # Local-source installs bring the integration scripts along; release installs
 # fetch the installers from the repo (they are tiny text files).
+# The aria2 auto-installer travels with the binaries so `--aria2` can install
+# aria2c on demand without the user doing anything.
+for f in ensure-aria2.sh ensure-aria2.ps1; do
+  if [[ -n "${SRC:-}" && -f "$SRC/scripts/$f" ]]; then
+    install -m 0755 "$SRC/scripts/$f" "$PREFIX/bin/$f" 2>/dev/null || true
+  fi
+done
+
 if [[ -n "${EXT_SRC:-}" && -d "$EXT_SRC" ]]; then
   cp -f "$EXT_SRC/install-host.sh"  "$PREFIX/extension/" 2>/dev/null || true
   cp -f "$EXT_SRC/install-shell.sh" "$PREFIX/extension/" 2>/dev/null || true
@@ -198,6 +206,12 @@ mkdir -p "$APPS"
 cp -f "$ICON" "$APPS/idm-desktop.desktop"
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$APPS" >/dev/null 2>&1 || true
 command -v gio >/dev/null 2>&1 && gio set "$ICON" metadata::trusted true 2>/dev/null || true
+
+# Offer to install aria2 up front (non-fatal if it fails).
+if [[ -x "$PREFIX/bin/ensure-aria2.sh" ]]; then
+  log "kontroluji aria2 (volitelný zrychlený backend)"
+  bash "$PREFIX/bin/ensure-aria2.sh" >/dev/null 2>&1 || warn "aria2 se nepodařilo připravit (--aria2 ho zkusí doinstalovat za běhu)"
+fi
 
 echo
 log "hotovo!"
