@@ -51,12 +51,14 @@ jobs:
       #   desktop-file-validate  — validates the generated .desktop files
       #   python3-tk + xvfb      — the native Tk window tests build a real window
       #   python3-pil(.imagetk)  — the toolbar/category icons are drawn with PIL
+      #   x11-apps               — xwd, so --screenshot is tested rather than
+      #                            skipped (ffmpeg is not on the runner image)
       # Without these the suites either silently skip (locally) or fail (here).
       - name: Install test dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y desktop-file-utils python3-tk xvfb \
-                                  python3-pil python3-pil.imagetk
+                                  python3-pil python3-pil.imagetk x11-apps
 
       # WITH_RUST=1 turns on the two cargo steps, which `npm test` skips by
       # default (a local run needs no toolchain). The release build runs first,
