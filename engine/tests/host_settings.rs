@@ -45,11 +45,27 @@ fn read_frame(r: &mut ChildStdout) -> serde_json::Value {
 }
 
 fn spawn_host(allowed_dir: &Path, settings: Option<&Path>) -> (Child, ChildStdin, ChildStdout) {
+    spawn_host_env(allowed_dir, settings, None)
+}
+
+fn spawn_host_env(
+    allowed_dir: &Path,
+    settings: Option<&Path>,
+    env_settings: Option<&Path>,
+) -> (Child, ChildStdin, ChildStdout) {
     let mut cmd = Command::new(HOST_BIN);
     cmd.arg("--engine").arg(ENGINE_BIN);
     cmd.arg("--allowed-dir").arg(allowed_dir);
     if let Some(s) = settings {
         cmd.arg("--settings").arg(s);
+    }
+    match env_settings {
+        Some(p) => {
+            cmd.env("IDM_SETTINGS", p);
+        }
+        None => {
+            cmd.env_remove("IDM_SETTINGS");
+        }
     }
     let mut child = cmd
         .stdin(Stdio::piped())
@@ -208,4 +224,71 @@ fn a_field_of_the_wrong_type_is_dropped_without_taking_the_rest_down() {
     assert!(s["general"].get("force_keys").is_none(), "{}", resp);
     assert_eq!(s["general"]["prevent_keys"], serde_json::json!("Alt"));
     assert!(s["connection"].get("max_connections").is_none(), "{}", resp);
+}
+
+fn ask_env(allowed: &Path, settings: Option<&Path>, env: Option<&Path>) -> serde_json::Value {
+    let (mut child, mut stdin, mut stdout) = spawn_host_env(allowed, settings, env);
+    write_frame(&mut stdin, &serde_json::json!({"action": "get_settings"}));
+    let resp = read_frame(&mut stdout);
+    drop(stdin);
+    let _ = child.wait();
+    resp
+}
+
+// Windows browsers spawn the host with no arguments and there is no wrapper to
+// add --settings, exactly as with --allowed-dir / IDM_ALLOWED_DIR.
+#[test]
+fn falls_back_to_the_idm_settings_variable() {
+    let dir = unique_dir("env");
+    let path = dir.join("settings.json");
+    std::fs::write(&path, serde_json::to_vec(&full_settings()).unwrap()).unwrap();
+
+    let resp = ask_env(&dir, None, Some(&path));
+    assert_eq!(resp["source"], serde_json::json!("file"), "{}", resp);
+    assert_eq!(resp["settings"]["connection"]["max_connections"], serde_json::json!(12));
+}
+
+#[test]
+fn the_flag_wins_over_the_variable() {
+    let dir = unique_dir("both");
+    let from_flag = dir.join("flag.json");
+    let from_env = dir.join("env.json");
+    std::fs::write(
+        &from_flag,
+        serde_json::to_vec(&serde_json::json!({"connection": {"max_connections": 3}})).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        &from_env,
+        serde_json::to_vec(&serde_json::json!({"connection": {"max_connections": 99}})).unwrap(),
+    )
+    .unwrap();
+
+    let resp = ask_env(&dir, Some(&from_flag), Some(&from_env));
+    assert_eq!(resp["settings"]["connection"]["max_connections"], serde_json::json!(3), "{}", resp);
+}
+
+#[test]
+fn an_empty_variable_is_treated_as_unset() {
+    let dir = unique_dir("empty");
+    let (mut child, mut stdin, mut stdout) = {
+        let mut cmd = Command::new(HOST_BIN);
+        cmd.arg("--engine").arg(ENGINE_BIN);
+        cmd.arg("--allowed-dir").arg(&dir);
+        cmd.env("IDM_SETTINGS", "");
+        let mut c = cmd
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("failed to spawn idm-host");
+        let i = c.stdin.take().unwrap();
+        let o = c.stdout.take().unwrap();
+        (c, i, o)
+    };
+    write_frame(&mut stdin, &serde_json::json!({"action": "get_settings"}));
+    let resp = read_frame(&mut stdout);
+    drop(stdin);
+    let _ = child.wait();
+    assert_eq!(resp["source"], serde_json::json!("default"), "{}", resp);
 }

@@ -18,7 +18,7 @@
 //     -> {"ok":true,"size":N,"crc32":"...","output":"..."}
 //     -> {"ok":false,"error":"..."} on failure
 //   {"action":"list_formats","url":"..."}
-//   {"action":"get_settings"}
+//   {"action":"get_settings"}       (needs --settings or IDM_SETTINGS)
 //     -> {"ok":true,"title":...,"formats":[...]}  (media backend)
 
 use std::io::{Read, Write};
@@ -568,6 +568,16 @@ fn main() {
             }
         },
     };
+
+    // Windows browsers spawn the host with no arguments and there is no wrapper
+    // to add --settings, so fall back to the variable the installer persists —
+    // the same shape as --allowed-dir / IDM_ALLOWED_DIR above. Unlike that one
+    // this is not fail-closed: with neither, get_settings simply reports
+    // "default" and the extension uses its own defaults.
+    let settings = settings.or_else(|| match std::env::var_os("IDM_SETTINGS") {
+        Some(v) if !v.is_empty() => Some(PathBuf::from(v)),
+        _ => None,
+    });
 
     let ctx = HostCtx {
         engine: &engine,
