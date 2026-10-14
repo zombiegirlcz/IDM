@@ -717,3 +717,173 @@ fn a_failed_download_without_a_budget_is_not_retried() {
     let _ = srv.kill();
     let _ = srv.wait();
 }
+
+/// Properties: the dialog's OK button has to change something.
+///
+/// `POST /api/update` edits the three fields the Properties dialog shows (url,
+/// output, description). Editing the URL or the target of a download that is
+/// already running would race the worker writing that file, so those two are
+/// refused while it is in flight; the description is free-form metadata and is
+/// always accepted.
+#[test]
+fn api_update_edits_the_properties_fields() {
+    let data = make_data(200_000);
+    let origin = start_origin(data.clone(), 0, 0);
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "1"]);
+    wait_ready(&addr);
+
+    let body = serde_json::json!({"url": format!("{}/old.bin", origin), "connections": 2})
+        .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "add failed: {}", resp);
+    let id: u64 = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .unwrap();
+
+    // An item starts downloading as soon as it is added, and a retarget of a
+    // live download is refused by design, so pause it first -- which is what a
+    // user editing Properties would do anyway.
+    let p = serde_json::json!({"id": id}).to_string();
+    let _ = http_req(&addr, "POST", "/api/pause", Some(&p));
+    wait_status(&addr, id, "paused", 20);
+
+    let new_url = format!("{}/new.bin", origin);
+    let new_out = out.join("renamed.bin");
+    let upd = serde_json::json!({
+        "id": id,
+        "url": new_url,
+        "output": new_out.to_string_lossy(),
+        "description": "a note from the Properties dialog",
+    })
+    .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/update", Some(&upd));
+    assert_eq!(st, 200, "POST /api/update returned {}: {}", st, resp);
+
+    let it = find_item(&json(&addr, "/api/items"), id);
+    assert_eq!(it["url"].as_str(), Some(new_url.as_str()), "url not updated: {}", it);
+    assert_eq!(
+        it["output"].as_str(),
+        Some(new_out.to_string_lossy().as_ref()),
+        "output not updated: {}",
+        it
+    );
+    assert_eq!(
+        it["description"].as_str(),
+        Some("a note from the Properties dialog"),
+        "description not stored: {}",
+        it
+    );
+
+    // Fields the request omits must stay as they are.
+    let only_desc = serde_json::json!({"id": id, "description": "second note"}).to_string();
+    let (st, _) = http_req(&addr, "POST", "/api/update", Some(&only_desc));
+    assert_eq!(st, 200);
+    let it = find_item(&json(&addr, "/api/items"), id);
+    assert_eq!(it["description"].as_str(), Some("second note"));
+    assert_eq!(it["url"].as_str(), Some(new_url.as_str()), "url must survive: {}", it);
+
+    // An unknown id is a 404, not a silent success.
+    let (st, resp) = http_req(
+        &addr,
+        "POST",
+        "/api/update",
+        Some(&serde_json::json!({"id": 9999, "description": "x"}).to_string()),
+    );
+    assert_eq!(st, 404, "unknown id must 404, got {}: {}", st, resp);
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}
+
+/// The edit must survive a restart: the Properties dialog writes to the queue
+/// file, not just to memory.
+#[test]
+fn api_update_persists_across_restart() {
+    let data = make_data(100_000);
+    let origin = start_origin(data, 0, 0);
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "1"]);
+    wait_ready(&addr);
+    let body =
+        serde_json::json!({"url": format!("{}/f.bin", origin), "connections": 2}).to_string();
+    let (_, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .unwrap();
+    let (st, _) = http_req(
+        &addr,
+        "POST",
+        "/api/update",
+        Some(&serde_json::json!({"id": id, "description": "survives"}).to_string()),
+    );
+    assert_eq!(st, 200);
+    let _ = srv.kill();
+    let _ = srv.wait();
+
+    let port2 = free_port();
+    let addr2 = format!("127.0.0.1:{}", port2);
+    let mut srv2 = spawn_server(&addr2, &out, &state, &["--max-concurrent", "1"]);
+    wait_ready(&addr2);
+    let it = find_item(&json(&addr2, "/api/items"), id);
+    assert_eq!(it["description"].as_str(), Some("survives"), "edit was not saved: {}", it);
+    let _ = srv2.kill();
+    let _ = srv2.wait();
+}
+
+/// Retargeting a download that is in flight would mean two writers for one
+/// file, so url/output are refused while it runs. The description is not.
+#[test]
+fn api_update_refuses_to_retarget_a_running_download() {
+    // A slow origin so the download is still running when we try to edit it.
+    let data = make_data(4_000_000);
+    let origin = start_origin(data, 16_384, 40);
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
+    wait_ready(&addr);
+    let body =
+        serde_json::json!({"url": format!("{}/slow.bin", origin), "connections": 1}).to_string();
+    let (_, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .unwrap();
+    wait_status(&addr, id, "running", 20);
+
+    let (st, resp) = http_req(
+        &addr,
+        "POST",
+        "/api/update",
+        Some(&serde_json::json!({"id": id, "url": "http://example.com/other"}).to_string()),
+    );
+    assert_eq!(st, 409, "retargeting a running download must be refused, got {}", resp);
+    let it = find_item(&json(&addr, "/api/items"), id);
+    assert!(
+        it["url"].as_str().unwrap_or("").contains("slow.bin"),
+        "the url must not have changed: {}",
+        it
+    );
+
+    // ...but a note about it is harmless.
+    let (st, resp) = http_req(
+        &addr,
+        "POST",
+        "/api/update",
+        Some(&serde_json::json!({"id": id, "description": "while running"}).to_string()),
+    );
+    assert_eq!(st, 200, "a description edit must be allowed while running: {}", resp);
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}
