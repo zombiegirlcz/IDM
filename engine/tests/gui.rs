@@ -887,3 +887,113 @@ fn api_update_refuses_to_retarget_a_running_download() {
     let _ = srv.kill();
     let _ = srv.wait();
 }
+
+/// The media options the GUI's Download File Info dialog resolves: a yt-dlp
+/// format selector plus the Cookie/Referer a protected media page needs. Like
+/// the other Options values they have to be stored on the item, so a resume or
+/// a retry runs with the same format instead of silently picking "best".
+#[test]
+fn api_add_stores_the_media_options() {
+    let data = make_data(50_000);
+    let origin = start_origin(data, 0, 0);
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "1"]);
+    wait_ready(&addr);
+
+    let body = serde_json::json!({
+        "url": format!("{}/clip.bin", origin),
+        "connections": 1,
+        "format": "137+140",
+        "cookie": "SID=abc",
+        "referer": "https://example.com/watch",
+        "force_media": true,
+    })
+    .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "add failed: {}", resp);
+    let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .unwrap();
+
+    let it = find_item(&json(&addr, "/api/items"), id);
+    assert_eq!(it["format"].as_str(), Some("137+140"), "format not stored: {}", it);
+    assert_eq!(it["cookie"].as_str(), Some("SID=abc"), "cookie not stored: {}", it);
+    assert_eq!(
+        it["referer"].as_str(),
+        Some("https://example.com/watch"),
+        "referer not stored: {}",
+        it
+    );
+    assert_eq!(it["force_media"].as_bool(), Some(true), "force_media not stored: {}", it);
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}
+
+/// The GUI cannot run the engine itself -- it only speaks to the API -- so
+/// listing the formats of a URL needs an endpoint. `POST /api/formats` runs the
+/// engine's --list-formats and hands the summary through.
+#[test]
+fn api_formats_reports_what_the_backend_offers() {
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    // A stub standing in for yt-dlp: --list-formats shells out to it, so the
+    // test needs no network and no real yt-dlp.
+    let fake = state.join("fake-yt-dlp");
+    std::fs::write(
+        &fake,
+        r#"#!/bin/sh
+cat <<'JSON'
+{"id":"vid1","title":"A clip","ext":"mp4","formats":[
+ {"format_id":"137","ext":"mp4","resolution":"1920x1080","vcodec":"avc1","acodec":"none","filesize":5000,"format_note":"1080p"},
+ {"format_id":"140","ext":"m4a","resolution":"audio only","vcodec":"none","acodec":"mp4a"}]}
+JSON
+"#,
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    let mut srv = spawn_server(
+        &addr,
+        &out,
+        &state,
+        &["--max-concurrent", "1", "--yt-dlp", fake.to_str().unwrap()],
+    );
+    wait_ready(&addr);
+
+    let body = serde_json::json!({"url": "https://example.com/watch?v=vid1"}).to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/formats", Some(&body));
+    assert_eq!(st, 200, "POST /api/formats returned {}: {}", st, resp);
+    let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["ok"].as_bool(), Some(true), "{}", v);
+    assert_eq!(v["title"].as_str(), Some("A clip"), "{}", v);
+    let fmts = v["formats"].as_array().unwrap_or_else(|| panic!("no formats: {}", v));
+    assert_eq!(fmts.len(), 2, "{}", v);
+    assert_eq!(fmts[0]["format_id"].as_str(), Some("137"));
+    assert_eq!(fmts[0]["resolution"].as_str(), Some("1920x1080"));
+    // `kind` is what lets the dialog label a row "video only" / "audio only".
+    assert!(fmts[0]["kind"].is_string(), "each format needs a kind: {}", v);
+
+    // A URL with nothing to list must be an answer, not a hang or a 500.
+    let (st, resp) = http_req(
+        &addr,
+        "POST",
+        "/api/formats",
+        Some(&serde_json::json!({"url": ""}).to_string()),
+    );
+    assert_eq!(st, 400, "an empty url must be refused, got {}: {}", st, resp);
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}

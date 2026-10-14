@@ -132,6 +132,18 @@ struct Item {
     /// makes its future's type refer to itself and does not compile.
     #[serde(default)]
     retry_at: u64,
+    /// yt-dlp format selector chosen in the Download File Info dialog
+    /// (e.g. "137+140"). Empty = let the backend pick.
+    #[serde(default)]
+    format: String,
+    /// Raw Cookie header, for media behind a login.
+    #[serde(default)]
+    cookie: String,
+    #[serde(default)]
+    referer: String,
+    /// Force the yt-dlp path even for a URL that does not look like media.
+    #[serde(default)]
+    force_media: bool,
     /// Free-form note from the Properties dialog. Metadata only: nothing in
     /// the engine reads it, it just has to survive a restart.
     #[serde(default)]
@@ -163,6 +175,9 @@ struct State {
     output_dir: PathBuf,
     state_path: PathBuf,
     engine: PathBuf,
+    /// Passed through to the child engine, so the media backend the user
+    /// configured is also the one a queued download and /api/formats use.
+    yt_dlp: PathBuf,
     sem: Arc<Semaphore>,
     /// Shared secret every /api/* request must present (see `authorized`).
     token: String,
@@ -346,6 +361,10 @@ struct AddOptions {
     ignore_mtime: bool,
     queue: String,
     retries: u32,
+    format: String,
+    cookie: String,
+    referer: String,
+    force_media: bool,
 }
 
 async fn add_item(
@@ -380,6 +399,10 @@ async fn add_item(
         ignore_mtime: opts.ignore_mtime,
         queue: opts.queue,
         retries: opts.retries,
+        format: opts.format,
+        cookie: opts.cookie,
+        referer: opts.referer,
+        force_media: opts.force_media,
         attempts: 0,
         retry_at: 0,
         description: String::new(),
@@ -423,7 +446,21 @@ async fn run_item(st: Arc<State>, id: u64) {
         Ok(p) => p,
         Err(_) => return,
     };
-    let (url, output, conns, aria2, user_agent, proxy, limit_rate, auth, ignore_mtime) = {
+    let (
+        url,
+        output,
+        conns,
+        aria2,
+        user_agent,
+        proxy,
+        limit_rate,
+        auth,
+        ignore_mtime,
+        format,
+        cookie,
+        referer,
+        force_media,
+    ) = {
         let g = st.items.lock().await;
         match g.iter().find(|i| i.id == id) {
             Some(i) => (
@@ -436,6 +473,10 @@ async fn run_item(st: Arc<State>, id: u64) {
                 i.limit_rate,
                 i.auth.clone(),
                 i.ignore_mtime,
+                i.format.clone(),
+                i.cookie.clone(),
+                i.referer.clone(),
+                i.force_media,
             ),
             None => return,
         }
@@ -471,6 +512,22 @@ async fn run_item(st: Arc<State>, id: u64) {
     if ignore_mtime {
         cmd.arg("--ignore-mtime");
     }
+    // Media options from the Download File Info dialog. The format selector is
+    // the reason these are stored per item: a retry or a resume that fell back
+    // to "best" would quietly fetch a different file than the user picked.
+    if !format.is_empty() {
+        cmd.arg("--format").arg(&format);
+    }
+    if !cookie.is_empty() {
+        cmd.arg("--cookie").arg(&cookie);
+    }
+    if !referer.is_empty() {
+        cmd.arg("--referer").arg(&referer);
+    }
+    if force_media {
+        cmd.arg("--force-media");
+    }
+    cmd.arg("--yt-dlp").arg(&st.yt_dlp);
     // `--` so a URL starting with `-` is never parsed as a flag by the child.
     cmd.arg("--").arg(&url);
     cmd.stdout(std::process::Stdio::null())
@@ -757,6 +814,10 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 ignore_mtime: v["ignore_mtime"].as_bool().unwrap_or(false),
                 queue: v["queue"].as_str().unwrap_or("").to_string(),
                 retries: v["retries"].as_u64().unwrap_or(0) as u32,
+                format: v["format"].as_str().unwrap_or("").to_string(),
+                cookie: v["cookie"].as_str().unwrap_or("").to_string(),
+                referer: v["referer"].as_str().unwrap_or("").to_string(),
+                force_media: v["force_media"].as_bool().unwrap_or(false),
             };
             let id = add_item(&st, url, conns, use_aria2, opts).await;
             let out = serde_json::json!({ "ok": true, "id": id });
@@ -829,6 +890,68 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 respond(&mut sock, 404, json, br#"{"ok":false,"error":"no such item"}"#).await;
             }
         }
+        ("POST", "/api/formats") => {
+            // The GUI speaks only to this API, so listing a media URL's formats
+            // has to happen here: run the engine's --list-formats and pass the
+            // summary through. Read-only -- nothing is queued.
+            let v: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
+            let url = v["url"].as_str().unwrap_or("").to_string();
+            if url.is_empty() {
+                respond(&mut sock, 400, json, br#"{"ok":false,"error":"missing url"}"#).await;
+                return;
+            }
+            let mut cmd = Command::new(&st.engine);
+            cmd.arg("--list-formats").arg("--yt-dlp").arg(&st.yt_dlp);
+            if let Some(c) = v["cookie"].as_str().filter(|s| !s.is_empty()) {
+                cmd.arg("--cookie").arg(c);
+            }
+            if let Some(r) = v["referer"].as_str().filter(|s| !s.is_empty()) {
+                cmd.arg("--referer").arg(r);
+            }
+            if let Some(p) = v["proxy"].as_str().filter(|s| !s.is_empty()) {
+                cmd.arg("--proxy").arg(p);
+            }
+            cmd.arg("--").arg(&url);
+            match cmd.output().await {
+                Ok(o) if o.status.success() => {
+                    match serde_json::from_slice::<serde_json::Value>(&o.stdout) {
+                        Ok(summary) => {
+                            let mut out = serde_json::json!({"ok": true});
+                            if let (Some(dst), Some(src)) =
+                                (out.as_object_mut(), summary.as_object())
+                            {
+                                for (k, val) in src {
+                                    dst.insert(k.clone(), val.clone());
+                                }
+                            }
+                            respond(&mut sock, 200, json, out.to_string().as_bytes()).await;
+                        }
+                        Err(e) => {
+                            let msg = serde_json::json!({
+                                "ok": false,
+                                "error": format!("cannot parse the format list: {}", e)
+                            });
+                            respond(&mut sock, 502, json, msg.to_string().as_bytes()).await;
+                        }
+                    }
+                }
+                Ok(o) => {
+                    // No formats is a normal answer for a plain file URL, not a
+                    // server error: report it so the dialog can stay quiet.
+                    let err = String::from_utf8_lossy(&o.stderr);
+                    let msg = serde_json::json!({
+                        "ok": false,
+                        "error": err.lines().last().unwrap_or("no formats").to_string()
+                    });
+                    respond(&mut sock, 200, json, msg.to_string().as_bytes()).await;
+                }
+                Err(e) => {
+                    let msg =
+                        serde_json::json!({"ok": false, "error": format!("spawn failed: {}", e)});
+                    respond(&mut sock, 500, json, msg.to_string().as_bytes()).await;
+                }
+            }
+        }
         ("POST", "/api/pause") => {
             let v: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
             let id = v["id"].as_u64().unwrap_or(0);
@@ -893,6 +1016,7 @@ pub async fn serve(
     state_dir: PathBuf,
     max_concurrent: usize,
     engine: PathBuf,
+    yt_dlp: PathBuf,
     api_token: Option<String>,
 ) -> anyhow::Result<()> {
     tokio::fs::create_dir_all(&output_dir).await.ok();
@@ -920,6 +1044,7 @@ pub async fn serve(
         output_dir,
         state_path,
         engine,
+        yt_dlp,
         sem: Arc::new(Semaphore::new(max_concurrent.max(1))),
         token,
         origin: format!("http://{}", addr),
