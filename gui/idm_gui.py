@@ -405,6 +405,8 @@ DEFAULT_SETTINGS = {
         "proxy_user": "",
         "proxy_pass": "",
     },
+    # Saved Grabber projects, shown under the "Grabber projects" tree node.
+    "grabber_projects": [],  # [DEFAULT_GRABBER_PROJECT-shaped dicts]
     "site_logins": [],  # [{"url": ..., "user": ..., "password": ...}]
     "dialup": {
         "connection": "",
@@ -1461,6 +1463,86 @@ def grabber_crawl_exts(template: str, custom_text: str) -> list:
             for e in (custom_text or "").replace(",", " ").split() if e.strip()]
 
 
+DEFAULT_GRABBER_PROJECT = {
+    "name": "",
+    "start": "",
+    "folder": "",
+    "template": "All files",
+    "exts": "",
+    "same_site_only": True,
+    "max_pages": 50,
+    "depth": 3,
+    "external_depth": 0,
+    "include": "",
+    "exclude": "",
+    "by_category": False,
+    "add_on_close": False,
+}
+
+
+def grabber_project(settings: dict, name: str) -> dict:
+    """One saved grabber project, with the defaults filled in."""
+    out = dict(DEFAULT_GRABBER_PROJECT)
+    for p in (settings or {}).get("grabber_projects", []):
+        if (p or {}).get("name") == name:
+            for k in DEFAULT_GRABBER_PROJECT:
+                if k in p:
+                    out[k] = p[k]
+            break
+    out["name"] = name
+    return out
+
+
+def grabber_projects(settings: dict) -> list:
+    """Every saved project, by name, with the defaults filled in."""
+    return [grabber_project(settings, n)
+            for n in grabber_project_names(settings)]
+
+
+def grabber_project_names(settings: dict) -> list:
+    """The names of the saved projects, sorted as the tree shows them."""
+    names = {str((p or {}).get("name", "")).strip()
+             for p in (settings or {}).get("grabber_projects", [])}
+    return sorted(n for n in names if n)
+
+
+def save_grabber_project(settings: dict, project: dict) -> dict:
+    """Store one project, leaving the others alone.
+
+    A project without a name is dropped rather than saved: it could never be
+    found again, and it would show up in the tree as a blank row.
+    """
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    name = str((project or {}).get("name", "")).strip()
+    if not name:
+        return out
+    entry = grabber_project(out, name)
+    for key, value in (project or {}).items():
+        if key not in DEFAULT_GRABBER_PROJECT:
+            continue
+        if key in ("max_pages", "depth", "external_depth"):
+            entry[key] = max(0, _as_int(value, DEFAULT_GRABBER_PROJECT[key]))
+        elif key in ("same_site_only", "by_category", "add_on_close"):
+            entry[key] = bool(value)
+        else:
+            entry[key] = str(value or "")
+    entry["name"] = name
+    rest = [p for p in out.get("grabber_projects", [])
+            if str((p or {}).get("name", "")).strip() != name]
+    out["grabber_projects"] = rest + [entry]
+    return out
+
+
+def delete_grabber_project(settings: dict, name: str) -> dict:
+    """Forget one project."""
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    wanted = str(name or "").strip()
+    out["grabber_projects"] = [
+        p for p in out.get("grabber_projects", [])
+        if str((p or {}).get("name", "")).strip() != wanted]
+    return out
+
+
 def grabber_filter_patterns(text: str) -> list:
     """The patterns typed into one of the Grabber's filter boxes.
 
@@ -1583,13 +1665,16 @@ def crawl_site(start_url: str, max_pages: int = 50,
     return sorted(u for u in found if grabber_allows(u, include, exclude))
 
 
-def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
+def _dialog_grabber(parent, api=None, state_dir="", out_dir="", project=None):
     """IDM Grabber: a 4-step wizard plus the main action dialog.
 
     Mirrors docs/idm/idm-grabber_grabber_wizard.txt and
     idm-grabber_grabber_main_dialog.txt. Step 1 is the start page, step 2 the
     save folder, steps 3/4 are filters; the main dialog then explores the site
     and can add the checked files to the main download list.
+
+    The whole wizard is one named project: it can be saved to settings.json
+    and opened again later, and `project` opens the dialog on a saved one.
     """
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox
@@ -1606,9 +1691,18 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
     s1 = ttk.Frame(wiz)
     wiz.add(s1, text="1. Start page")
     ttk.Label(s1, text="Grabber Project Name:").grid(row=0, column=0, sticky="w", padx=6, pady=4)
-    proj = ttk.Entry(s1, width=40)
-    proj.insert(0, "My project")
+    proj = ttk.Combobox(
+        s1, width=38, values=grabber_project_names(load_settings(state_dir)))
+    proj.set("My project")
     proj.grid(row=0, column=1, padx=6, pady=4, sticky="w")
+    proj_btns = ttk.Frame(s1)
+    proj_btns.grid(row=0, column=2, sticky="w", padx=6)
+    save_proj_btn = ttk.Button(proj_btns, text="Save Project")
+    save_proj_btn.pack(side="left", padx=2)
+    load_proj_btn = ttk.Button(proj_btns, text="Load Project")
+    load_proj_btn.pack(side="left", padx=2)
+    del_proj_btn = ttk.Button(proj_btns, text="Delete Project")
+    del_proj_btn.pack(side="left", padx=2)
     ttk.Label(s1, text="Start page (URL):").grid(row=1, column=0, sticky="w", padx=6, pady=4)
     start = ttk.Entry(s1, width=50)
     start.insert(0, "https://")
@@ -1633,10 +1727,12 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
             folder.insert(0, d)
 
     ttk.Button(s2, text="Browse...", command=pick).grid(row=0, column=2, padx=6)
-    ttk.Checkbutton(s2, text="Save each file to the folder of its category").grid(
-        row=1, column=1, sticky="w", padx=6)
-    ttk.Checkbutton(s2, text="Add checked files to IDM on close").grid(
-        row=2, column=1, sticky="w", padx=6)
+    by_category = tk.BooleanVar(value=False)
+    ttk.Checkbutton(s2, text="Save each file to the folder of its category",
+                    variable=by_category).grid(row=1, column=1, sticky="w", padx=6)
+    add_on_close = tk.BooleanVar(value=False)
+    ttk.Checkbutton(s2, text="Add checked files to IDM on close",
+                    variable=add_on_close).grid(row=2, column=1, sticky="w", padx=6)
 
     s3 = ttk.Frame(wiz)
     wiz.add(s3, text="3. Explore")
@@ -1797,18 +1893,34 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
 
     def add_to_idm():
         if api is None:
-            return
+            return 0
         added = 0
         settings = load_settings(state_dir)
+        base = folder.get().strip() or out_dir
         for i in sorted(state["checked"]):
             url = state["files"][i]
             try:
-                opts = download_options(settings, url, fallback_dir=out_dir)
+                opts = download_options(settings, url, fallback_dir=base)
+                if by_category.get():
+                    # "the folder of its category": one subfolder per kind,
+                    # under the folder this project saves to.
+                    opts = dict(opts)
+                    opts["out_dir"] = os.path.join(
+                        base, item_category(settings, url))
                 api.add(url, connections=opts["connections"], options=opts)
                 added += 1
             except Exception:  # noqa: BLE001
                 pass
         info.set(f"Added {added} files to IDM.")
+        return added
+
+    def on_close():
+        """"Add checked files to IDM on close" -- the only chance to do it."""
+        if add_on_close.get():
+            add_to_idm()
+        win.destroy()
+
+    win.protocol("WM_DELETE_WINDOW", on_close)
 
     def stats():
         messagebox.showinfo(
@@ -1817,6 +1929,83 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
             f"Checked: {len(state['checked'])}\n"
             f"Start page: {start.get().strip()}\n"
             f"Save to: {folder.get().strip()}", parent=win)
+
+    # --- the wizard as a saved project ------------------------------------
+    def collect_project():
+        """Everything on screen, as a project dict."""
+        return {
+            "name": proj.get().strip(),
+            "start": start.get().strip(),
+            "folder": folder.get().strip(),
+            "template": template.get().strip(),
+            "exts": exts.get().strip(),
+            "same_site_only": bool(same_site.get()),
+            "max_pages": _as_int(max_pages.get(), 50),
+            "depth": _as_int(depth.get(), 3),
+            "external_depth": _as_int(external_depth.get(), 0),
+            "include": include.get().strip(),
+            "exclude": exclude.get().strip(),
+            "by_category": bool(by_category.get()),
+            "add_on_close": bool(add_on_close.get()),
+        }
+
+    def _set_entry(widget, value):
+        widget.delete(0, "end")
+        widget.insert(0, value)
+
+    def apply_project(p):
+        """Put a saved project back on screen."""
+        proj.set(p.get("name", ""))
+        _set_entry(start, p.get("start", ""))
+        _set_entry(folder, p.get("folder", ""))
+        template.set(p.get("template", "All files"))
+        # An empty stored filter means "whatever the template says".
+        _set_entry(exts, p.get("exts", "")
+                   or " ".join(grabber_template_exts(p.get("template", ""))))
+        same_site.set(bool(p.get("same_site_only", True)))
+        max_pages.set(p.get("max_pages", 50))
+        depth.set(p.get("depth", 3))
+        external_depth.set(p.get("external_depth", 0))
+        _set_entry(include, p.get("include", ""))
+        _set_entry(exclude, p.get("exclude", ""))
+        by_category.set(bool(p.get("by_category", False)))
+        add_on_close.set(bool(p.get("add_on_close", False)))
+
+    def refresh_project_list():
+        proj.config(values=grabber_project_names(load_settings(state_dir)))
+
+    def save_project():
+        entry = collect_project()
+        if not entry["name"]:
+            messagebox.showwarning("Grabber", "Pojmenuj projekt.", parent=win)
+            return
+        save_settings(state_dir, save_grabber_project(
+            load_settings(state_dir), entry))
+        refresh_project_list()
+        info.set(f"Project saved: {entry['name']}")
+
+    def load_project():
+        name = proj.get().strip()
+        if name not in grabber_project_names(load_settings(state_dir)):
+            info.set(f"No saved project named {name!r}.")
+            return
+        apply_project(grabber_project(load_settings(state_dir), name))
+        info.set(f"Project loaded: {name}")
+
+    def delete_project():
+        name = proj.get().strip()
+        save_settings(state_dir, delete_grabber_project(
+            load_settings(state_dir), name))
+        refresh_project_list()
+        info.set(f"Project deleted: {name}")
+
+    save_proj_btn.config(command=save_project)
+    load_proj_btn.config(command=load_project)
+    del_proj_btn.config(command=delete_project)
+
+    if project:
+        apply_project(grabber_project(load_settings(state_dir), project))
+        info.set(f"Project loaded: {project}")
 
     btns = toolbar.winfo_children()
     btns[0].config(command=explore)
@@ -1832,7 +2021,16 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
                         "template": template, "exts": exts, "explore": explore,
                         "crawl": crawl, "same_site": same_site,
                         "depth": depth, "external_depth": external_depth,
-                        "include": include, "exclude": exclude}
+                        "include": include, "exclude": exclude,
+                        "proj": proj, "folder": folder,
+                        "max_pages": max_pages,
+                        "save_project": save_project,
+                        "load_project": load_project,
+                        "delete_project": delete_project,
+                        "collect_project": collect_project,
+                        "by_category": by_category,
+                        "add_on_close": add_on_close,
+                        "add_to_idm": add_to_idm, "on_close": on_close}
     return win
 
 
@@ -3022,14 +3220,22 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     def rebuild_tree():
         """Fill the category tree from the persisted settings."""
         tree.delete(*tree.get_children(""))
-        for c in list_categories(load_settings(state_dir)):
+        settings = load_settings(state_dir)
+        w["grabber_nodes"] = {}
+        for c in list_categories(settings):
             spec = CATEGORY_ICONS.get(c)
             img = _icon(spec[0], spec[1], 14, master=root) if spec else None
             if img is not None:
                 w["icons"].append(img)
-                tree.insert("", "end", text=c, image=img)
+                node = tree.insert("", "end", text=c, image=img)
             else:
-                tree.insert("", "end", text=c)
+                node = tree.insert("", "end", text=c)
+            if c == "Grabber projects":
+                # The node is not a file category: it holds the saved
+                # projects, one child each, openable with a double click.
+                for name in grabber_project_names(settings):
+                    w["grabber_nodes"][tree.insert(node, "end", text=name)] = name
+                tree.item(node, open=True)
         w["categories"] = [tree.item(i, "text") for i in tree.get_children("")]
         w["categories_with_icons"] = sum(
             1 for i in tree.get_children("") if tree.item(i, "image")
@@ -3471,6 +3677,19 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         status.set(f"category: {name}")
 
     tree.bind("<<TreeviewSelect>>", _on_tree_select)
+
+    def _open_grabber_project(_e=None):
+        """Double-clicking a saved project opens the Grabber on it."""
+        sel = tree.selection()
+        name = w.get("grabber_nodes", {}).get(sel[0]) if sel else None
+        if not name:
+            return None
+        status.set(f"grabber project: {name}")
+        return _dialog_grabber(root, api=api, state_dir=state_dir,
+                               out_dir=out_dir, project=name)
+
+    tree.bind("<Double-1>", _open_grabber_project)
+    w["open_grabber_project"] = _open_grabber_project
 
     # --- menu bar, like IDM (File / Downloads / View / Help) ---
     menubar = tk.Menu(root)
@@ -4068,6 +4287,205 @@ def selftest_grabber_explore(url, template="All files", depth=None,
     return 0
 
 
+def selftest_grabber_project(state_dir):
+    """Save the Grabber wizard as a project, then open it in a fresh dialog."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+
+    win = _dialog_grabber(root, state_dir=state_dir)
+    win.withdraw()
+    g = win._idm_grabber
+    g["proj"].set("Nightly")
+    g["start"].delete(0, "end")
+    g["start"].insert(0, "https://example.com/files/")
+    g["template"].set("Images")
+    g["template"].event_generate("<<ComboboxSelected>>")
+    g["same_site"].set(False)
+    g["max_pages"].set(7)
+    g["depth"].set(4)
+    g["external_depth"].set(2)
+    g["include"].insert(0, "/files/")
+    g["exclude"].insert(0, "thumb")
+    root.update()
+
+    # Click the button, not the function behind it.
+    for b in _buttons_by_text(win, "Save Project"):
+        b.invoke()
+    win.destroy()
+
+    saved = grabber_project(load_settings(state_dir), "Nightly")
+
+    win2 = _dialog_grabber(root, state_dir=state_dir, project="Nightly")
+    win2.withdraw()
+    h = win2._idm_grabber
+    loaded = {
+        "name": h["proj"].get(),
+        "start": h["start"].get(),
+        "template": h["template"].get(),
+        "exts": h["exts"].get(),
+        "same_site_only": bool(h["same_site"].get()),
+        "max_pages": h["max_pages"].get(),
+        "depth": h["depth"].get(),
+        "external_depth": h["external_depth"].get(),
+        "include": h["include"].get(),
+        "exclude": h["exclude"].get(),
+    }
+    try:
+        win2.destroy()
+        root.destroy()
+    except Exception:  # noqa: BLE001
+        pass
+
+    print("GRABPROJ:" + json.dumps({"saved": saved, "loaded": loaded}),
+          flush=True)
+    return 0
+
+
+class _RecordingApi:
+    """Stands in for the engine API: remembers what would be added."""
+
+    def __init__(self):
+        self.adds = []
+
+    def add(self, url, connections=None, options=None):
+        self.adds.append({"url": url,
+                          "connections": connections,
+                          "out_dir": (options or {}).get("out_dir", "")})
+        return {"id": len(self.adds)}
+
+
+def selftest_grabber_checks(state_dir):
+    """The two "Save to" checkbuttons must be readable and must act."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+
+    base = os.path.join(state_dir, "grabbed")
+    urls = ["https://example.com/a/song.mp3", "https://example.com/b/pack.zip"]
+
+    def dialog(api):
+        win = _dialog_grabber(root, api=api, state_dir=state_dir, out_dir=base)
+        win.withdraw()
+        g = win._idm_grabber
+        g["folder"].delete(0, "end")
+        g["folder"].insert(0, base)
+        g["state"]["files"] = list(urls)
+        g["state"]["checked"] = set(range(len(urls)))
+        g["render"]()
+        return win, g
+
+    # 1. every checkbutton can be read at all
+    win, g = dialog(None)
+    unbound = _unbound_checkbuttons(win)
+    win.destroy()
+
+    # 2. "Add to IDM" with the category checkbox off, then on
+    plain_api = _RecordingApi()
+    win, g = dialog(plain_api)
+    g["by_category"].set(False)
+    for b in _buttons_by_text(win, "Add to IDM"):
+        b.invoke()
+    win.destroy()
+
+    cat_api = _RecordingApi()
+    win, g = dialog(cat_api)
+    g["by_category"].set(True)
+    for b in _buttons_by_text(win, "Add to IDM"):
+        b.invoke()
+    win.destroy()
+
+    # 3. closing the dialog, with "add on close" on and off
+    close_api = _RecordingApi()
+    win, g = dialog(close_api)
+    g["add_on_close"].set(True)
+    g["on_close"]()
+
+    quiet_api = _RecordingApi()
+    win, g = dialog(quiet_api)
+    g["add_on_close"].set(False)
+    g["on_close"]()
+
+    # 4. both checkboxes belong to the saved project
+    win, g = dialog(None)
+    g["proj"].set("Checked")
+    g["by_category"].set(True)
+    g["add_on_close"].set(True)
+    g["save_project"]()
+    win.destroy()
+    saved = grabber_project(load_settings(state_dir), "Checked")
+    win, g = dialog(None)
+    g["proj"].set("Checked")
+    g["load_project"]()
+    reloaded = {"by_category": bool(g["by_category"].get()),
+                "add_on_close": bool(g["add_on_close"].get())}
+    win.destroy()
+
+    try:
+        root.destroy()
+    except Exception:  # noqa: BLE001
+        pass
+
+    print("GRABCHECK:" + json.dumps({
+        "unbound": unbound,
+        "folder": base,
+        "urls": urls,
+        "plain": plain_api.adds,
+        "by_category": cat_api.adds,
+        "on_close": close_api.adds,
+        "no_close": quiet_api.adds,
+        "saved": saved,
+        "reloaded": reloaded,
+    }), flush=True)
+    return 0
+
+
+def selftest_grabber_tree(state_dir):
+    """The saved projects must show up under the "Grabber projects" node."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    api = Api("127.0.0.1:1", timeout=0.2)
+    main_root, _refresh, w = build_window(api, out_dir=".", state_dir=state_dir)
+    main_root.withdraw()
+
+    tree = w["tree"]
+    node = None
+    for i in tree.get_children(""):
+        if tree.item(i, "text") == "Grabber projects":
+            node = i
+    children = ([tree.item(c, "text") for c in tree.get_children(node)]
+                if node else [])
+
+    # Open the second one the way a user would: select it, double click.
+    opened_title, opened_start = "", ""
+    kids = tree.get_children(node) if node else []
+    if kids:
+        tree.selection_set(kids[-1])
+        dialog = w["open_grabber_project"]()
+        if dialog is not None:
+            dialog.withdraw()
+            opened_title = dialog.title()
+            opened_start = dialog._idm_grabber["start"].get()
+            dialog.destroy()
+
+    try:
+        main_root.destroy()
+        root.destroy()
+    except Exception:  # noqa: BLE001
+        pass
+
+    print("GRABTREE:" + json.dumps({
+        "children": children,
+        "opened_title": opened_title,
+        "opened_start": opened_start,
+    }), flush=True)
+    return 0
+
+
 def selftest_row():
     """Render one item exactly as the main list does."""
     item = {
@@ -4213,6 +4631,42 @@ def _collect_widgets(widget, acc, depth=0):
             pass
     for child in widget.winfo_children():
         _collect_widgets(child, acc, depth + 1)
+
+
+def _unbound_checkbuttons(widget, found=None):
+    """Labels of checkbuttons under `widget` with no variable behind them.
+
+    The Grabber had two of these: tickable, and unreadable by any code, so
+    they could not possibly do what their labels promised.
+    """
+    if found is None:
+        found = []
+    for child in widget.winfo_children():
+        if child.winfo_class() in ("TCheckbutton", "Checkbutton"):
+            try:
+                var = str(child.cget("variable") or "").strip()
+                text = str(child.cget("text") or "")
+            except Exception:  # noqa: BLE001
+                continue
+            if not var:
+                found.append(text)
+        _unbound_checkbuttons(child, found)
+    return found
+
+
+def _buttons_by_text(widget, text, found=None):
+    """Every button under `widget` whose label is `text`."""
+    if found is None:
+        found = []
+    for child in widget.winfo_children():
+        if child.winfo_class() in ("TButton", "Button"):
+            try:
+                if str(child.cget("text") or "") == text:
+                    found.append(child)
+            except Exception:  # noqa: BLE001
+                pass
+        _buttons_by_text(child, text, found)
+    return found
 
 
 def _dead_buttons(widget, found=None):
@@ -4420,12 +4874,21 @@ def main(argv=None):
                    help="template for --selftest-grabber-explore")
     p.add_argument("--grabber-depth", type=int, default=None)
     p.add_argument("--grabber-external-depth", type=int, default=None)
+    p.add_argument("--selftest-grabber-project", action="store_true")
+    p.add_argument("--selftest-grabber-tree", action="store_true")
+    p.add_argument("--selftest-grabber-checks", action="store_true")
     p.add_argument("--grabber-include", default="")
     p.add_argument("--grabber-exclude", default="")
     p.add_argument("--grabber-all-sites", action="store_true",
                    help="untick 'explore the current site only'")
     args = p.parse_args(rest)
 
+    if args.selftest_grabber_project:
+        return selftest_grabber_project(args.state_dir)
+    if args.selftest_grabber_tree:
+        return selftest_grabber_tree(args.state_dir)
+    if args.selftest_grabber_checks:
+        return selftest_grabber_checks(args.state_dir)
     if args.selftest_grabber_explore:
         if not args.url:
             print("--selftest-grabber-explore needs --url", file=sys.stderr)
