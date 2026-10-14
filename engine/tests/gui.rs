@@ -745,12 +745,11 @@ fn api_update_edits_the_properties_fields() {
         .as_u64()
         .unwrap();
 
-    // An item starts downloading as soon as it is added, and a retarget of a
-    // live download is refused by design, so pause it first -- which is what a
-    // user editing Properties would do anyway.
-    let p = serde_json::json!({"id": id}).to_string();
-    let _ = http_req(&addr, "POST", "/api/pause", Some(&p));
-    wait_status(&addr, id, "paused", 20);
+    // An item starts downloading as soon as it is added and a retarget of a
+    // live download is refused by design, so let this small file finish first.
+    // A finished item is the normal case for Properties anyway: IDM shows the
+    // Progress dialog while a download runs and Properties once it is done.
+    wait_status(&addr, id, "done", 40);
 
     let new_url = format!("{}/new.bin", origin);
     let new_out = out.join("renamed.bin");
@@ -819,6 +818,7 @@ fn api_update_persists_across_restart() {
     let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
         .as_u64()
         .unwrap();
+    wait_status(&addr, id, "done", 40);
     let (st, _) = http_req(
         &addr,
         "POST",
