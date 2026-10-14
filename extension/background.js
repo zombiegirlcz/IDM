@@ -9,6 +9,11 @@
 // import the shared schema.
 
 import {
+  DEFAULT_CAPTURE_SETTINGS,
+  normalizeCaptureSettings,
+  shouldCapture,
+} from './settings.js';
+import {
   buildDownload,
   buildListFormats,
   buildPing,
@@ -19,9 +24,19 @@ import {
 
 const NATIVE_HOST = 'com.tonec.idm';
 const WATCHDOG_MS = 1500;
+// How long a get_settings answer is trusted. Short enough that editing the
+// Options dialog takes effect without restarting the browser, long enough that
+// a page full of links does not spawn a round trip per link.
+const SETTINGS_TTL_MS = 30000;
 
 /** @type {chrome.runtime.Port | null} */
 let nativePort = null;
+/** Cached get_settings answer: {at: epoch ms, value: normalized settings}. */
+let settingsCache = null;
+/** In-flight get_settings, so a burst of captures shares one round trip. */
+let settingsInflight = null;
+/** Modifier keys currently held, per tab: Map<tabId, Set<keyCode>>. */
+const heldKeys = new Map();
 let nextId = 1;
 const pending = new Map(); // id -> {resolve, reject, timer}
 
@@ -40,6 +55,9 @@ function ensurePort() {
     const err = chrome.runtime.lastError;
     log('native port disconnected', err ? err.message : '');
     nativePort = null;
+    // The host may come back with a different settings file; do not keep
+    // answering from an answer given by a process that no longer exists.
+    settingsCache = null;
     for (const [, p] of pending) {
       clearTimeout(p.timer);
       p.reject(new Error('cannot_contact_idm'));
@@ -81,6 +99,58 @@ function sendToHost(request) {
       reject(e);
     }
   });
+}
+
+// ---- settings ----
+
+// The extension has no filesystem; settings.json is reachable only through the
+// host's `get_settings` action. A failure here is never fatal: capture falls
+// back to the defaults in settings.js rather than switching itself off.
+async function getCaptureSettings() {
+  if (settingsCache && Date.now() - settingsCache.at < SETTINGS_TTL_MS) {
+    return settingsCache.value;
+  }
+  if (!settingsInflight) {
+    settingsInflight = sendToHost({ action: 'get_settings' })
+      .then((r) => (r && r.ok ? normalizeCaptureSettings(r.settings) : DEFAULT_CAPTURE_SETTINGS))
+      .catch((e) => {
+        log('get_settings failed, using defaults', String(e));
+        return DEFAULT_CAPTURE_SETTINGS;
+      })
+      .then((value) => {
+        settingsCache = { at: Date.now(), value };
+        settingsInflight = null;
+        return value;
+      });
+  }
+  return settingsInflight;
+}
+
+// ---- held modifier keys (opcode 31) ----
+
+const TRACKED_KEYS = new Set([16, 17, 18]); // shift, ctrl, alt
+
+function tabIdOf(sender) {
+  const id = sender && sender.tab && sender.tab.id;
+  return typeof id === 'number' ? id : -1;
+}
+
+function noteKey(sender, keyCode, down) {
+  if (!TRACKED_KEYS.has(keyCode)) return;
+  const tab = tabIdOf(sender);
+  let set = heldKeys.get(tab);
+  if (!set) {
+    if (!down) return;
+    set = new Set();
+    heldKeys.set(tab, set);
+  }
+  if (down) set.add(keyCode);
+  else set.delete(keyCode);
+}
+
+// A key held when a tab closes would otherwise stay held forever.
+if (chrome.tabs && chrome.tabs.onRemoved) {
+  chrome.tabs.onRemoved.addListener((tabId) => heldKeys.delete(tabId));
 }
 
 // ---- content.js message handling (opcodes from PROTOCOL.md) ----
@@ -183,21 +253,37 @@ function handleCapture(arr, sender) {
       if (src) captureDownload(src, undefined, sender);
       break;
     }
+    // 31: Ctrl/Alt/Shift state, needed for force_keys / prevent_keys
+    case 31: {
+      const [, keyCode, down] = arr;
+      noteKey(sender, keyCode, down);
+      break;
+    }
     // 34: serialized DOM snippet (debug)
     case 34:
       log('dom snippet', arr[1], arr[2]);
       break;
     default:
-      // 22/23/26/28/29/30/31/32/33/35/36/37: activity signals; not downloads.
+      // 22/23/26/28/29/30/32/33/35/36/37: activity signals; not downloads.
       break;
   }
 }
 
-function captureDownload(url, filename, sender) {
-  log('capture download', url, filename || '', sender?.tab?.url || '');
+async function captureDownload(url, filename, sender) {
+  const pageUrl = sender?.tab?.url || '';
+  log('capture download', url, filename || '', pageUrl);
+
+  const settings = await getCaptureSettings();
+  const held = [...(heldKeys.get(tabIdOf(sender)) || [])];
+  const verdict = shouldCapture({ url, pageUrl, settings, heldKeys: held });
+  if (!verdict.capture) {
+    log('capture skipped', verdict.reason, url);
+    return;
+  }
+
   let req;
   try {
-    req = buildDownload({ url, connections: 4 });
+    req = buildDownload({ url, connections: settings.connection.max_connections });
   } catch (e) {
     log('rejected capture', String(e));
     return;

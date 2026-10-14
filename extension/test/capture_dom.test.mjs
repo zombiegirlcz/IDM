@@ -276,7 +276,9 @@ test('full chain: DOM -> content.js opcode -> background.js -> real idm-host -> 
     const req = posted.find((m) => m && m.action === 'download');
     assert.ok(req, `background must post a download request, got: ${JSON.stringify(posted)}`);
     assert.equal(req.url, fileUrl, 'download request URL');
-    assert.equal(req.connections, 4, 'download request connections');
+    // The host was spawned without --settings, so the extension uses its own
+    // defaults (DEFAULT_CAPTURE_SETTINGS.connection.max_connections).
+    assert.equal(req.connections, 8, 'download request connections');
 
     // ...and the REAL host performed it (echoed id, real CRC).
     const reply = replies.find((m) => m && m.id === req.id);
