@@ -2267,10 +2267,30 @@ def main(argv=None):
             return 2
         return selftest_api(args.addr, args.url, args.api_token or read_token(args.state_dir))
 
-    # Talk to an engine that is already running with the token it wrote; if we
-    # start it ourselves, we hand it a fresh one.
     token = args.api_token or read_token(args.state_dir)
     api = Api(args.addr, token=token)
+
+    # Build the window FIRST. If Tk cannot open a display (e.g. the GUI was
+    # launched from a context without DISPLAY/XAUTHORITY) we fail here, BEFORE
+    # any engine is spawned. Doing it the other way round meant every failed
+    # launch left an orphaned `idm --serve` behind: the child is detached (its
+    # own session), so it outlives this process, and nothing cleaned it up.
+    try:
+        root, refresh, _w = build_window(
+            api, out_dir=args.out_dir, state_dir=args.state_dir
+        )
+    except Exception as e:  # noqa: BLE001
+        disp = os.environ.get("DISPLAY") or "(nenastaveno)"
+        print(
+            f"[x] Nepodarilo se otevrit okno: {e}\n"
+            f"    DISPLAY={disp}\n"
+            "    Spust IDM v grafickem sezeni (RDP/Xpra, nebo terminal s DISPLAY),\n"
+            "    pripadne nastav DISPLAY=:1. Engine se NESPUSTIL.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # A window exists, so it is safe to make sure an engine is running.
     proc = None
     if not api.alive():
         if args.autostart:
@@ -2285,8 +2305,6 @@ def main(argv=None):
                 "nebo pouzij --autostart.",
                 file=sys.stderr,
             )
-
-    root, refresh, _w = build_window(api, out_dir=args.out_dir, state_dir=args.state_dir)
 
     apply_items = _w["apply_items"]
     status_var = _w["status_var"]
