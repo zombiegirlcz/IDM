@@ -212,7 +212,13 @@ chrome.runtime.onConnect.addListener((port) => {
       handleRequest(msg, (r) => port.postMessage(r));
     }
   });
-  port.onDisconnect.addListener(() => log('content port disconnected'));
+  port.onDisconnect.addListener(() => {
+    log('content port disconnected');
+    // The page is gone, so any key it reported as held will never be reported
+    // as released: a Ctrl+click that navigates would otherwise leave the force
+    // key stuck down for every later capture in this tab.
+    heldKeys.delete(tabIdOf(port.sender));
+  });
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

@@ -166,6 +166,26 @@ test('content.js recognizes a download link but ignores a synthesized click', ()
   assert.ok(hasOp(sent, 29), 'opcode 29 (activity) should accompany the click');
 });
 
+test('content.js releases the modifier keys when the window loses focus', () => {
+  const { dom, sent } = runContent('<!doctype html><html><body></body></html>');
+  dom.window.document.dispatchEvent(
+    new dom.window.KeyboardEvent('keydown', { keyCode: 17, bubbles: true }),
+  );
+  const down = sent.find((m) => Array.isArray(m) && m[0] === 31);
+  assert.ok(down, `Ctrl down must emit opcode 31, got ${JSON.stringify(sent.map((m) => m[0]))}`);
+  assert.equal(down[1], 17);
+  assert.equal(down[2], true);
+
+  // Alt+Tab away and the keyup lands in another window. Without a release here
+  // the background would treat the force key as held for the rest of the page.
+  dom.window.dispatchEvent(new dom.window.Event('blur'));
+  const ups = sent.filter((m) => Array.isArray(m) && m[0] === 31 && m[2] === false);
+  assert.ok(
+    ups.some((m) => m[1] === 17),
+    `losing focus must release Ctrl, got ${JSON.stringify(sent.filter((m) => m[0] === 31))}`,
+  );
+});
+
 test('full chain: DOM -> content.js opcode -> background.js -> real idm-host -> CRC', async () => {
   const data = makeData(1_200_000);
   const expectedCrc = crc32(data);
@@ -266,9 +286,15 @@ test('full chain: DOM -> content.js opcode -> background.js -> real idm-host -> 
 
     portMsgCb(captured); // [39, true, fileUrl, 'out.bin']
 
-    // 4) Wait for the background -> host round trip.
+    // 4) Wait for the background -> host round trip. The background first
+    //    asks get_settings, so waiting for "any reply" would race ahead of the
+    //    download; wait for the download's own reply.
     const deadline = Date.now() + 30000;
-    while (replies.length === 0 && Date.now() < deadline) {
+    const downloadAnswered = () => {
+      const req = posted.find((m) => m && m.action === 'download');
+      return req && replies.some((m) => m && m.id === req.id);
+    };
+    while (!downloadAnswered() && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 50));
     }
 
