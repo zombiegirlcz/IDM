@@ -6,8 +6,8 @@ name: test
 #   cargo test
 #   node --test extension/test/*.test.mjs  (excluding the real-Chromium E2E)
 #
-# The real-Chromium harness (extension/test/chrome_e2e.test.mjs) runs in its own
-# blocking `chrome-e2e` job under Xvfb. Locally it is a gated step of `npm test`
+# The two real-browser harnesses run in their own blocking jobs: `chrome-e2e`
+# (Playwright + Chromium under Xvfb) and `firefox-e2e` (Marionette, headless). Locally it is a gated step of `npm test`
 # that skips itself where Chromium cannot start; this job sets RUN_CHROME_E2E=1,
 # which turns that skip into a failure. The Windows installer
 # gets a `windows-installer` job that at least parses install.ps1 with
@@ -138,6 +138,54 @@ jobs:
           else
             CHROMIUM_BIN="$BIN" node --test extension/test/chrome_e2e.test.mjs
           fi
+
+  firefox-e2e:
+    # The Firefox half of the real-browser coverage. Separate job, not another
+    # step of `test`: it takes minutes, and a Firefox problem should be legible
+    # as a Firefox problem. Blocking for the same reason chrome-e2e is.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Install JS dependencies
+        run: npm install
+
+      # The runner image ships Firefox, but as a snap on newer Ubuntu, and snap
+      # confinement stops it reading a native-messaging manifest from a test's
+      # throwaway HOME. The Mozilla apt build has no such limitation.
+      - name: Install Firefox (deb, not snap)
+        run: |
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg \
+            | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null
+          echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] \
+            https://packages.mozilla.org/apt mozilla main" \
+            | sudo tee /etc/apt/sources.list.d/mozilla.list > /dev/null
+          printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' \
+            | sudo tee /etc/apt/preferences.d/mozilla > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y firefox
+          firefox --version
+
+      - name: Build engine + host
+        run: cd engine && cargo build --release
+
+      - name: Run the real-Firefox E2E
+        env:
+          RUN_FIREFOX_E2E: '1'
+        run: |
+          IFS=$'\t' read -r MODE BIN REASON < <(node extension/firefox_e2e_decide.mjs)
+          echo "mode=$MODE firefox=$BIN ${REASON}"
+          [ "$MODE" = run ] || { echo "::error::$REASON"; exit 1; }
+          FIREFOX_BIN="$BIN" node --test extension/test/firefox_e2e.test.mjs
 
   windows-installer:
     # install.ps1 is Windows-only, so this is the one place it can actually be
