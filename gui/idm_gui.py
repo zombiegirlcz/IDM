@@ -371,6 +371,8 @@ DEFAULT_SETTINGS = {
         "enabled": False,
         "events": {},  # event name -> sound file path
     },
+    # Per-queue schedules (Scheduler dialog). Empty = the defaults apply.
+    "queues": [],
     # Custom categories the user added. Empty = use the built-in CATEGORIES.
     # Each entry: {"name": str, "extensions": [str], "dir": str, "sites": [str]}
     "categories": [],
@@ -384,6 +386,112 @@ SOUND_EVENTS = [
     "Queue started",
     "Queue stopped",
 ]
+
+
+# Where "Help -> Check for updates" looks. Overridable so tests and forks do
+# not have to reach this repository.
+RELEASES_API = os.environ.get(
+    "IDM_RELEASES_API",
+    "https://api.github.com/repos/zombiegirlcz/IDM/releases/latest",
+)
+
+
+def latest_release(url: str = "") -> tuple:
+    """(tag, error) of the newest published release. Never raises.
+
+    Returns ("", reason) when the check could not be made, so the caller can
+    say why instead of silently claiming the build is up to date.
+    """
+    try:
+        req = urllib.request.Request(
+            url or RELEASES_API,
+            headers={"Accept": "application/vnd.github+json",
+                     "User-Agent": "idm-gui"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read() or b"{}")
+        tag = (data.get("tag_name") or "").strip()
+        return (tag, "") if tag else ("", "no release found")
+    except Exception as e:  # noqa: BLE001
+        return "", str(e)
+
+
+def _default_opener() -> str:
+    """The command this platform uses to open a file with its own app."""
+    if os.name == "nt":
+        return "start"
+    for candidate in ("xdg-open", "open"):
+        if shutil.which(candidate):
+            return candidate
+    return ""
+
+
+def open_argv(path: str, opener: str | None = None) -> list:
+    """Argv that opens `path` in the system's default application."""
+    opener = _default_opener() if opener is None else opener
+    if not opener or not path:
+        return []
+    return [opener, path]
+
+
+def reveal_argv(path: str, opener: str | None = None) -> list:
+    """Argv that opens the folder *containing* `path`."""
+    opener = _default_opener() if opener is None else opener
+    if not opener or not path:
+        return []
+    return [opener, os.path.dirname(path) or "."]
+
+
+def _run_detached(argv: list) -> bool:
+    """Start argv without blocking the Tk loop. False when it cannot run."""
+    if not argv:
+        return False
+    if os.name == "nt" and argv[0] == "start":
+        try:
+            os.startfile(argv[1])  # noqa: S606  (the platform opener)
+            return True
+        except Exception:  # noqa: BLE001
+            return False
+    try:
+        subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def open_path(path: str) -> bool:
+    """Open a downloaded file in the system's default application."""
+    return _run_detached(open_argv(path))
+
+
+def reveal_path(path: str) -> bool:
+    """Open the folder containing a downloaded file."""
+    return _run_detached(reveal_argv(path))
+
+
+def _version_tuple(v: str):
+    """(1, 2, 3) from "v1.2.3". None when it is not a version at all."""
+    v = (v or "").strip().lstrip("vV")
+    parts = v.split(".")
+    try:
+        return tuple(int(p) for p in parts) if parts and parts[0] != "" else None
+    except ValueError:
+        return None
+
+
+def is_newer_version(candidate: str, current: str) -> bool:
+    """Is `candidate` a strictly newer release than `current`?
+
+    Compared field by field as numbers: "0.1.10" is newer than "0.1.4", which
+    a plain string comparison gets backwards.
+    """
+    a, b = _version_tuple(candidate), _version_tuple(current)
+    if a is None or b is None:
+        return False
+    length = max(len(a), len(b))
+    a += (0,) * (length - len(a))
+    b += (0,) * (length - len(b))
+    return a > b
 
 
 def play_sound(path: str) -> bool:
@@ -651,6 +759,166 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
     }
 
 
+# --- what happens when a download finishes --------------------------------
+#
+# The queue API only reports a snapshot, so the window has to spot the
+# transition itself. Without this, nothing noticed a download reaching "done"
+# and the Download Complete dialog, the sounds and the virus check were all
+# unreachable.
+
+TERMINAL_STATES = ("done", "error", "paused")
+
+
+def just_completed(seen: dict, items: list) -> list:
+    """Ids that moved to "done" since the last snapshot.
+
+    `seen` is the caller's memory of the last status per id and is updated in
+    place. An item that is already "done" the first time we see it does NOT
+    count: otherwise every restart would replay a dialog per finished file.
+    """
+    done = []
+    for it in items or []:
+        try:
+            i = int(it["id"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        status = it.get("status", "")
+        was = seen.get(i)
+        if status == "done" and was is not None and was != "done":
+            done.append(i)
+        seen[i] = status
+    # Forget items that have left the queue, so a re-added id works again.
+    live = {int(it["id"]) for it in (items or []) if str(it.get("id", "")).isdigit()}
+    for i in list(seen):
+        if i not in live:
+            del seen[i]
+    return done
+
+
+def virus_scan_argv(checker: str, params: str, path: str) -> list:
+    """Argv for the virus checker. "[File]" is IDM's placeholder for the file.
+
+    With no placeholder the path is appended, so a checker configured without
+    one still scans something instead of running on nothing.
+    """
+    checker = (checker or "").strip()
+    if not checker or not path:
+        return []
+    argv = [checker]
+    parts = (params or "").split()
+    if any("[File]" in x for x in parts):
+        argv += [x.replace("[File]", path) for x in parts]
+    else:
+        argv += parts + [path]
+    return argv
+
+
+def completion_plan(settings: dict, path: str) -> dict:
+    """What to do for a download that just finished, per the Options dialog."""
+    s = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    sound = ""
+    if s["sounds"].get("enabled"):
+        sound = s["sounds"].get("events", {}).get("Download complete", "") or ""
+    return {
+        "show_dialog": bool(s["downloads"].get("show_complete_dialog")),
+        "sound": sound,
+        "virus_argv": virus_scan_argv(s["downloads"].get("virus_checker", ""),
+                                      s["downloads"].get("virus_params", ""),
+                                      path),
+    }
+
+
+# --- queue schedules (Scheduler dialog) -----------------------------------
+#
+# The Schedule tab used to be plain widgets: no variables, no persistence and
+# an "Apply" button with no command, so nothing the user typed survived the
+# dialog closing. Each queue now keeps its own schedule in settings.json.
+
+DEFAULT_QUEUE_NAMES = ["Main download queue", "Synchronization queue"]
+
+DEFAULT_SCHEDULE = {
+    "start_at": "23:00:00",
+    "stop_at": "07:30:00",
+    "retries": 10,
+    "open_when_done": "",
+    "hang_up_when_done": False,
+    "exit_when_done": False,
+    "shutdown_when_done": False,
+}
+
+
+def parse_clock(text: str):
+    """(hour, minute, second) from "23:00:00", "7:30" or "7". None if invalid.
+
+    Out-of-range fields are rejected rather than clamped, so a typo is refused
+    instead of silently becoming a different time.
+    """
+    parts = (text or "").strip().split(":")
+    if not parts or parts == [""] or len(parts) > 3:
+        return None
+    try:
+        nums = [int(p) for p in parts]
+    except ValueError:
+        return None
+    while len(nums) < 3:
+        nums.append(0)
+    h, m, sec = nums
+    if not (0 <= h <= 23 and 0 <= m <= 59 and 0 <= sec <= 59):
+        return None
+    return (h, m, sec)
+
+
+def fmt_clock(hms) -> str:
+    """"23:00:00" from (23, 0, 0)."""
+    h, m, sec = hms
+    return f"{h:02d}:{m:02d}:{sec:02d}"
+
+
+def queue_schedule(settings: dict, name: str) -> dict:
+    """The schedule for one queue, with the defaults filled in."""
+    out = dict(DEFAULT_SCHEDULE)
+    for q in (settings or {}).get("queues", []):
+        if (q or {}).get("name") == name:
+            for k in DEFAULT_SCHEDULE:
+                if k in q:
+                    out[k] = q[k]
+            break
+    out["name"] = name
+    return out
+
+
+def set_queue_schedule(settings: dict, name: str, sched: dict) -> dict:
+    """Store one queue's schedule, leaving the other queues untouched.
+
+    An unparseable time is dropped rather than persisted, so a typo cannot
+    turn into a schedule that never fires.
+    """
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    entry = queue_schedule(out, name)
+    for key, value in (sched or {}).items():
+        if key not in DEFAULT_SCHEDULE:
+            continue
+        if key in ("start_at", "stop_at"):
+            hms = parse_clock(value)
+            if hms is None:
+                continue
+            entry[key] = fmt_clock(hms)
+        elif key == "retries":
+            try:
+                entry[key] = max(0, int(value))
+            except (TypeError, ValueError):
+                continue
+        elif key == "open_when_done":
+            entry[key] = str(value or "")
+        else:
+            entry[key] = bool(value)
+    entry["name"] = name
+    queues = [q for q in out.get("queues", []) if (q or {}).get("name") != name]
+    queues.append(entry)
+    out["queues"] = queues
+    return out
+
+
 def _dialog_category(parent, settings=None):
     """IDM 'Edit categories properties' dialog (Add/Edit a category).
 
@@ -738,12 +1006,16 @@ def _same_site(a: str, b: str) -> bool:
 
 def crawl_site(start_url: str, max_pages: int = 50,
                file_exts=None, same_site_only: bool = True,
-               timeout: float = 8.0) -> list:
+               timeout: float = 8.0, should_stop=None) -> list:
     """Explore a site breadth-first and return file URLs (the IDM Grabber).
 
     Only HTML pages are followed; anything whose path ends in one of
     `file_exts` (or that is not an HTML page) is collected as a file. Returns a
     de-duplicated, sorted list of absolute URLs.
+
+    `should_stop` is checked before each page: when it returns true the crawl
+    returns what it has so far. Without it "Stop Exploring" is unimplementable,
+    because the crawl would hold the Tk thread for its whole run.
     """
     import re
     from urllib.parse import urljoin, urlparse
@@ -757,6 +1029,8 @@ def crawl_site(start_url: str, max_pages: int = 50,
     queue = [start]
     href_re = re.compile(r'''(?:href|src)\s*=\s*["']([^"']+)["']''', re.I)
     while queue and len(seen_pages) < max_pages:
+        if should_stop is not None and should_stop():
+            break
         url = queue.pop(0)
         if url in seen_pages:
             continue
@@ -916,26 +1190,56 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
         state["checked"] = set()
         render()
 
+    # The crawl runs off the Tk thread, so the window stays responsive and
+    # "Stop Exploring" can actually be clicked mid-crawl.
+    crawl = {"stop": False, "busy": False}
+
+    def stop_exploring():
+        if crawl["busy"]:
+            crawl["stop"] = True
+            info.set("Stopping...")
+
     def explore():
         url = start.get().strip()
         if not looks_like_url(url):
             messagebox.showwarning("Grabber", "Zadej platnou start URL.", parent=win)
             return
-        info.set("Exploring...")
-        win.update_idletasks()
-        try:
-            found = crawl_site(
-                url,
-                max_pages=int(max_pages.get() or 50),
-                file_exts=exts.get().split(),
-                same_site_only=bool(same_site.get()),
-            )
-        except Exception as e:  # noqa: BLE001
-            messagebox.showerror("Grabber", f"Exploring failed: {e}", parent=win)
+        if crawl["busy"]:
             return
-        state["files"] = found
-        state["checked"] = set(range(len(found)))
-        render()
+        crawl["stop"] = False
+        crawl["busy"] = True
+        info.set("Exploring...")
+        pages = int(max_pages.get() or 50)
+        file_exts = exts.get().split()
+        on_site = bool(same_site.get())
+
+        def done(found, error):
+            crawl["busy"] = False
+            if error:
+                info.set("Exploring failed.")
+                messagebox.showerror("Grabber", f"Exploring failed: {error}",
+                                     parent=win)
+                return
+            state["files"] = found
+            state["checked"] = set(range(len(found)))
+            render()
+            if crawl["stop"]:
+                info.set(f"Stopped. Found {len(found)} files so far.")
+
+        def work():
+            try:
+                found = crawl_site(url, max_pages=pages, file_exts=file_exts,
+                                   same_site_only=on_site,
+                                   should_stop=lambda: crawl["stop"])
+                err = None
+            except Exception as e:  # noqa: BLE001
+                found, err = [], e
+            try:
+                win.after(0, lambda: done(found, err))
+            except Exception:  # noqa: BLE001  (dialog closed meanwhile)
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
 
     def add_to_idm():
         if api is None:
@@ -962,6 +1266,7 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
 
     btns = toolbar.winfo_children()
     btns[0].config(command=explore)
+    btns[1].config(command=stop_exploring)  # "Stop Exploring"
     btns[2].config(command=check_all)
     btns[3].config(command=uncheck_all)
     btns[4].config(command=add_to_idm)
@@ -1542,17 +1847,19 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
     return win, nb, controls
 
 
-def _dialog_scheduler(parent, api=None, queue_names=None):
+def _dialog_scheduler(parent, api=None, queue_names=None, state_dir=""):
     """IDM 'Scheduler' dialog: queue list + Schedule / Files in the queue.
 
     With an `api` the "Files in the queue" tab shows the real queue and
     Start Now / Stop / Delete act on the selected download, matching IDM
-    (docs/idm/idm-scheduler_idm_scheduler.txt).
+    (docs/idm/idm-scheduler_idm_scheduler.txt). With a `state_dir` the Schedule
+    tab is backed by settings.json: picking a queue loads its schedule and
+    Apply saves it.
     """
     import tkinter as tk
     from tkinter import ttk
 
-    queues = list(queue_names or ("Main download queue", "Synchronization queue"))
+    queues = list(queue_names or DEFAULT_QUEUE_NAMES)
 
     win = tk.Toplevel(parent)
     win.title("Scheduler")
@@ -1577,23 +1884,79 @@ def _dialog_scheduler(parent, api=None, queue_names=None):
     nb.add(sched, text="Schedule")
     nb.add(files, text="Files in the queue")
 
+    # Every control is backed by a variable, so Apply has something to read.
+    start_var = tk.StringVar()
+    stop_var = tk.StringVar()
+    retries_var = tk.StringVar()
+    open_var = tk.StringVar()
+    flag_vars = {
+        "hang_up_when_done": tk.BooleanVar(),
+        "exit_when_done": tk.BooleanVar(),
+        "shutdown_when_done": tk.BooleanVar(),
+    }
+
     ttk.Label(sched, text="Start download at:").grid(row=0, column=0, sticky="w", padx=6, pady=6)
-    start_at = ttk.Entry(sched, width=12)
-    start_at.insert(0, "23:00:00")
+    start_at = ttk.Entry(sched, width=12, textvariable=start_var)
     start_at.grid(row=0, column=1, sticky="w", padx=6, pady=6)
     ttk.Label(sched, text="Stop download at:").grid(row=1, column=0, sticky="w", padx=6, pady=6)
-    stop_at = ttk.Entry(sched, width=12)
-    stop_at.insert(0, "7:30:00")
+    stop_at = ttk.Entry(sched, width=12, textvariable=stop_var)
     stop_at.grid(row=1, column=1, sticky="w", padx=6, pady=6)
     ttk.Label(sched, text="Number of retries for each file if downloading failed:").grid(
         row=2, column=0, columnspan=2, sticky="w", padx=6, pady=6
     )
-    retries = ttk.Spinbox(sched, from_=0, to=100, width=6)
-    retries.set(10)
+    retries = ttk.Spinbox(sched, from_=0, to=100, width=6, textvariable=retries_var)
     retries.grid(row=3, column=1, sticky="w", padx=6)
-    for txt in ("Open the following file when done:", "Hang up modem when done",
-                "Exit Internet Download Manager when done", "Turn off computer when done"):
-        ttk.Checkbutton(sched, text=txt).grid(row=4, column=0, columnspan=2, sticky="w", padx=6)
+    ttk.Label(sched, text="Open the following file when done:").grid(
+        row=4, column=0, sticky="w", padx=6, pady=(6, 0))
+    ttk.Entry(sched, width=28, textvariable=open_var).grid(
+        row=4, column=1, sticky="w", padx=6, pady=(6, 0))
+    for i, (key, txt) in enumerate((
+        ("hang_up_when_done", "Hang up modem when done"),
+        ("exit_when_done", "Exit Internet Download Manager when done"),
+        ("shutdown_when_done", "Turn off computer when done"),
+    )):
+        ttk.Checkbutton(sched, text=txt, variable=flag_vars[key]).grid(
+            row=5 + i, column=0, columnspan=2, sticky="w", padx=6)
+
+    def selected_queue():
+        sel = qlist.curselection()
+        return qlist.get(sel[0]) if sel else (queues[0] if queues else "")
+
+    def load_schedule(_e=None):
+        sc = queue_schedule(load_settings(state_dir), selected_queue())
+        start_var.set(sc["start_at"])
+        stop_var.set(sc["stop_at"])
+        retries_var.set(str(sc["retries"]))
+        open_var.set(sc["open_when_done"])
+        for key, var in flag_vars.items():
+            var.set(bool(sc[key]))
+
+    def apply_schedule():
+        """Persist this queue's schedule. Refuses an unparseable time."""
+        for label, var in (("Start download at", start_var),
+                           ("Stop download at", stop_var)):
+            if parse_clock(var.get()) is None:
+                messagebox.showwarning(
+                    "Scheduler",
+                    f"{label}: \"{var.get()}\" is not a time (use HH:MM:SS).",
+                    parent=win)
+                return
+        sched_values = {
+            "start_at": start_var.get(),
+            "stop_at": stop_var.get(),
+            "retries": retries_var.get(),
+            "open_when_done": open_var.get(),
+        }
+        sched_values.update({k: v.get() for k, v in flag_vars.items()})
+        name = selected_queue()
+        if state_dir:
+            save_settings(state_dir,
+                          set_queue_schedule(load_settings(state_dir), name,
+                                             sched_values))
+        load_schedule()
+
+    qlist.bind("<<ListboxSelect>>", load_schedule)
+    load_schedule()
 
     qfiles = ttk.Treeview(files, columns=("name", "status"), show="headings", height=8)
     qfiles.heading("name", text="File Name")
@@ -1662,7 +2025,7 @@ def _dialog_scheduler(parent, api=None, queue_names=None):
     ttk.Button(bar, text="Start Now", command=_start_now).pack(side="left", padx=4)
     ttk.Button(bar, text="Stop", command=_stop).pack(side="left", padx=4)
     ttk.Button(bar, text="Delete", command=_delete).pack(side="left", padx=4)
-    ttk.Button(bar, text="Apply").pack(side="right", padx=4)
+    ttk.Button(bar, text="Apply", command=apply_schedule).pack(side="right", padx=4)
     ttk.Button(bar, text="Close", command=win.destroy).pack(side="right", padx=4)
 
     refresh_queue()
@@ -1692,23 +2055,50 @@ def _dialog_properties(parent, url, out):
     d.grid(row=2, column=1, padx=8, pady=6)
     bar = ttk.Frame(win)
     bar.grid(row=3, column=0, columnspan=2, sticky="e", padx=8, pady=10)
-    ttk.Button(bar, text="Open").pack(side="left", padx=4)
+    ttk.Button(bar, text="Open",
+               command=lambda: open_path(s.get())).pack(side="left", padx=4)
     ttk.Button(bar, text="OK", command=win.destroy).pack(side="left", padx=4)
     return win
 
 
-def _dialog_complete(parent, path):
-    """IDM 'Download Complete' dialog."""
+def dont_show_complete_again(state_dir: str) -> dict:
+    """Persist "Don't show this dialog again" from the Download Complete box."""
+    s = load_settings(state_dir)
+    s["downloads"]["show_complete_dialog"] = False
+    save_settings(state_dir, s)
+    return s
+
+
+def _dialog_complete(parent, path, state_dir: str = ""):
+    """IDM 'Download Complete' dialog.
+
+    "Open" used to be bound to win.destroy(), so it looked wired to a static
+    check and opened nothing. Now that a finished download actually raises
+    this dialog, both buttons and the checkbox do their job.
+    """
     import tkinter as tk
     from tkinter import ttk
 
     win = tk.Toplevel(parent)
     win.title("Download Complete")
-    win.geometry("420x160")
+    win.geometry("420x180")
     ttk.Label(win, text="Download complete:").pack(anchor="w", padx=10, pady=(12, 2))
     ttk.Label(win, text=path).pack(anchor="w", padx=10, pady=2)
-    ttk.Button(win, text="Open", command=win.destroy).pack(anchor="w", padx=10, pady=6)
-    ttk.Checkbutton(win, text="Don't show this dialog again").pack(anchor="w", padx=10)
+    row = ttk.Frame(win)
+    row.pack(anchor="w", padx=10, pady=6)
+    ttk.Button(row, text="Open",
+               command=lambda: open_path(path)).pack(side="left", padx=(0, 4))
+    ttk.Button(row, text="Open Folder",
+               command=lambda: reveal_path(path)).pack(side="left", padx=4)
+
+    hide = tk.BooleanVar(value=False)
+
+    def _toggle_hide():
+        if hide.get() and state_dir:
+            dont_show_complete_again(state_dir)
+
+    ttk.Checkbutton(win, text="Don't show this dialog again", variable=hide,
+                    command=_toggle_hide).pack(anchor="w", padx=10)
     ttk.Button(win, text="Close", command=win.destroy).pack(anchor="e", padx=10, pady=6)
     return win
 
@@ -1737,9 +2127,57 @@ def _dialog_about(parent):
     info.pack(padx=12, pady=4)
     row = ttk.Frame(win)
     row.pack(fill="x", padx=12, pady=8)
-    ttk.Button(row, text="Registration...").pack(side="left", padx=2)
-    ttk.Button(row, text="Check for updates").pack(side="left", padx=2)
+    result = tk.StringVar(value="")
+    ttk.Button(row, text="Registration...",
+               command=lambda: _dialog_registration(win)).pack(side="left", padx=2)
+
+    def _check():
+        result.set("Checking for updates...")
+
+        def work():
+            latest, err = latest_release()
+            if err:
+                msg = f"Update check failed: {err}"
+            elif is_newer_version(latest, VERSION):
+                msg = f"Version {latest} is available (you have {VERSION})."
+            else:
+                msg = f"You are up to date (version {VERSION})."
+            try:
+                win.after(0, lambda: result.set(msg))
+            except Exception:  # noqa: BLE001  (window closed meanwhile)
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    ttk.Button(row, text="Check for updates", command=_check).pack(side="left", padx=2)
     ttk.Button(row, text="Close", command=win.destroy).pack(side="right")
+    ttk.Label(win, textvariable=result).pack(anchor="w", padx=12, pady=(0, 8))
+    return win
+
+
+def _dialog_registration(parent):
+    """IDM 'Registration' dialog.
+
+    This build is a POC with no licensing, so there is nothing to validate --
+    the dialog says so plainly instead of pretending to accept a serial.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+
+    win = tk.Toplevel(parent)
+    win.title("Registration")
+    win.geometry("420x160")
+    ttk.Label(win, text="Registration", font=("", 11, "bold")).pack(
+        anchor="w", padx=12, pady=(12, 4))
+    ttk.Label(
+        win,
+        wraplength=390,
+        justify="left",
+        text=("This is an open build with no licensing: there is no serial "
+              "number to enter and every feature is already available. "
+              "It is not affiliated with Tonec Inc."),
+    ).pack(anchor="w", padx=12, pady=4)
+    ttk.Button(win, text="Close", command=win.destroy).pack(anchor="e", padx=12, pady=10)
     return win
 
 
@@ -1775,8 +2213,14 @@ def _read_meta_segments(meta_path):
     return fracs, overall, total
 
 
-def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None):
-    """IDM 'Download Progress' (File Download) dialog with a segment graph."""
+def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None,
+                     on_options=None):
+    """IDM 'Download Progress' (File Download) dialog with a segment graph.
+
+    `on_options` backs the "Options on completion" button; with none given it
+    opens the Options dialog on its Downloads tab, which is where the
+    post-download switches live.
+    """
     import tkinter as tk
     from tkinter import ttk
 
@@ -1812,7 +2256,20 @@ def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None)
     pause.pack(side="left")
     cancel = ttk.Button(btns, text="Cancel", command=win.destroy)
     cancel.pack(side="left", padx=6)
-    ttk.Button(btns, text="Options on completion").pack(side="right")
+    def _open_completion_options():
+        if on_options:
+            on_options()
+            return
+        # The post-download switches (complete dialog, virus check) are on the
+        # Downloads tab, so open straight at it.
+        _ow, nb, _c = _dialog_options(win)
+        for i, tab in enumerate(nb.tabs()):
+            if nb.tab(tab, "text") == "Downloads":
+                nb.select(i)
+                break
+
+    ttk.Button(btns, text="Options on completion",
+               command=_open_completion_options).pack(side="right")
 
     bar_geo = []
     for i in range(n):
@@ -2206,6 +2663,28 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             out_dir=out_dir,
         )
 
+    # Last status per item id, so apply_items can spot a download finishing.
+    completion_seen = {}
+
+    def _on_completed(it):
+        """IDM's post-download steps: dialog, sound, virus check."""
+        path = it.get("output") or basename(it.get("url", ""))
+        plan = completion_plan(load_settings(state_dir), path)
+        if plan["sound"]:
+            play_sound(plan["sound"])
+        if plan["virus_argv"]:
+            try:
+                subprocess.Popen(plan["virus_argv"], stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL)
+                status.set(f"virus check started: {basename(path)}")
+            except Exception as e:  # noqa: BLE001
+                status.set(f"virus check failed: {e}")
+        if plan["show_dialog"]:
+            try:
+                _dialog_complete(root, path, state_dir=state_dir)
+            except Exception:  # noqa: BLE001
+                pass
+
     def apply_items(items):
         """Render a queue snapshot. Must run on the Tk thread."""
         seen = set()
@@ -2234,6 +2713,11 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         for iid in list(listview.get_children()):
             if iid not in seen:
                 listview.delete(iid)
+        # Anything that just finished gets IDM's post-download treatment.
+        for i in just_completed(completion_seen, items):
+            it = next((x for x in items if x.get("id") == i), None)
+            if it:
+                _on_completed(it)
 
     def refresh():
         try:
@@ -2266,7 +2750,8 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
 
     view_menu = tk.Menu(menubar, tearoff=0)
     view_menu.add_command(label="Scheduler...",
-                          command=lambda: _dialog_scheduler(root, api=api))
+                          command=lambda: _dialog_scheduler(
+                              root, api=api, state_dir=state_dir))
     view_menu.add_command(label="Options...", command=lambda: _open_options())
     view_menu.add_command(label="Grabber...",
                           command=lambda: _dialog_grabber(
@@ -2569,6 +3054,59 @@ def selftest_add_body(state_dir, url):
     return 0
 
 
+def selftest_dont_show_again(state_dir):
+    """"Don't show this dialog again" must switch the setting off for good."""
+    before = load_settings(state_dir)["downloads"]["show_complete_dialog"]
+    if before is not True:
+        print("DONTSHOW: FAIL fixture should start enabled", file=sys.stderr)
+        return 1
+    dont_show_complete_again(state_dir)
+    if load_settings(state_dir)["downloads"]["show_complete_dialog"] is not False:
+        print("DONTSHOW: FAIL setting not persisted", file=sys.stderr)
+        return 1
+    print("DONTSHOW: OK", flush=True)
+    return 0
+
+
+def selftest_scheduler(state_dir):
+    """Per-queue schedules must round-trip and must not bleed into each other."""
+    s = load_settings(state_dir)
+    s = set_queue_schedule(s, "Main download queue", {
+        "start_at": "1:15",            # short form must normalise
+        "stop_at": "6:00:00",
+        "retries": 4,
+        "open_when_done": "/dl/last.zip",
+        "shutdown_when_done": True,
+    })
+    s = set_queue_schedule(s, "Synchronization queue", {"retries": 9})
+    # A bad time must be refused, not stored.
+    s = set_queue_schedule(s, "Main download queue", {"start_at": "99:99:99"})
+    save_settings(state_dir, s)
+    r = load_settings(state_dir)
+
+    main = queue_schedule(r, "Main download queue")
+    sync = queue_schedule(r, "Synchronization queue")
+
+    def fail(msg):
+        print("SCHEDULER: FAIL " + msg, file=sys.stderr)
+
+    if main["start_at"] != "01:15:00":
+        fail("start_at not normalised/persisted: %r" % (main["start_at"],))
+        return 1
+    if main["retries"] != 4 or main["open_when_done"] != "/dl/last.zip":
+        fail("schedule fields not persisted: %r" % (main,))
+        return 1
+    if main["shutdown_when_done"] is not True:
+        fail("checkbox not persisted: %r" % (main,))
+        return 1
+    if sync["retries"] != 9 or sync["shutdown_when_done"] is not False:
+        fail("queues are not independent: %r" % (sync,))
+        return 1
+
+    print("SCHEDULER: OK", flush=True)
+    return 0
+
+
 def selftest_live_graph(meta_path):
     """Build the progress dialog from a real .idmmeta and report fill fractions."""
     import tkinter as tk
@@ -2701,13 +3239,15 @@ def selftest_dump(engine):
     aw.withdraw()
     acc = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(aw, acc)
-    dialogs.append({"title": aw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
+    dialogs.append({"title": aw.title(), "widgets": acc["labels"] + acc["buttons"],
+                    "tabs": acc["tabs"], "dead_buttons": _dead_buttons(aw)})
 
     fw, _s, _l = _dialog_file_info(root, "http://x/file.mp4", ".", "Video")
     fw.withdraw()
     acc = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(fw, acc)
-    dialogs.append({"title": fw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
+    dialogs.append({"title": fw.title(), "widgets": acc["labels"] + acc["buttons"],
+                    "tabs": acc["tabs"], "dead_buttons": _dead_buttons(fw)})
 
     ow, onb, octrl = _dialog_options(root)
     ow.withdraw()
@@ -2721,32 +3261,36 @@ def selftest_dump(engine):
     sw.withdraw()
     acc = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(sw, acc)
-    dialogs.append({"title": sw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
+    dialogs.append({"title": sw.title(), "widgets": acc["labels"] + acc["buttons"],
+                    "tabs": acc["tabs"], "dead_buttons": _dead_buttons(sw)})
 
     pw = _dialog_properties(root, "http://x/f.mp4", "/tmp/f.mp4")
     pw.withdraw()
     acc = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(pw, acc)
-    dialogs.append({"title": pw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
+    dialogs.append({"title": pw.title(), "widgets": acc["labels"] + acc["buttons"],
+                    "tabs": acc["tabs"], "dead_buttons": _dead_buttons(pw)})
 
     cw = _dialog_complete(root, "/tmp/f.mp4")
     cw.withdraw()
     acc = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(cw, acc)
-    dialogs.append({"title": cw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
+    dialogs.append({"title": cw.title(), "widgets": acc["labels"] + acc["buttons"],
+                    "tabs": acc["tabs"], "dead_buttons": _dead_buttons(cw)})
 
     abw = _dialog_about(root)
     abw.withdraw()
     acc = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(abw, acc)
-    dialogs.append({"title": abw.title(), "widgets": acc["labels"] + acc["buttons"], "tabs": acc["tabs"]})
+    dialogs.append({"title": abw.title(), "widgets": acc["labels"] + acc["buttons"],
+                    "tabs": acc["tabs"], "dead_buttons": _dead_buttons(abw)})
 
     grw = _dialog_grabber(root)
     grw.withdraw()
     acc = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(grw, acc)
     dialogs.append({"title": grw.title(), "widgets": acc["labels"] + acc["buttons"],
-                    "tabs": acc["tabs"]})
+                    "tabs": acc["tabs"], "dead_buttons": _dead_buttons(grw)})
 
     # Download Progress dialog: carries a canvas with one bar per connection.
     pw2, pcanvas, pbars = _dialog_progress(root, "movie.mp4", connections=4)
@@ -2760,6 +3304,7 @@ def selftest_dump(engine):
         "has_canvas": pcanvas.winfo_class() == "Canvas",
         "segment_bars": len(pbars),
         "has_pause": any("pause" in b.lower() for b in acc["buttons"]),
+        "dead_buttons": _dead_buttons(pw2),
     })
 
     acc_all = {"buttons": [], "labels": [], "tabs": []}
@@ -2768,6 +3313,7 @@ def selftest_dump(engine):
 
     dump = {
         "buttons": buttons,
+        "dead_buttons": _dead_buttons(main_root),
         "has_aria2_switch": "aria2_check" in w,
         "widget_labels": widget_labels,
         "buttons_with_icons": w.get("buttons_with_icons", 0),
@@ -2823,6 +3369,8 @@ def main(argv=None):
     p.add_argument("--selftest-options-data", action="store_true")
     p.add_argument("--selftest-download-options", action="store_true")
     p.add_argument("--selftest-add-body", action="store_true")
+    p.add_argument("--selftest-dont-show-again", action="store_true")
+    p.add_argument("--selftest-scheduler", action="store_true")
     p.add_argument("--selftest-live-graph", action="store_true")
     p.add_argument("--meta", help="path to a .idmmeta for --selftest-live-graph")
     args = p.parse_args(argv)
@@ -2832,6 +3380,10 @@ def main(argv=None):
             print("--selftest-live-graph needs --meta", file=sys.stderr)
             return 2
         return selftest_live_graph(args.meta)
+    if args.selftest_scheduler:
+        return selftest_scheduler(args.state_dir)
+    if args.selftest_dont_show_again:
+        return selftest_dont_show_again(args.state_dir)
     if args.selftest_download_options:
         if not args.url:
             print("--selftest-download-options needs --url", file=sys.stderr)
