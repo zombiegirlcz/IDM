@@ -148,14 +148,25 @@ fn apply_auth(cmd: &mut tokio::process::Command, cookie: Option<&str>, referer: 
 }
 
 /// Run `yt-dlp -J` and return the parsed metadata JSON.
+/// yt-dlp needs the URL, never the server password: whatever variable
+/// `--auth-env` named is removed from the child's environment, so it cannot be
+/// read out of /proc/<child>/environ either.
+fn scrub_auth_env(cmd: &mut tokio::process::Command, auth_env: Option<&str>) {
+    if let Some(name) = auth_env {
+        cmd.env_remove(name);
+    }
+}
+
 pub async fn probe_json(
     yt_dlp: &Path,
     url: &str,
     cookie: Option<&str>,
     referer: Option<&str>,
     proxy: Option<&str>,
+    auth_env: Option<&str>,
 ) -> anyhow::Result<serde_json::Value> {
     let mut cmd = tokio::process::Command::new(yt_dlp);
+    scrub_auth_env(&mut cmd, auth_env);
     cmd.arg("-J").arg("--no-playlist").arg("--no-warnings");
     apply_auth(&mut cmd, cookie, referer);
     if let Some(p) = proxy {
@@ -280,8 +291,10 @@ pub async fn download(
     cookie: Option<&str>,
     referer: Option<&str>,
     proxy: Option<&str>,
+    auth_env: Option<&str>,
 ) -> anyhow::Result<PathBuf> {
     let mut cmd = tokio::process::Command::new(yt_dlp);
+    scrub_auth_env(&mut cmd, auth_env);
     cmd.arg("--no-playlist").arg("--no-warnings");
     if let Some(p) = proxy {
         cmd.arg("--proxy").arg(p);
