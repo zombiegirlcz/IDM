@@ -15,6 +15,36 @@ import { spawnSync, execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createServer, connect } from 'node:net';
+
+/** A free TCP port obtained by binding, so parallel test files never collide. */
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const s = createServer();
+    s.on('error', reject);
+    s.listen(0, '127.0.0.1', () => {
+      const { port } = s.address();
+      s.close(() => resolve(port));
+    });
+  });
+}
+
+/** Resolve once something accepts a TCP connection on host:port. */
+function waitTcp(host, port, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  return new Promise((resolve, reject) => {
+    const attempt = () => {
+      const sock = connect({ host, port });
+      sock.once('connect', () => { sock.destroy(); resolve(); });
+      sock.once('error', () => {
+        sock.destroy();
+        if (Date.now() > deadline) reject(new Error(`no TCP listener on ${host}:${port}`));
+        else setTimeout(attempt, 150);
+      });
+    };
+    attempt();
+  });
+}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const guiDir = join(here, '..');
@@ -86,12 +116,12 @@ test('crawl_site finds files on a local site and stays on-site', async () => {
   writeFileSync(join(dir, 'a.zip'), 'ZIP');
   writeFileSync(join(dir, 'docs/b.pdf'), 'PDF');
 
-  const port = 8700 + Math.floor(Math.random() * 200);
+  const port = await freePort();
   const srv = spawn('python3', ['-m', 'http.server', String(port)],
     { cwd: dir, stdio: 'ignore' });
   try {
-    // Give the server a moment to bind.
-    await new Promise((r) => setTimeout(r, 800));
+    // Wait until the server actually accepts connections (not a fixed sleep).
+    await waitTcp('127.0.0.1', port);
     const out = execFileSync('python3', ['-c', `
 import sys, json
 sys.path.insert(0, ${JSON.stringify(guiDir)})
