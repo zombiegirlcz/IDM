@@ -4554,16 +4554,37 @@ def selftest_grabber_project(state_dir):
 
 
 class _RecordingApi:
-    """Stands in for the engine API: remembers what would be added."""
+    """Stands in for the engine API in the selftests.
+
+    Both halves of what the selftests need: `adds` keeps the whole record of
+    each call (the Grabber checks which directory a file would land in) and
+    `added` keeps just the URLs (the Tasks menu checks how many were queued).
+    One class, because two classes with the same name meant the second one
+    silently shadowed the first.
+    """
 
     def __init__(self):
         self.adds = []
+        self.added = []
 
-    def add(self, url, connections=None, options=None):
+    def items(self):
+        return []
+
+    def add(self, url, connections=None, aria2=False, options=None):
         self.adds.append({"url": url,
                           "connections": connections,
                           "out_dir": (options or {}).get("out_dir", "")})
-        return {"id": len(self.adds)}
+        self.added.append(url)
+        return len(self.adds)
+
+    def resume(self, i):
+        pass
+
+    def pause(self, i):
+        pass
+
+    def remove(self, i):
+        pass
 
 
 def selftest_grabber_checks(state_dir):
@@ -4807,29 +4828,6 @@ def selftest_window():
     root.destroy()
     print(f"SELFTEST-WINDOW: OK title={title!r}", flush=True)
     return 0
-
-
-class _RecordingApi:
-    """Stand-in for Api in the selftests: records what would be queued."""
-
-    def __init__(self):
-        self.added = []
-
-    def items(self):
-        return []
-
-    def add(self, url, connections=4, aria2=False, options=None):
-        self.added.append(url)
-        return len(self.added)
-
-    def resume(self, i):
-        pass
-
-    def pause(self, i):
-        pass
-
-    def remove(self, i):
-        pass
 
 
 def selftest_batch_clipboard():
