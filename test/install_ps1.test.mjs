@@ -111,6 +111,17 @@ test('shortcut launches the GUI directly, without a cmd.exe console', () => {
   );
 });
 
+test('installs Python with tkinter when missing, so the icon works', () => {
+  const s = src();
+  // The icon runs a Python/Tk window. If Python or its tkinter module is
+  // missing the icon silently does nothing, so the installer must provide them.
+  assert.match(s, /function Test-PythonTk/, 'must check that tkinter is importable');
+  assert.match(s, /function Ensure-Python/, 'must ensure Python exists');
+  assert.match(s, /winget install --id Python\.Python/, 'must install Python via winget');
+  assert.match(s, /\$python = Ensure-Python/, 'must use the ensured interpreter');
+  assert.match(s, /IDM_NO_PYTHON_INSTALL/, 'must offer an escape hatch');
+});
+
 test('persists IDM_ALLOWED_DIR for the fail-closed host', () => {
   assert.match(src(), /SetEnvironmentVariable\(\s*"IDM_ALLOWED_DIR"/, 'must persist IDM_ALLOWED_DIR');
 });
