@@ -95,3 +95,29 @@ test('a password is stored through the engine and only its reference is kept', (
     `the plaintext key must be removed, not emptied: ${JSON.stringify(r.record)}`);
   assert.equal(r.record.user, 'alice');
 });
+
+// An existing settings.json full of plaintext has to migrate. On a save, not
+// on a read: reading stays reading, exactly as on the engine side.
+test('saving Options migrates the plaintext logins it finds', () => {
+  const out = execFileSync('python3', ['-I', join(guiDir, 'idm_gui.py'),
+    '--selftest-migrate-logins'], { encoding: 'utf8' });
+  const line = out.split('\n').find((l) => l.startsWith('MIGRATED:'));
+  assert.ok(line, `no MIGRATED: line in output:\n${out}`);
+  const r = JSON.parse(line.slice('MIGRATED:'.length));
+
+  // Both plaintext records went to the vault; the one already migrated was
+  // left alone, and no password was sent for it a second time.
+  assert.deepEqual(r.sent, ['s3cret', 'hunter2'], `sent: ${JSON.stringify(r.sent)}`);
+  for (const rec of r.after) {
+    assert.ok(!('password' in rec),
+      `plaintext left behind: ${JSON.stringify(rec)}`);
+    assert.ok(rec.password_ref, `no reference: ${JSON.stringify(rec)}`);
+  }
+  assert.equal(r.after.length, 3);
+  // A record with no password at all is not a password to migrate.
+  assert.deepEqual(r.untouched, { url: 'https://nopass/', user: 'anon', password: '' },
+    'an empty password means "none set" and must be left as it is');
+  // A refusal from the engine keeps the plaintext rather than losing it.
+  assert.equal(r.on_refusal.password, 's3cret');
+  assert.ok(!('password_ref' in r.on_refusal));
+});
