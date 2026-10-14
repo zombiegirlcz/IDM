@@ -126,6 +126,12 @@ struct Item {
     /// Retries already spent. Reset when the download is resumed by hand.
     #[serde(default)]
     attempts: u32,
+    /// Unix seconds at which the next attempt is due. 0 = nothing scheduled.
+    /// A timestamp on the item rather than a sleeping task, so a retry also
+    /// survives a restart -- and so run_item never has to call itself, which
+    /// makes its future's type refer to itself and does not compile.
+    #[serde(default)]
+    retry_at: u64,
     #[serde(default)]
     status: String,
     #[serde(default)]
@@ -371,6 +377,7 @@ async fn add_item(
         queue: opts.queue,
         retries: opts.retries,
         attempts: 0,
+        retry_at: 0,
         status: "pending".to_string(),
         downloaded: 0,
         total: 0,
@@ -480,11 +487,6 @@ async fn run_item(st: Arc<State>, id: u64) {
     let (ctx, mut crx) = mpsc::channel::<Ctrl>(4);
     st.ctrl.lock().await.insert(id, ctx);
 
-    // Set when a failure is worth another attempt. Acted on after the permit
-    // and the control channel are released, so the retry is not waiting on
-    // this run's own resources.
-    let mut retry = false;
-
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
@@ -502,13 +504,13 @@ async fn run_item(st: Arc<State>, id: u64) {
                             match items.iter_mut().find(|i| i.id == id) {
                                 Some(i) if i.attempts < i.retries => {
                                     i.attempts += 1;
+                                    i.retry_at = now_secs() + RETRY_DELAY_SECS;
                                     Some((i.attempts, i.retries))
                                 }
                                 _ => None,
                             }
                         };
                         if let Some((attempt, total)) = budget {
-                            retry = true;
                             save(&st).await;
                             set_status(
                                 &st,
@@ -571,22 +573,50 @@ async fn run_item(st: Arc<State>, id: u64) {
 
     st.ctrl.lock().await.remove(&id);
     drop(permit);
+}
 
-    if retry {
-        // Wait before trying again, so a server that is refusing every request
-        // is not hammered, and so this run's permit is certainly released.
-        let st2 = st.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(RETRY_DELAY_SECS)).await;
-            // Pausing or removing it in the meantime cancels the retry.
-            if get_status(&st2, id).await == "pending" {
-                // Type-erased on purpose: run_item spawning run_item makes the
-                // future's type refer to itself, which does not compile.
-                let fut: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =
-                    Box::pin(run_item(st2, id));
-                fut.await;
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Re-runs downloads whose retry has come due.
+///
+/// A separate top-level task rather than run_item re-invoking itself: the
+/// recursion would make run_item's future contain its own type, which the
+/// compiler cannot prove Send. It also picks up a retry that was still
+/// pending when the engine was restarted.
+async fn retry_sweeper(st: Arc<State>) {
+    loop {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        let now = now_secs();
+        let due: Vec<u64> = {
+            let items = st.items.lock().await;
+            items
+                .iter()
+                .filter(|i| i.retry_at > 0 && i.retry_at <= now && i.status == "pending")
+                .map(|i| i.id)
+                .collect()
+        };
+        for id in due {
+            // Clear the stamp first, so one due retry starts exactly one run
+            // even if the sweeper ticks again while it is starting. Pausing or
+            // removing the item in the meantime takes it out of this list.
+            {
+                let mut items = st.items.lock().await;
+                match items.iter_mut().find(|i| i.id == id) {
+                    Some(i) => i.retry_at = 0,
+                    None => continue,
+                }
             }
-        });
+            if st.ctrl.lock().await.contains_key(&id) {
+                continue;
+            }
+            let st2 = st.clone();
+            tokio::spawn(async move { run_item(st2, id).await });
+        }
     }
 }
 
@@ -843,6 +873,9 @@ pub async fn serve(
         token,
         origin: format!("http://{}", addr),
     });
+
+    // Failed downloads with retries left come back through here.
+    tokio::spawn(retry_sweeper(st.clone()));
 
     let listener = TcpListener::bind(&addr)
         .await
