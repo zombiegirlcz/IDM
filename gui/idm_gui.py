@@ -1461,10 +1461,49 @@ def grabber_crawl_exts(template: str, custom_text: str) -> list:
             for e in (custom_text or "").replace(",", " ").split() if e.strip()]
 
 
+def grabber_filter_patterns(text: str) -> list:
+    """The patterns typed into one of the Grabber's filter boxes.
+
+    Whitespace- or comma-separated, so both "a b" and "a, b" work.
+    """
+    raw = (text or "").replace(",", " ").split()
+    return [p.strip() for p in raw if p.strip()]
+
+
+def grabber_allows(url: str, include=None, exclude=None) -> bool:
+    """Whether a found URL passes the include/exclude filters.
+
+    A pattern with a wildcard is matched against the whole URL with fnmatch;
+    one without is treated as a substring, which is what a user typing
+    "/docs/" means. Matching is case-insensitive. An empty include list means
+    "everything", and exclude always wins -- the narrower intent is the one
+    worth honouring.
+    """
+    import fnmatch
+
+    u = (url or "").lower()
+
+    def hit(pattern):
+        p = (pattern or "").strip().lower()
+        if not p:
+            return False
+        if any(ch in p for ch in "*?["):
+            return fnmatch.fnmatch(u, p) or fnmatch.fnmatch(u, "*" + p + "*")
+        return p in u
+
+    if any(hit(p) for p in (exclude or [])):
+        return False
+    inc = [p for p in (include or []) if (p or "").strip()]
+    if inc and not any(hit(p) for p in inc):
+        return False
+    return True
+
+
 def crawl_site(start_url: str, max_pages: int = 50,
                file_exts=None, same_site_only: bool = True,
                timeout: float = 8.0, should_stop=None,
-               max_depth=None, external_depth=None) -> list:
+               max_depth=None, external_depth=None,
+               include=None, exclude=None) -> list:
     """Explore a site breadth-first and return file URLs (the IDM Grabber).
 
     Only HTML pages are followed; anything whose path ends in one of
@@ -1483,6 +1522,10 @@ def crawl_site(start_url: str, max_pages: int = 50,
     which is what the crawl did before either knob existed. A file linked from
     a page that was visited is always collected -- the depth limits say which
     pages get opened, not which files count.
+
+    `include`/`exclude` are pattern lists (see grabber_allows) applied to the
+    files that would be returned, so a crawl can be narrowed to one corner of
+    a site without changing the file types.
     """
     import re
     from urllib.parse import urljoin, urlparse
@@ -1537,7 +1580,7 @@ def crawl_site(start_url: str, max_pages: int = 50,
             else:
                 if not exts or ext in exts:
                     found.add(link)
-    return sorted(found)
+    return sorted(u for u in found if grabber_allows(u, include, exclude))
 
 
 def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
@@ -1632,6 +1675,18 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
 
     template.bind("<<ComboboxSelected>>", on_template)
 
+    ttk.Label(s4, text="Only URLs matching (blank = all):").grid(
+        row=1, column=0, sticky="w", padx=6, pady=4)
+    include = ttk.Entry(s4, width=50)
+    include.grid(row=1, column=1, padx=6, pady=4, sticky="w")
+    ttk.Label(s4, text="Never URLs matching:").grid(
+        row=2, column=0, sticky="w", padx=6, pady=4)
+    exclude = ttk.Entry(s4, width=50)
+    exclude.grid(row=2, column=1, padx=6, pady=4, sticky="w")
+    ttk.Label(s4, text="(space separated; * and ? work, plain text matches "
+                       "anywhere in the URL)").grid(
+        row=3, column=0, columnspan=2, sticky="w", padx=6)
+
     main = ttk.Frame(win)
     main.pack(fill="both", expand=True, padx=8, pady=4)
 
@@ -1706,6 +1761,8 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
         on_site = bool(same_site.get())
         own_depth = _as_int(depth.get(), 3)
         out_depth = _as_int(external_depth.get(), 0)
+        inc = grabber_filter_patterns(include.get())
+        exc = grabber_filter_patterns(exclude.get())
 
         def done(found, error):
             crawl["busy"] = False
@@ -1726,6 +1783,7 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
                                    same_site_only=on_site,
                                    max_depth=own_depth,
                                    external_depth=out_depth,
+                                   include=inc, exclude=exc,
                                    should_stop=lambda: crawl["stop"])
                 err = None
             except Exception as e:  # noqa: BLE001
@@ -1773,7 +1831,8 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
     win._idm_grabber = {"state": state, "start": start, "render": render,
                         "template": template, "exts": exts, "explore": explore,
                         "crawl": crawl, "same_site": same_site,
-                        "depth": depth, "external_depth": external_depth}
+                        "depth": depth, "external_depth": external_depth,
+                        "include": include, "exclude": exclude}
     return win
 
 
@@ -3956,7 +4015,8 @@ def selftest_properties_ok():
 
 
 def selftest_grabber_explore(url, template="All files", depth=None,
-                             external_depth=None, same_site_only=True):
+                             external_depth=None, same_site_only=True,
+                             include="", exclude=""):
     """Explore a real site through the Grabber dialog and print what it found.
 
     This drives the widgets, not crawl_site() directly: the point is that the
@@ -3979,6 +4039,10 @@ def selftest_grabber_explore(url, template="All files", depth=None,
         g["depth"].set(depth)
     if external_depth is not None:
         g["external_depth"].set(external_depth)
+    g["include"].delete(0, "end")
+    g["include"].insert(0, include)
+    g["exclude"].delete(0, "end")
+    g["exclude"].insert(0, exclude)
     g["explore"]()
 
     # A real event loop, not a poll of update(): the crawl thread hands its
@@ -4356,6 +4420,8 @@ def main(argv=None):
                    help="template for --selftest-grabber-explore")
     p.add_argument("--grabber-depth", type=int, default=None)
     p.add_argument("--grabber-external-depth", type=int, default=None)
+    p.add_argument("--grabber-include", default="")
+    p.add_argument("--grabber-exclude", default="")
     p.add_argument("--grabber-all-sites", action="store_true",
                    help="untick 'explore the current site only'")
     args = p.parse_args(rest)
@@ -4367,7 +4433,8 @@ def main(argv=None):
         return selftest_grabber_explore(
             args.url, args.grabber_template, depth=args.grabber_depth,
             external_depth=args.grabber_external_depth,
-            same_site_only=not args.grabber_all_sites)
+            same_site_only=not args.grabber_all_sites,
+            include=args.grabber_include, exclude=args.grabber_exclude)
 
     if args.selftest_live_graph:
         if not args.meta:
