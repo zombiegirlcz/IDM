@@ -140,3 +140,36 @@ TDD, v tomhle pořadí:
   vazba k bodům 2 a 3 přijde až z CI. Diff se před pushem čte očima.
 - `chrome_e2e.test.mjs` potřebuje Chromium a Xvfb; nový kanál se v něm neověřuje,
   stačí jednotkové a host-e2e pokrytí.
+
+---
+
+## Druhá polovina: kontextové menu a Windows parita
+
+Dodatek k výše popsanému, implementovaný po schválení v chatu (bounded změna —
+kanál i rozhodovací logika už existovaly).
+
+**Menu.** Dvě položky, vytvořené v `chrome.runtime.onInstalled`: „Download with
+IDM" nad odkazem a „Download all links with IDM" nad vybraným textem. Manifest
+dostal permission `contextMenus`.
+
+**Explicitní klik obchází filtry.** `downloadExplicit()` nevolá `shouldCapture`
+vůbec; z nastavení bere jen `max_connections`. `file_types` a `exclude_*` řídí
+automatický záchyt, a kdyby platily i tady, položka menu by tiše nedělala nic
+právě na těch odkazech, kvůli kterých po ní uživatel sahá.
+
+**Odkazy ve výběru.** Chrome dává backgroundu jen `selectionText`, takže se
+`content.js` odpovídá na požadavek `links_in_selection` pomocí
+`window.getSelection()` a `Range.intersectsNode`. Nové číslo opcode se
+nezavádělo: `CONTENT_TO_BG` / `BG_TO_CONTENT` v `schema.js` jsou soupis toho, co
+bylo v originálu pozorováno, a vlastní číslo by z té dokumentace udělalo fikci.
+Výsledek se deduplikuje, nechává jen `http(s)` a stropuje na 100 odkazů.
+
+**Windows parita.** Tam browser spouští host bez argumentů a žádný wrapper
+neexistuje, takže host vedle `--settings` přijímá i `IDM_SETTINGS` (flag má
+přednost, prázdná hodnota = nenastaveno) a `install.ps1` ji uživateli uloží i
+uklidí při `--Uninstall`. Na rozdíl od `IDM_ALLOWED_DIR` to není fail-closed:
+bez obojího `get_settings` jen ohlásí `source:"default"`.
+
+**Testy:** `extension/test/context_menu.test.mjs` (6), extrakce výběru
+v `capture_dom`, permission v `message_schema`, `IDM_SETTINGS` v
+`engine/tests/host_settings.rs` (3), `IDM_SETTINGS` v `test/install_ps1.test.mjs`.
