@@ -148,6 +148,32 @@ fn apply_auth(cmd: &mut tokio::process::Command, cookie: Option<&str>, referer: 
 }
 
 /// Run `yt-dlp -J` and return the parsed metadata JSON.
+/// How hard to pull. A fragmented format (DASH, HLS) arrives in hundreds of
+/// pieces, and one at a time is why a 450 MB video can take an hour and a
+/// half; `connections` is the number the user already set, so it is the
+/// natural answer for both knobs here.
+pub struct Speed {
+    /// Parallel fragments for yt-dlp's own downloader.
+    pub connections: usize,
+    /// aria2c, when the user asked for it: yt-dlp resolves the media URL and
+    /// hands the actual transfer over.
+    pub aria2c: Option<std::path::PathBuf>,
+}
+
+fn apply_speed(cmd: &mut tokio::process::Command, speed: &Speed) {
+    let n = speed.connections.max(1);
+    if let Some(aria2c) = &speed.aria2c {
+        // yt-dlp calls it --downloader (--external-downloader is the old
+        // alias). The args go per-downloader, hence the "aria2c:" prefix.
+        cmd.arg("--downloader").arg(aria2c);
+        cmd.arg("--downloader-args")
+            .arg(format!("aria2c:-x {} -s {} -k 1M --file-allocation=none", n, n));
+    }
+    // Harmless next to aria2c (which then does the splitting) and the whole
+    // difference on the plain path.
+    cmd.arg("--concurrent-fragments").arg(n.to_string());
+}
+
 /// yt-dlp needs the URL, never the server password: whatever variable
 /// `--auth-env` named is removed from the child's environment, so it cannot be
 /// read out of /proc/<child>/environ either.
@@ -292,10 +318,12 @@ pub async fn download(
     referer: Option<&str>,
     proxy: Option<&str>,
     auth_env: Option<&str>,
+    speed: Speed,
 ) -> anyhow::Result<PathBuf> {
     let mut cmd = tokio::process::Command::new(yt_dlp);
     scrub_auth_env(&mut cmd, auth_env);
     cmd.arg("--no-playlist").arg("--no-warnings");
+    apply_speed(&mut cmd, &speed);
     if let Some(p) = proxy {
         cmd.arg("--proxy").arg(p);
     }

@@ -1372,6 +1372,21 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
 }
 
 /// Media/stream download through the yt-dlp backend.
+/// What to hand the media backend for speed: the connection count always, and
+/// aria2c when `--aria2` was asked for. Resolving aria2c here means the
+/// auto-installer still runs, exactly as it does on the direct path.
+async fn media_speed(args: &Args) -> anyhow::Result<media::Speed> {
+    let aria2c = if args.aria2 {
+        Some(ensure_aria2c(args).await?)
+    } else {
+        None
+    };
+    Ok(media::Speed {
+        connections: args.connections,
+        aria2c,
+    })
+}
+
 async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathBuf>) -> anyhow::Result<()> {
     let cookie = net.cookie.as_deref();
     let referer = net.referer.as_deref();
@@ -1423,6 +1438,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
         referer,
         args.proxy.as_deref(),
         args.auth_env.as_deref(),
+        media_speed(args).await?,
     )
     .await?;
 
@@ -1736,10 +1752,6 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
         }
     };
 
-    if args.aria2 {
-        return run_aria2(&args, &url, out).await;
-    }
-
     let mut builder = reqwest::Client::builder();
     if let Some(p) = &args.proxy {
         builder = builder.proxy(
@@ -1778,7 +1790,17 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
         let pinned = args.output.is_some()
             || args.category_dir.is_some()
             || args.output_dir.is_some();
+        // --aria2 does NOT mean "skip yt-dlp" here. It used to: the aria2
+        // branch sat in front of this decision, so a video page went to
+        // aria2c as a page and what landed on disk was the HTML. The two
+        // belong together -- yt-dlp resolves the media URL, aria2c moves the
+        // bytes -- which is what yt-dlp's own --downloader is for.
         return run_media(&args, &net, &url, if pinned { Some(out) } else { None }).await;
+    }
+
+    // Not media: a plain file with --aria2 goes straight to aria2c, as before.
+    if args.aria2 {
+        return run_aria2(&args, &url, out).await;
     }
 
     if args.dynamic {
