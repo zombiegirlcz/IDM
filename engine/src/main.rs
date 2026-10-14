@@ -89,6 +89,14 @@ struct Args {
     #[arg(long)]
     proxy: Option<String>,
 
+    /// HTTP basic credentials as USER:PASSWORD (the GUI's Site Logins tab)
+    #[arg(long)]
+    auth: Option<String>,
+
+    /// Resume even when the server reports a different modification time
+    #[arg(long, default_value_t = false)]
+    ignore_mtime: bool,
+
     /// Download every URL listed in FILE (one per line, '#' comments)
     #[arg(long)]
     queue: Option<PathBuf>,
@@ -164,6 +172,8 @@ struct Net {
     cookie: Option<String>,
     referer: Option<String>,
     limit_rate: u64,
+    /// HTTP basic credentials as USER:PASSWORD, from --auth.
+    auth: Option<String>,
 }
 
 impl Net {
@@ -174,6 +184,15 @@ impl Net {
         }
         if let Some(r) = &self.referer {
             rb = rb.header("Referer", r);
+        }
+        if let Some(a) = &self.auth {
+            // "user:password", password optional. Split on the FIRST colon so a
+            // password containing one survives.
+            let (user, pass) = match a.split_once(':') {
+                Some((u, p)) => (u, Some(p.to_string())),
+                None => (a.as_str(), None),
+            };
+            rb = rb.basic_auth(user, pass);
         }
         rb
     }
@@ -562,6 +581,15 @@ async fn run_direct(
             None
         } else if m.etag != probe.etag && m.etag.is_some() && probe.etag.is_some() {
             println!("[!] ETag changed — starting fresh");
+            None
+        } else if !args.ignore_mtime
+            && m.last_modified != probe.last_modified
+            && m.last_modified.is_some()
+            && probe.last_modified.is_some()
+        {
+            // The file changed under us: its old offsets describe other bytes.
+            // --ignore-mtime (Options -> Downloads) resumes anyway.
+            println!("[!] Last-Modified changed — starting fresh");
             None
         } else if !matches!(std::fs::metadata(&out), Ok(md) if md.len() == m.total) {
             // The sidecar claims progress, but the file it describes is gone or
@@ -1567,6 +1595,7 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
         cookie: args.cookie.clone(),
         referer: args.referer.clone(),
         limit_rate: args.limit_rate,
+        auth: args.auth.clone(),
     };
 
     // Media path: explicit --force-media/--list-formats, or a URL that looks

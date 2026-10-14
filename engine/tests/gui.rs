@@ -536,3 +536,46 @@ fn api_add_honours_the_gui_download_options() {
     let _ = srv.kill();
     let _ = srv.wait();
 }
+
+/// The second batch of Options values the GUI resolves per download: the
+/// Connection tab's quota (converted to a byte rate), the Site Logins
+/// credentials and the "ignore modification time" switch. They have to be
+/// stored on the item, not just accepted, so a resume runs with them too.
+#[test]
+fn api_add_stores_rate_auth_and_mtime_options() {
+    let data = make_data(200_000);
+    let origin = start_origin(data.clone(), 0, 0);
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
+    wait_ready(&addr);
+
+    let body = serde_json::json!({
+        "url": format!("{}/file.bin", origin),
+        "connections": 2,
+        "limit_rate": 65536,
+        "auth": "alice:s3cret",
+        "ignore_mtime": true,
+    })
+    .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "POST /api/add returned {}: {}", st, resp);
+    let added: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    let id = added["id"].as_u64().expect("add must return an id");
+
+    let it = find_item(&json(&addr, "/api/items"), id);
+    assert_eq!(it["limit_rate"].as_u64(), Some(65536), "item: {}", it);
+    assert_eq!(it["auth"].as_str(), Some("alice:s3cret"), "item: {}", it);
+    assert_eq!(it["ignore_mtime"].as_bool(), Some(true), "item: {}", it);
+
+    // A rate-limited download must still complete correctly.
+    wait_status(&addr, id, "done", 60);
+    let got = std::fs::read(out.join("file.bin")).expect("file.bin missing");
+    assert_eq!(crc32(&got), crc32(&data), "crc mismatch with a rate limit");
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}

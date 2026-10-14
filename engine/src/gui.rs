@@ -104,6 +104,17 @@ struct Item {
     user_agent: String,
     #[serde(default)]
     proxy: String,
+    /// Bytes/second cap, converted from the Connection tab's quota. 0 = off.
+    #[serde(default)]
+    limit_rate: u64,
+    /// HTTP basic credentials as USER:PASSWORD, from the Site Logins tab.
+    /// Kept with the queue so a resume can authenticate again; the queue file
+    /// is as sensitive as settings.json, which already holds these.
+    #[serde(default)]
+    auth: String,
+    /// Resume even when the server reports a different Last-Modified.
+    #[serde(default)]
+    ignore_mtime: bool,
     #[serde(default)]
     status: String,
     #[serde(default)]
@@ -306,6 +317,9 @@ struct AddOptions {
     out_dir: String,
     user_agent: String,
     proxy: String,
+    limit_rate: u64,
+    auth: String,
+    ignore_mtime: bool,
 }
 
 async fn add_item(
@@ -335,6 +349,9 @@ async fn add_item(
         aria2,
         user_agent: opts.user_agent,
         proxy: opts.proxy,
+        limit_rate: opts.limit_rate,
+        auth: opts.auth,
+        ignore_mtime: opts.ignore_mtime,
         status: "pending".to_string(),
         downloaded: 0,
         total: 0,
@@ -375,7 +392,7 @@ async fn run_item(st: Arc<State>, id: u64) {
         Ok(p) => p,
         Err(_) => return,
     };
-    let (url, output, conns, aria2, user_agent, proxy) = {
+    let (url, output, conns, aria2, user_agent, proxy, limit_rate, auth, ignore_mtime) = {
         let g = st.items.lock().await;
         match g.iter().find(|i| i.id == id) {
             Some(i) => (
@@ -385,6 +402,9 @@ async fn run_item(st: Arc<State>, id: u64) {
                 i.aria2,
                 i.user_agent.clone(),
                 i.proxy.clone(),
+                i.limit_rate,
+                i.auth.clone(),
+                i.ignore_mtime,
             ),
             None => return,
         }
@@ -410,6 +430,15 @@ async fn run_item(st: Arc<State>, id: u64) {
     }
     if !proxy.is_empty() {
         cmd.arg("--proxy").arg(&proxy);
+    }
+    if limit_rate > 0 {
+        cmd.arg("--limit-rate").arg(limit_rate.to_string());
+    }
+    if !auth.is_empty() {
+        cmd.arg("--auth").arg(&auth);
+    }
+    if ignore_mtime {
+        cmd.arg("--ignore-mtime");
     }
     // `--` so a URL starting with `-` is never parsed as a flag by the child.
     cmd.arg("--").arg(&url);
@@ -622,6 +651,9 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 out_dir: v["out_dir"].as_str().unwrap_or("").to_string(),
                 user_agent: v["user_agent"].as_str().unwrap_or("").to_string(),
                 proxy: v["proxy"].as_str().unwrap_or("").to_string(),
+                limit_rate: v["limit_rate"].as_u64().unwrap_or(0),
+                auth: v["auth"].as_str().unwrap_or("").to_string(),
+                ignore_mtime: v["ignore_mtime"].as_bool().unwrap_or(false),
             };
             let id = add_item(&st, url, conns, use_aria2, opts).await;
             let out = serde_json::json!({ "ok": true, "id": id });

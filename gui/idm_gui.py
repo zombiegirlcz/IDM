@@ -235,10 +235,14 @@ class Api:
         body = {"url": url, "connections": connections}
         if aria2:
             body["aria2"] = True
-        for key in ("out_dir", "temp_dir", "user_agent", "proxy"):
+        for key in ("out_dir", "temp_dir", "user_agent", "proxy", "auth"):
             value = (options or {}).get(key)
             if value:
                 body[key] = value
+        if (options or {}).get("limit_rate"):
+            body["limit_rate"] = int(options["limit_rate"])
+        if (options or {}).get("ignore_mtime"):
+            body["ignore_mtime"] = True
         r = self._req("POST", "/api/add", body)
         return int(r.get("id", 0))
 
@@ -705,6 +709,87 @@ def host_of(url: str) -> str:
         return ""
 
 
+def quota_to_rate(mb: int, hours: int) -> int:
+    """Bytes/second that spends `mb` megabytes over `hours` hours.
+
+    The Connection tab expresses the cap as a quota, but the engine only
+    speaks --limit-rate, so the quota has to be converted. 0 means unlimited.
+    """
+    try:
+        mb, hours = int(mb), int(hours)
+    except (TypeError, ValueError):
+        return 0
+    if mb <= 0 or hours <= 0:
+        return 0
+    return int(mb * 1024 * 1024 / (hours * 3600))
+
+
+def proxy_with_credentials(proxy: str, user: str, password: str) -> str:
+    """Put user:password into a proxy URL, percent-encoding both.
+
+    The engine takes a single proxy URL, so this is where the Proxy tab's
+    "proxy requires authorization" fields actually go.
+    """
+    proxy = (proxy or "").strip()
+    if not proxy or not user:
+        return proxy
+    try:
+        parts = urllib.parse.urlsplit(proxy)
+    except Exception:  # noqa: BLE001
+        return proxy
+    if not parts.netloc:
+        return proxy
+    cred = urllib.parse.quote(user, safe="")
+    if password:
+        cred += ":" + urllib.parse.quote(password, safe="")
+    host = parts.netloc.rsplit("@", 1)[-1]  # drop credentials already there
+    return urllib.parse.urlunsplit(
+        (parts.scheme, f"{cred}@{host}", parts.path, parts.query, parts.fragment))
+
+
+def site_login_for(settings: dict, url: str) -> str:
+    """"user:password" for the Site Logins entry covering `url`, else "".
+
+    Matching is by host, so a login never leaks to a different server, and the
+    longest matching path wins when one host has several entries.
+    """
+    host = host_of(url)
+    if not host:
+        return ""
+    try:
+        path = urllib.parse.urlsplit(url).path or "/"
+    except Exception:  # noqa: BLE001
+        return ""
+    best, best_len = None, -1
+    for rec in (settings or {}).get("site_logins", []):
+        rec_url = (rec or {}).get("url", "")
+        if host_of(rec_url) != host:
+            continue
+        try:
+            rec_path = urllib.parse.urlsplit(rec_url).path or "/"
+        except Exception:  # noqa: BLE001
+            continue
+        if path.startswith(rec_path) and len(rec_path) > best_len:
+            best, best_len = rec, len(rec_path)
+    if not best or not best.get("user"):
+        return ""
+    return "%s:%s" % (best.get("user", ""), best.get("password", ""))
+
+
+def dialog_prefs(settings: dict) -> dict:
+    """Which dialogs the Downloads tab wants shown."""
+    s = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    d = s["downloads"]
+    return {
+        "show_start": bool(d.get("show_start_dialog")),
+        "show_complete": bool(d.get("show_complete_dialog")),
+        "start_immediately": bool(d.get("start_immediately")),
+        # "normal" / "minimized" show the graph; "don't show" suppresses it.
+        "show_progress": d.get("show_progress", "normal") != "don't show",
+        "progress_minimized": d.get("show_progress") == "minimized",
+    }
+
+
 def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
     """The engine options a download of `url` must run with.
 
@@ -749,6 +834,15 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
             if skip and host and (host == skip or host.endswith("." + skip)):
                 proxy = ""
                 break
+        if proxy and s["proxy"].get("proxy_auth"):
+            proxy = proxy_with_credentials(proxy,
+                                           s["proxy"].get("proxy_user", ""),
+                                           s["proxy"].get("proxy_pass", ""))
+
+    limit_rate = 0
+    if s["connection"].get("download_limits"):
+        limit_rate = quota_to_rate(s["connection"].get("limit_amount_mb"),
+                                   s["connection"].get("limit_period_h"))
 
     return {
         "connections": max(1, conns),
@@ -756,6 +850,9 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
         "temp_dir": s["save_to"].get("temp_dir") or "",
         "user_agent": s["downloads"].get("user_agent") or "",
         "proxy": proxy,
+        "limit_rate": limit_rate,
+        "auth": site_login_for(s, url),
+        "ignore_mtime": bool(s["downloads"].get("ignore_mtime")),
     }
 
 
@@ -2506,13 +2603,9 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             # connections, user agent, proxy, temp dir) is resolved here.
             opts = download_options(load_settings(state_dir), u,
                                     fallback_dir=out_dir or ".")
-            # IDM shows "Download File Info" next, with the real target folder.
-            info_win, start, later_btn = _dialog_file_info(
-                root, u, opts["out_dir"] or out_dir or ".", category_of(u)
-            )
+            prefs = dialog_prefs(load_settings(state_dir))
 
             def _add(verb):
-                info_win.destroy()
                 try:
                     api.add(u, connections=opts["connections"],
                             aria2=bool(aria2_var.get()), options=opts)
@@ -2521,10 +2614,23 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
                     status.set(f"error: {e}")
                 refresh()
 
+            # "Show start download dialog" off means queue it straight away,
+            # which is what the switch is for.
+            if not prefs["show_start"]:
+                _add("added" if prefs["start_immediately"] else "queued")
+                return
+
+            # IDM shows "Download File Info" next, with the real target folder.
+            info_win, start, later_btn = _dialog_file_info(
+                root, u, opts["out_dir"] or out_dir or ".", category_of(u)
+            )
+
             def do_start():
+                info_win.destroy()
                 _add("added")
 
             def do_later():
+                info_win.destroy()
                 _add("queued")
 
             start.config(command=do_start)
