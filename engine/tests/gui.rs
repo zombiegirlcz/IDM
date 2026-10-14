@@ -853,7 +853,10 @@ fn api_update_persists_across_restart() {
 #[test]
 fn api_update_refuses_to_retarget_a_running_download() {
     // A slow origin so the download is still running when we try to edit it.
-    let data = make_data(4_000_000);
+    // Sized to take minutes rather than seconds: at 4 MB this finished inside
+    // the ~10 s it took to get here on a loaded runner, and a finished
+    // download is editable, which made the test flaky.
+    let data = make_data(40_000_000);
     let origin = start_origin(data, 16_384, 40);
     let out = unique_dir("out");
     let state = unique_dir("state");

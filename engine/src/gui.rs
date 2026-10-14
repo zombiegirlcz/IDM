@@ -450,8 +450,11 @@ async fn save(st: &State) {
             }
             match opts.open(&tmp) {
                 Ok(mut f) => {
+                    // No fsync: save() runs on every status change, and the
+                    // rename below is what readers need. Durability across a
+                    // power cut is not worth an fsync per progress update.
                     use std::io::Write;
-                    f.write_all(s.as_bytes()).and_then(|_| f.sync_all()).is_ok()
+                    f.write_all(s.as_bytes()).is_ok()
                 }
                 Err(_) => false,
             }
