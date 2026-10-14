@@ -1402,6 +1402,57 @@ def _same_site(a: str, b: str) -> bool:
         return False
 
 
+# --------------------------------------------------------------------------- #
+# Grabber project templates: each one is a named file-type filter, so picking
+# "Images" explores the same site but collects only pictures. "custom" keeps
+# whatever the user typed in the file-type box.
+# --------------------------------------------------------------------------- #
+GRABBER_CUSTOM = "custom"
+
+GRABBER_TEMPLATES = {
+    "Images": ["bmp", "gif", "ico", "jpeg", "jpg", "png", "svg", "tif",
+               "tiff", "webp"],
+    "Video": ["3gp", "avi", "flv", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg",
+              "ts", "webm", "wmv"],
+    "Audio": ["aac", "aiff", "flac", "m4a", "mp3", "oga", "ogg", "opus",
+              "wav", "wma"],
+    "Archives": ["7z", "ace", "arj", "bz2", "cab", "gz", "iso", "rar", "tar",
+                 "tgz", "xz", "zip"],
+    "Documents": ["chm", "doc", "docx", "epub", "mobi", "odp", "ods", "odt",
+                  "pdf", "ppt", "pptx", "rtf", "txt", "xls", "xlsx"],
+    "Programs": ["apk", "appimage", "deb", "dmg", "exe", "msi", "pkg", "rpm"],
+}
+
+# "All files" is the union of the others, so it can never be narrower than a
+# template the user might switch to.
+GRABBER_TEMPLATES["All files"] = sorted(
+    {e for exts in GRABBER_TEMPLATES.values() for e in exts})
+
+
+def grabber_template_names() -> list:
+    """Template names for the Grabber's combobox, "All files" first."""
+    rest = sorted(n for n in GRABBER_TEMPLATES if n != "All files")
+    return ["All files"] + rest
+
+
+def grabber_template_exts(name: str) -> list:
+    """The file types one template collects ([] for an unknown name)."""
+    return list(GRABBER_TEMPLATES.get((name or "").strip(), []))
+
+
+def grabber_crawl_exts(template: str, custom_text: str) -> list:
+    """What the crawl should actually collect.
+
+    A known template wins over the file-type box; "custom" (or any name we do
+    not know) falls back to whatever is typed in the box.
+    """
+    exts = grabber_template_exts(template)
+    if exts:
+        return exts
+    return [e.strip().lstrip(".").lower()
+            for e in (custom_text or "").replace(",", " ").split() if e.strip()]
+
+
 def crawl_site(start_url: str, max_pages: int = 50,
                file_exts=None, same_site_only: bool = True,
                timeout: float = 8.0, should_stop=None) -> list:
@@ -1494,11 +1545,9 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
     start.insert(0, "https://")
     start.grid(row=1, column=1, padx=6, pady=4, sticky="w")
     ttk.Label(s1, text="Project template:").grid(row=2, column=0, sticky="w", padx=6, pady=4)
-    template = ttk.Combobox(s1, values=["custom", "All files from a web site",
-                                        "All images from a web site",
-                                        "All video from a web site",
-                                        "All audio from a web site"], width=30)
-    template.set("All files from a web site")
+    template = ttk.Combobox(
+        s1, values=grabber_template_names() + [GRABBER_CUSTOM], width=30)
+    template.set("All files")
     template.grid(row=2, column=1, sticky="w", padx=6, pady=4)
 
     s2 = ttk.Frame(wiz)
@@ -1535,8 +1584,17 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
     ttk.Label(s4, text="File types to download (space separated):").grid(
         row=0, column=0, sticky="w", padx=6, pady=4)
     exts = ttk.Entry(s4, width=50)
-    exts.insert(0, "zip rar 7z pdf doc docx mp3 mp4 mkv avi jpg jpeg png gif exe msi")
+    exts.insert(0, " ".join(grabber_template_exts("All files")))
     exts.grid(row=0, column=1, padx=6, pady=4, sticky="w")
+
+    def on_template(_e=None):
+        """Show the picked template's file types, so the filter is visible."""
+        chosen = grabber_template_exts(template.get())
+        if chosen:
+            exts.delete(0, "end")
+            exts.insert(0, " ".join(chosen))
+
+    template.bind("<<ComboboxSelected>>", on_template)
 
     main = ttk.Frame(win)
     main.pack(fill="both", expand=True, padx=8, pady=4)
@@ -1608,7 +1666,7 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
         crawl["busy"] = True
         info.set("Exploring...")
         pages = int(max_pages.get() or 50)
-        file_exts = exts.get().split()
+        file_exts = grabber_crawl_exts(template.get(), exts.get())
         on_site = bool(same_site.get())
 
         def done(found, error):
@@ -1672,7 +1730,9 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
     btns[6].config(command=stats)
 
     wiz.select(0)
-    win._idm_grabber = {"state": state, "start": start, "render": render}
+    win._idm_grabber = {"state": state, "start": start, "render": render,
+                        "template": template, "exts": exts, "explore": explore,
+                        "crawl": crawl}
     return win
 
 
@@ -3854,6 +3914,49 @@ def selftest_properties_ok():
     return 0
 
 
+def selftest_grabber_explore(url, template="All files"):
+    """Explore a real site through the Grabber dialog and print what it found.
+
+    This drives the widgets, not crawl_site() directly: the point is that the
+    template combobox is the thing the crawl obeys.
+    """
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    win = _dialog_grabber(root)
+    win.withdraw()
+    g = win._idm_grabber
+
+    g["start"].delete(0, "end")
+    g["start"].insert(0, url)
+    g["template"].set(template)
+    g["template"].event_generate("<<ComboboxSelected>>")
+    g["explore"]()
+
+    # A real event loop, not a poll of update(): the crawl thread hands its
+    # result back with win.after(), and a Tcl call from another thread is only
+    # delivered while the main thread sits in mainloop().
+    def poll():
+        if g["crawl"]["busy"]:
+            root.after(50, poll)
+        else:
+            root.quit()
+
+    root.after(50, poll)
+    root.after(60000, root.quit)   # never hang a test run
+    root.mainloop()
+
+    found = list(g["state"]["files"])
+    try:
+        win.destroy()
+        root.destroy()
+    except Exception:  # noqa: BLE001
+        pass
+    print("GRAB:" + json.dumps(found), flush=True)
+    return 0
+
+
 def selftest_row():
     """Render one item exactly as the main list does."""
     item = {
@@ -4201,7 +4304,16 @@ def main(argv=None):
     p.add_argument("--selftest-scheduler", action="store_true")
     p.add_argument("--selftest-live-graph", action="store_true")
     p.add_argument("--meta", help="path to a .idmmeta for --selftest-live-graph")
+    p.add_argument("--selftest-grabber-explore", action="store_true")
+    p.add_argument("--grabber-template", default="All files",
+                   help="template for --selftest-grabber-explore")
     args = p.parse_args(rest)
+
+    if args.selftest_grabber_explore:
+        if not args.url:
+            print("--selftest-grabber-explore needs --url", file=sys.stderr)
+            return 2
+        return selftest_grabber_explore(args.url, args.grabber_template)
 
     if args.selftest_live_graph:
         if not args.meta:
