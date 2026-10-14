@@ -2102,6 +2102,22 @@ def _dialog_add_url(parent):
     return win, url, auth
 
 
+def media_options(cookie: str, referer: str, force_media: bool) -> dict:
+    """The engine options the media controls stand for, empties dropped.
+
+    Api.add() only sends keys with a value, so leaving the three untouched has
+    to produce nothing at all rather than a download carrying `cookie: ""`.
+    """
+    out = {}
+    if (cookie or "").strip():
+        out["cookie"] = cookie.strip()
+    if (referer or "").strip():
+        out["referer"] = referer.strip()
+    if force_media:
+        out["force_media"] = True
+    return out
+
+
 def _dialog_file_info(parent, url, folder, category, formats=None):
     """IDM 'Download File Info' dialog.
 
@@ -2115,7 +2131,7 @@ def _dialog_file_info(parent, url, folder, category, formats=None):
 
     win = tk.Toplevel(parent)
     win.title("Download File Info")
-    win.geometry("520x280")
+    win.geometry("520x380")
     ttk.Label(win, text="File Description:").grid(row=0, column=0, sticky="w", padx=8, pady=6)
     desc = ttk.Entry(win, width=44)
     desc.grid(row=0, column=1, padx=8, pady=6)
@@ -2144,8 +2160,25 @@ def _dialog_file_info(parent, url, folder, category, formats=None):
 
     win.selected_format = selected_format
 
+    # A site that only serves its media to a logged-in browser needs the
+    # cookie and the page it was linked from; "Treat as media" forces the
+    # yt-dlp path for a URL that does not look like one.
+    ttk.Label(win, text="Cookie:").grid(row=4, column=0, sticky="w", padx=8, pady=6)
+    cookie = ttk.Entry(win, width=44)
+    cookie.grid(row=4, column=1, padx=8, pady=6)
+    ttk.Label(win, text="Referer:").grid(row=5, column=0, sticky="w", padx=8, pady=6)
+    referer = ttk.Entry(win, width=44)
+    referer.grid(row=5, column=1, padx=8, pady=6)
+    force = tk.BooleanVar(value=False)
+    ttk.Checkbutton(win, text="Treat as media (yt-dlp)",
+                    variable=force).grid(row=6, column=1, sticky="w",
+                                         padx=8, pady=2)
+
+    win.media_options = lambda: media_options(
+        cookie.get(), referer.get(), bool(force.get()))
+
     btns = ttk.Frame(win)
-    btns.grid(row=4, column=0, columnspan=2, sticky="e", padx=8, pady=10)
+    btns.grid(row=7, column=0, columnspan=2, sticky="e", padx=8, pady=10)
     start = ttk.Button(btns, text="Start Download")
     later = ttk.Button(btns, text="Download Later")
     cancel = ttk.Button(btns, text="Cancel", command=win.destroy)
@@ -3562,18 +3595,20 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
                 formats=available,
             )
 
-            def do_start():
+            def _take_choices():
                 chosen = info_win.selected_format()
+                media = info_win.media_options()
                 info_win.destroy()
                 if chosen:
                     opts["format"] = chosen
+                opts.update(media)
+
+            def do_start():
+                _take_choices()
                 _add("added")
 
             def do_later():
-                chosen = info_win.selected_format()
-                info_win.destroy()
-                if chosen:
-                    opts["format"] = chosen
+                _take_choices()
                 _add("queued")
 
             start.config(command=do_start)
@@ -4380,12 +4415,40 @@ def selftest_file_info():
             fmt_combo.set(value)
     selected = win.selected_format()
     format_values = [str(v) for v in fmt_combo.cget("values")]
+
+    # The media controls: what they are called, and what they hand back once
+    # a user has filled them in.
+    labels, checkboxes, entries = [], [], []
+    for w in win.winfo_children():
+        cls = w.winfo_class()
+        if cls == "TLabel":
+            labels.append(w.cget("text"))
+        elif cls == "TCheckbutton":
+            checkboxes.append(w.cget("text"))
+            w.invoke()
+        elif cls == "TEntry":
+            entries.append(w)
+    by_label = {}
+    for w in win.winfo_children():
+        if w.winfo_class() == "TLabel":
+            row = w.grid_info().get("row")
+            for e in entries:
+                if e.grid_info().get("row") == row:
+                    by_label[w.cget("text")] = e
+    if "Cookie:" in by_label:
+        by_label["Cookie:"].insert(0, "SID=1")
+    if "Referer:" in by_label:
+        by_label["Referer:"].insert(0, "https://example.com/watch")
+    media = win.media_options()
     root.destroy()
 
     print("FILE-INFO:" + json.dumps({
         "combos": combos,
         "format_values": format_values,
         "selected_format": selected,
+        "labels": labels,
+        "checkboxes": checkboxes,
+        "media_options": media,
     }), flush=True)
     return 0
 
