@@ -4,10 +4,16 @@ Replikace architektury Internet Download Manageru: multi-connection HTTP Range
 stahování s resume, native-messaging host pro prohlížeč, MV3 extension a
 nativní Tk okno.
 
-**Stav: funguje end-to-end.** Extension si sama najde video na stránce a
-spustí stahování, engine ho dotáhne, okno ukazuje průběh. Verze 0.1.5,
-instalace přes `install.sh` / `install.ps1` stahuje hotové binárky z GitHub
-release.
+**Stav.** Verze 0.1.5, instalace přes `install.sh` / `install.ps1` stahuje
+hotové binárky z GitHub release.
+
+Co je **ověřené uživatelem**: CLI engine — stáhne video ze stránky (yt-dlp
+cesta), resume, `--aria2`, trezor na hesla.
+
+Co **ověřené není**: chování extension v prohlížeči a nativní okno v běžném
+provozu. Pokrývají je testy (protokol, opcode, filtry záchytu, stavba okna
+pod xvfb), ale ruční průchod reálným Chrome se nedělal — `chrome_e2e.test.mjs`
+je v CI `continue-on-error`. Netvrdit o nich, že fungují.
 
 ## Kde co je
 
