@@ -18,15 +18,18 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest: the label moves to Ubuntu 26 on
+    # 2026-10-19, and a runner image change is not something a push should
+    # discover for us. Bump deliberately.
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -35,7 +38,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('engine/Cargo.lock') }}
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
 
@@ -62,16 +65,16 @@ jobs:
     # The only test that exercises the real browser -> content.js -> background
     # -> native host chain with genuinely trusted user events. Non-blocking for
     # now: Chromium in CI is flaky, but a failure must be visible.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
 
@@ -103,7 +106,7 @@ jobs:
     # parsed by PowerShell instead of pattern-matched by a Node test.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Parse install.ps1
         shell: pwsh
