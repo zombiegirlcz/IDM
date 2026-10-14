@@ -645,3 +645,75 @@ fn api_records_and_moves_queue_membership() {
     let _ = srv.kill();
     let _ = srv.wait();
 }
+
+/// A failed download used to be marked "error" and left there. With a retry
+/// budget (the Scheduler's "number of retries for each file") it goes back to
+/// pending and is attempted again, and only gives up once the budget is spent.
+#[test]
+fn a_failed_download_is_retried_until_the_budget_runs_out() {
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    // Nothing is listening here, so every attempt fails fast.
+    let dead_port = free_port();
+
+    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
+    wait_ready(&addr);
+
+    let body = serde_json::json!({
+        "url": format!("http://127.0.0.1:{}/missing.bin", dead_port),
+        "connections": 1,
+        "retries": 1,
+    })
+    .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "POST /api/add returned {}: {}", st, resp);
+    let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .expect("add must return an id");
+
+    // It must end up failed, but only after spending the retry: the engine
+    // waits RETRY_DELAY_SECS (5s) between attempts, so allow for both.
+    let it = wait_status(&addr, id, "error", 60);
+    assert_eq!(
+        it["attempts"].as_u64(),
+        Some(1),
+        "the retry budget must be spent exactly once: {}",
+        it
+    );
+    assert_eq!(it["retries"].as_u64(), Some(1), "item: {}", it);
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}
+
+/// Without a budget, a failure is final -- no retry loop on a permanent error.
+#[test]
+fn a_failed_download_without_a_budget_is_not_retried() {
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+    let dead_port = free_port();
+
+    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
+    wait_ready(&addr);
+
+    let body = serde_json::json!({
+        "url": format!("http://127.0.0.1:{}/missing.bin", dead_port),
+        "connections": 1,
+    })
+    .to_string();
+    let (_st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .unwrap();
+
+    let it = wait_status(&addr, id, "error", 30);
+    assert_eq!(it["attempts"].as_u64(), Some(0), "item: {}", it);
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}

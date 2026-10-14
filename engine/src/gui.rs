@@ -119,6 +119,13 @@ struct Item {
     /// starts and stops queues; the engine only records the membership.
     #[serde(default)]
     queue: String,
+    /// How many times a failed download may be retried (the Scheduler's
+    /// "number of retries for each file"). 0 = fail immediately.
+    #[serde(default)]
+    retries: u32,
+    /// Retries already spent. Reset when the download is resumed by hand.
+    #[serde(default)]
+    attempts: u32,
     #[serde(default)]
     status: String,
     #[serde(default)]
@@ -312,6 +319,9 @@ async fn finish_item(st: &State, id: u64, size: u64) {
     save(st).await;
 }
 
+/// How long a failed download waits before its next attempt.
+const RETRY_DELAY_SECS: u64 = 5;
+
 /// Per-download options the GUI sends with /api/add.
 ///
 /// They come straight from the Options dialog: without them every download ran
@@ -325,6 +335,7 @@ struct AddOptions {
     auth: String,
     ignore_mtime: bool,
     queue: String,
+    retries: u32,
 }
 
 async fn add_item(
@@ -358,6 +369,8 @@ async fn add_item(
         auth: opts.auth,
         ignore_mtime: opts.ignore_mtime,
         queue: opts.queue,
+        retries: opts.retries,
+        attempts: 0,
         status: "pending".to_string(),
         downloaded: 0,
         total: 0,
@@ -467,6 +480,11 @@ async fn run_item(st: Arc<State>, id: u64) {
     let (ctx, mut crx) = mpsc::channel::<Ctrl>(4);
     st.ctrl.lock().await.insert(id, ctx);
 
+    // Set when a failure is worth another attempt. Acted on after the permit
+    // and the control channel are released, so the retry is not waiting on
+    // this run's own resources.
+    let mut retry = false;
+
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
@@ -476,6 +494,31 @@ async fn run_item(st: Arc<State>, id: u64) {
                 } else {
                     let cur = get_status(&st, id).await;
                     if cur != "paused" && cur != "done" {
+                        // A failed download goes back to the end of the queue
+                        // while it still has attempts left, instead of just
+                        // being marked as failed.
+                        let budget = {
+                            let mut items = st.items.lock().await;
+                            match items.iter_mut().find(|i| i.id == id) {
+                                Some(i) if i.attempts < i.retries => {
+                                    i.attempts += 1;
+                                    Some((i.attempts, i.retries))
+                                }
+                                _ => None,
+                            }
+                        };
+                        if let Some((attempt, total)) = budget {
+                            retry = true;
+                            save(&st).await;
+                            set_status(
+                                &st,
+                                id,
+                                "pending",
+                                Some(format!("retry {}/{} after {}", attempt, total, status)),
+                            )
+                            .await;
+                            break;
+                        }
                         set_status(
                             &st,
                             id,
@@ -528,6 +571,23 @@ async fn run_item(st: Arc<State>, id: u64) {
 
     st.ctrl.lock().await.remove(&id);
     drop(permit);
+
+    if retry {
+        // Wait before trying again, so a server that is refusing every request
+        // is not hammered, and so this run's permit is certainly released.
+        let st2 = st.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(RETRY_DELAY_SECS)).await;
+            // Pausing or removing it in the meantime cancels the retry.
+            if get_status(&st2, id).await == "pending" {
+                // Type-erased on purpose: run_item spawning run_item makes the
+                // future's type refer to itself, which does not compile.
+                let fut: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =
+                    Box::pin(run_item(st2, id));
+                fut.await;
+            }
+        });
+    }
 }
 
 // ---------- HTTP ----------
@@ -661,6 +721,7 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 auth: v["auth"].as_str().unwrap_or("").to_string(),
                 ignore_mtime: v["ignore_mtime"].as_bool().unwrap_or(false),
                 queue: v["queue"].as_str().unwrap_or("").to_string(),
+                retries: v["retries"].as_u64().unwrap_or(0) as u32,
             };
             let id = add_item(&st, url, conns, use_aria2, opts).await;
             let out = serde_json::json!({ "ok": true, "id": id });
