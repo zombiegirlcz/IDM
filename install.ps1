@@ -113,6 +113,7 @@ if ($Uninstall) {
     Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path (Get-DesktopDir) "IDM.lnk")
     Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path (Get-StartMenuDir) "IDM.lnk")
     [Environment]::SetEnvironmentVariable("IDM_ALLOWED_DIR", $null, "User")
+    [Environment]::SetEnvironmentVariable("IDM_SETTINGS", $null, "User")
     Remove-UserPath -Dir $Prefix
     if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix -ErrorAction SilentlyContinue }
     Write-Log "hotovo - odstraneno"
@@ -290,6 +291,16 @@ $python = Ensure-Python
 $guiPy  = Join-Path $Prefix "idm_gui.py"
 $stateDir = Join-Path $Prefix "state"
 New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
+
+# The browser extension cannot read settings.json itself; it asks the native
+# host (get_settings). On Linux a wrapper passes --settings, but Windows
+# browsers spawn the host with no arguments, so persist the path the same way
+# IDM_ALLOWED_DIR is persisted. Without it the File Types and force/prevent key
+# settings have no effect on what the extension captures.
+$settingsFile = Join-Path $stateDir "settings.json"
+[Environment]::SetEnvironmentVariable("IDM_SETTINGS", $settingsFile, "User")
+$env:IDM_SETTINGS = $settingsFile
+Write-Log "nastaveno IDM_SETTINGS = $settingsFile"
 
 # The shortcut targets pythonw.exe (the GUI-subsystem Python) directly, so
 # double-clicking it opens ONLY the IDM window -- no cmd.exe console and no

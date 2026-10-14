@@ -126,6 +126,21 @@ test('persists IDM_ALLOWED_DIR for the fail-closed host', () => {
   assert.match(src(), /SetEnvironmentVariable\(\s*"IDM_ALLOWED_DIR"/, 'must persist IDM_ALLOWED_DIR');
 });
 
+test('persists IDM_SETTINGS so the extension can see the Options dialog', () => {
+  const s = src();
+  // Windows browsers spawn the native host with no arguments and there is no
+  // wrapper script, so --settings cannot be passed; the host falls back to this
+  // variable. Without it get_settings always answers source "default" and the
+  // File Types / key settings have no effect on capture.
+  assert.match(
+    s,
+    /SetEnvironmentVariable\(\s*"IDM_SETTINGS"/,
+    'must persist IDM_SETTINGS',
+  );
+  // It has to be the settings.json inside the same state dir the GUI gets.
+  assert.match(s, /settings\.json/, 'must point at settings.json');
+});
+
 test('--Uninstall removes registry keys, shortcuts and the env var', () => {
   const s = src();
   assert.match(s, /if \(\$Uninstall\)/, 'must have an uninstall branch');
@@ -133,5 +148,6 @@ test('--Uninstall removes registry keys, shortcuts and the env var', () => {
   assert.match(block, /Remove-Item -Path \$key|Remove-Item .*BrowserRegRoots/s, 'must remove registry keys');
   assert.match(block, /IDM\.lnk/, 'must remove the shortcuts');
   assert.match(block, /SetEnvironmentVariable\("IDM_ALLOWED_DIR", \$null/s, 'must clear the env var');
+  assert.match(block, /SetEnvironmentVariable\("IDM_SETTINGS", \$null/s, 'must clear IDM_SETTINGS too');
   assert.match(block, /Remove-Item -Recurse -Force \$Prefix/s, 'must remove the install prefix');
 });
