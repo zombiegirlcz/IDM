@@ -64,6 +64,27 @@ jobs:
       - name: Run full test matrix
         run: WITH_RUST=1 npm test
 
+  # The published binaries are built with --features keyring (see
+  # release.yml), which pulls in a Secret Service backend the default build
+  # never compiles. Without this job that feature's first compile would happen
+  # while cutting a release.
+  keyring-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install keyring backend headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Build with the keyring feature
+        working-directory: engine
+        run: cargo build --features keyring
+
   chrome-e2e:
     # The only test that exercises the real browser -> content.js -> background
     # -> native host chain with genuinely trusted user events. Non-blocking for
