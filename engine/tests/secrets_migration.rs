@@ -197,7 +197,7 @@ fn an_old_plaintext_queue_migrates_on_the_next_write() {
     add(&addr, serde_json::json!({ "url": "http://127.0.0.1:9/new.bin" }));
     let mut queue = read_queue(&state);
     for _ in 0..50 {
-        if !queue.contains("s3cret") {
+        if !queue.contains("s3cret") && queue.contains("auth_ref") {
             break;
         }
         thread::sleep(Duration::from_millis(100));

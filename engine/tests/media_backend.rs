@@ -146,3 +146,114 @@ fn no_media_skips_the_backend() {
     // point is that yt-dlp was never invoked.
     assert!(!log.exists(), "--no-media must not call yt-dlp: {}", out.stderr.len());
 }
+
+/// `--aria2` on a video page used to hand the *page* URL to aria2c, which
+/// dutifully saved the HTML: the aria2 branch sat in front of the media
+/// detection. The two have to combine instead -- yt-dlp works out the real
+/// media URL, aria2c moves the bytes -- which is what yt-dlp's own
+/// `--downloader` option is for.
+#[test]
+fn aria2_and_the_media_backend_combine_instead_of_competing() {
+    let dir = unique_dir("combo");
+    let (stub, log) = make_stub(&dir);
+    // A stub aria2c that writes nothing: if the engine took the plain aria2
+    // branch it would "succeed" with no output file, which the assertions
+    // below catch. Here it should only ever be *named* to yt-dlp.
+    let aria2c = dir.join("aria2c");
+    fs::write(&aria2c, "#!/usr/bin/env bash\nexit 0\n").unwrap();
+    fs::set_permissions(&aria2c, fs::Permissions::from_mode(0o755)).unwrap();
+    let out_file = dir.join("video.mp4");
+    let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
+        .arg("--yt-dlp")
+        .arg(&stub)
+        .arg("--aria2")
+        .arg("--aria2-path")
+        .arg(&aria2c)
+        .arg("--force-media")
+        .arg("-n")
+        .arg("8")
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    let got = fs::read(&out_file).expect("media output must exist");
+    assert_eq!(String::from_utf8_lossy(&got), PAYLOAD);
+
+    let argv = fs::read_to_string(&log).expect("the stub must have logged argv");
+    assert!(
+        argv.contains("--downloader"),
+        "yt-dlp must be told to use an external downloader: {}",
+        argv
+    );
+    assert!(argv.contains("aria2c"), "and that downloader must be aria2c: {}", argv);
+    assert!(
+        argv.contains(&aria2c.display().to_string()),
+        "yt-dlp must be given the resolved aria2c path: {}",
+        argv
+    );
+    // The whole point is parallel connections; -n has to reach aria2c.
+    assert!(
+        argv.contains("--downloader-args") && argv.contains("-x 8") || argv.contains("-x8"),
+        "the connection count must reach aria2c: {}",
+        argv
+    );
+}
+
+/// Without --aria2, a fragmented format is still slow one fragment at a time.
+/// yt-dlp can fetch several at once, and --connections is the natural number.
+#[test]
+fn the_connection_count_becomes_concurrent_fragments() {
+    let dir = unique_dir("frag");
+    let (stub, log) = make_stub(&dir);
+    let out_file = dir.join("video.mp4");
+    let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
+        .arg("--yt-dlp")
+        .arg(&stub)
+        .arg("--force-media")
+        .arg("-n")
+        .arg("8")
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    let argv = fs::read_to_string(&log).expect("the stub must have logged argv");
+    assert!(
+        argv.contains("--concurrent-fragments 8") || argv.contains("-N 8"),
+        "8 connections must mean 8 fragments at a time: {}",
+        argv
+    );
+}
+
+/// A plain file with --aria2 must keep going straight to aria2c: no yt-dlp in
+/// the way, no HEAD probe turning a download into a media guess.
+#[test]
+fn a_plain_file_with_aria2_does_not_go_near_yt_dlp() {
+    let dir = unique_dir("plain");
+    let (stub, log) = make_stub(&dir);
+    let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
+        .arg("--yt-dlp")
+        .arg(&stub)
+        .arg("--aria2")
+        .arg("--aria2-path")
+        .arg(dir.join("definitely-not-aria2c"))
+        .arg("--ensure-aria2")
+        .arg(dir.join("no-installer"))
+        .arg("-o")
+        .arg(dir.join("f.bin"))
+        .arg("http://127.0.0.1:9/f.bin")
+        .output()
+        .unwrap();
+    // It fails -- there is no aria2c and no installer -- and that failure is
+    // the proof it went to the aria2 branch rather than to yt-dlp.
+    assert!(!out.status.success(), "expected the missing-aria2c failure");
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("aria2"), "stderr should name aria2: {}", err);
+    assert!(!log.exists(), "yt-dlp must not be invoked for a plain file");
+}
