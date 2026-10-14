@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # install-host.sh — register the idm native-messaging host with Chromium-family
-# browsers on Linux.
+# browsers AND Firefox on Linux.
+#
+# The two families disagree about everything except the wire protocol: Chromium
+# reads $HOME/.config/<browser>/NativeMessagingHosts and allows a
+# chrome-extension:// origin, Firefox reads $HOME/.mozilla/native-messaging-hosts
+# and allows an add-on id. Hence two manifest templates, one wrapper.
 #
 # The host (`idm-host`) REQUIRES --allowed-dir (fail-closed): without it it
 # exits non-zero and writes nothing. Chrome spawns the host with no arguments,
@@ -16,6 +21,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST_NAME="com.tonec.idm"
 TEMPLATE_MANIFEST="$SCRIPT_DIR/$HOST_NAME.json"
+FF_TEMPLATE_MANIFEST="$SCRIPT_DIR/$HOST_NAME.firefox.json"
 
 DOWNLOADS_DIR="${IDM_DOWNLOADS_DIR:-$HOME/Downloads}"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -28,6 +34,7 @@ GUI_STATE_DIR="$DATA_HOME/idm-gui"
 SETTINGS_FILE="$GUI_STATE_DIR/settings.json"
 WRAPPER="$STATE_DIR/idm-host-wrapper.sh"
 INSTALLED_MANIFEST="$STATE_DIR/$HOST_NAME.json"
+FF_INSTALLED_MANIFEST="$STATE_DIR/$HOST_NAME.firefox.json"
 
 BROWSER_DIRS=(
   "$HOME/.config/google-chrome/NativeMessagingHosts"
@@ -36,10 +43,18 @@ BROWSER_DIRS=(
   "$HOME/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts"
 )
 
-if [[ ! -f "$TEMPLATE_MANIFEST" ]]; then
-  echo "error: missing host manifest template: $TEMPLATE_MANIFEST" >&2
-  exit 1
-fi
+# Firefox and its forks. Unlike Chromium's, these live directly under HOME.
+FIREFOX_DIRS=(
+  "$HOME/.mozilla/native-messaging-hosts"
+  "$HOME/.librewolf/native-messaging-hosts"
+)
+
+for tpl in "$TEMPLATE_MANIFEST" "$FF_TEMPLATE_MANIFEST"; do
+  if [[ ! -f "$tpl" ]]; then
+    echo "error: missing host manifest template: $tpl" >&2
+    exit 1
+  fi
+done
 
 UNINSTALL=0
 if [[ "${1:-}" == "--uninstall" ]]; then
@@ -47,15 +62,16 @@ if [[ "${1:-}" == "--uninstall" ]]; then
 fi
 
 if [[ "$UNINSTALL" == 1 ]]; then
-  for dir in "${BROWSER_DIRS[@]}"; do
+  for dir in "${BROWSER_DIRS[@]}" "${FIREFOX_DIRS[@]}"; do
     target="$dir/$HOST_NAME.json"
     if [[ -L "$target" || -f "$target" ]]; then
       rm -f "$target"
       echo "removed  $target"
     fi
   done
-  rm -f "$INSTALLED_MANIFEST" "$WRAPPER"
+  rm -f "$INSTALLED_MANIFEST" "$FF_INSTALLED_MANIFEST" "$WRAPPER"
   echo "removed  $INSTALLED_MANIFEST"
+  echo "removed  $FF_INSTALLED_MANIFEST"
   exit 0
 fi
 
@@ -81,8 +97,11 @@ exec "$HOST_BIN" --engine "$ENGINE_BIN" --allowed-dir "$DOWNLOADS_DIR" --setting
 EOF
 chmod +x "$WRAPPER"
 
-# Installed manifest points at the wrapper; allowed_origins copied from template.
-python3 - "$TEMPLATE_MANIFEST" "$INSTALLED_MANIFEST" "$WRAPPER" <<'PY'
+# Installed manifests point at the wrapper; the allowed_* keys come from each
+# family's own template, so neither browser is handed a key it cannot read.
+for pair in "$TEMPLATE_MANIFEST:$INSTALLED_MANIFEST" \
+            "$FF_TEMPLATE_MANIFEST:$FF_INSTALLED_MANIFEST"; do
+python3 - "${pair%%:*}" "${pair##*:}" "$WRAPPER" <<'PY'
 import json,sys
 src,dst,path=sys.argv[1],sys.argv[2],sys.argv[3]
 m=json.load(open(src))
@@ -90,6 +109,7 @@ m["path"]=path
 json.dump(m,open(dst,"w"),indent=2)
 open(dst,"a").write("\n")
 PY
+done
 
 for dir in "${BROWSER_DIRS[@]}"; do
   root="$(dirname "$(dirname "$dir")")"
@@ -99,6 +119,17 @@ for dir in "${BROWSER_DIRS[@]}"; do
   mkdir -p "$dir"
   ln -sfn "$INSTALLED_MANIFEST" "$dir/$HOST_NAME.json"
   echo "linked   $dir/$HOST_NAME.json -> $INSTALLED_MANIFEST"
+done
+
+# Firefox's directory sits one level under HOME, so "is this browser here at
+# all" asks about the parent ($HOME/.mozilla), not the grandparent.
+for dir in "${FIREFOX_DIRS[@]}"; do
+  if [[ ! -d "$(dirname "$dir")" ]]; then
+    continue
+  fi
+  mkdir -p "$dir"
+  ln -sfn "$FF_INSTALLED_MANIFEST" "$dir/$HOST_NAME.json"
+  echo "linked   $dir/$HOST_NAME.json -> $FF_INSTALLED_MANIFEST"
 done
 
 echo
