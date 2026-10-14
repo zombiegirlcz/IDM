@@ -413,6 +413,8 @@ DEFAULT_SETTINGS = {
         "proxy_user": "",
         "proxy_pass": "",
     },
+    # Saved Grabber projects, shown under the "Grabber projects" tree node.
+    "grabber_projects": [],  # [DEFAULT_GRABBER_PROJECT-shaped dicts]
     "site_logins": [],  # [{"url": ..., "user": ..., "password": ...}]
     "dialup": {
         "connection": "",
@@ -1434,9 +1436,188 @@ def _same_site(a: str, b: str) -> bool:
         return False
 
 
+# --------------------------------------------------------------------------- #
+# Grabber project templates: each one is a named file-type filter, so picking
+# "Images" explores the same site but collects only pictures. "custom" keeps
+# whatever the user typed in the file-type box.
+# --------------------------------------------------------------------------- #
+GRABBER_CUSTOM = "custom"
+
+
+def _as_int(value, fallback=0):
+    """An int from a widget's string, falling back instead of raising."""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return fallback
+
+GRABBER_TEMPLATES = {
+    "Images": ["bmp", "gif", "ico", "jpeg", "jpg", "png", "svg", "tif",
+               "tiff", "webp"],
+    "Video": ["3gp", "avi", "flv", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg",
+              "ts", "webm", "wmv"],
+    "Audio": ["aac", "aiff", "flac", "m4a", "mp3", "oga", "ogg", "opus",
+              "wav", "wma"],
+    "Archives": ["7z", "ace", "arj", "bz2", "cab", "gz", "iso", "rar", "tar",
+                 "tgz", "xz", "zip"],
+    "Documents": ["chm", "doc", "docx", "epub", "mobi", "odp", "ods", "odt",
+                  "pdf", "ppt", "pptx", "rtf", "txt", "xls", "xlsx"],
+    "Programs": ["apk", "appimage", "deb", "dmg", "exe", "msi", "pkg", "rpm"],
+}
+
+# "All files" is the union of the others, so it can never be narrower than a
+# template the user might switch to.
+GRABBER_TEMPLATES["All files"] = sorted(
+    {e for exts in GRABBER_TEMPLATES.values() for e in exts})
+
+
+def grabber_template_names() -> list:
+    """Template names for the Grabber's combobox, "All files" first."""
+    rest = sorted(n for n in GRABBER_TEMPLATES if n != "All files")
+    return ["All files"] + rest
+
+
+def grabber_template_exts(name: str) -> list:
+    """The file types one template collects ([] for an unknown name)."""
+    return list(GRABBER_TEMPLATES.get((name or "").strip(), []))
+
+
+def grabber_crawl_exts(template: str, custom_text: str) -> list:
+    """What the crawl should actually collect.
+
+    A known template wins over the file-type box; "custom" (or any name we do
+    not know) falls back to whatever is typed in the box.
+    """
+    exts = grabber_template_exts(template)
+    if exts:
+        return exts
+    return [e.strip().lstrip(".").lower()
+            for e in (custom_text or "").replace(",", " ").split() if e.strip()]
+
+
+DEFAULT_GRABBER_PROJECT = {
+    "name": "",
+    "start": "",
+    "folder": "",
+    "template": "All files",
+    "exts": "",
+    "same_site_only": True,
+    "max_pages": 50,
+    "depth": 3,
+    "external_depth": 0,
+    "include": "",
+    "exclude": "",
+    "by_category": False,
+    "add_on_close": False,
+}
+
+
+def grabber_project(settings: dict, name: str) -> dict:
+    """One saved grabber project, with the defaults filled in."""
+    out = dict(DEFAULT_GRABBER_PROJECT)
+    for p in (settings or {}).get("grabber_projects", []):
+        if (p or {}).get("name") == name:
+            for k in DEFAULT_GRABBER_PROJECT:
+                if k in p:
+                    out[k] = p[k]
+            break
+    out["name"] = name
+    return out
+
+
+def grabber_projects(settings: dict) -> list:
+    """Every saved project, by name, with the defaults filled in."""
+    return [grabber_project(settings, n)
+            for n in grabber_project_names(settings)]
+
+
+def grabber_project_names(settings: dict) -> list:
+    """The names of the saved projects, sorted as the tree shows them."""
+    names = {str((p or {}).get("name", "")).strip()
+             for p in (settings or {}).get("grabber_projects", [])}
+    return sorted(n for n in names if n)
+
+
+def save_grabber_project(settings: dict, project: dict) -> dict:
+    """Store one project, leaving the others alone.
+
+    A project without a name is dropped rather than saved: it could never be
+    found again, and it would show up in the tree as a blank row.
+    """
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    name = str((project or {}).get("name", "")).strip()
+    if not name:
+        return out
+    entry = grabber_project(out, name)
+    for key, value in (project or {}).items():
+        if key not in DEFAULT_GRABBER_PROJECT:
+            continue
+        if key in ("max_pages", "depth", "external_depth"):
+            entry[key] = max(0, _as_int(value, DEFAULT_GRABBER_PROJECT[key]))
+        elif key in ("same_site_only", "by_category", "add_on_close"):
+            entry[key] = bool(value)
+        else:
+            entry[key] = str(value or "")
+    entry["name"] = name
+    rest = [p for p in out.get("grabber_projects", [])
+            if str((p or {}).get("name", "")).strip() != name]
+    out["grabber_projects"] = rest + [entry]
+    return out
+
+
+def delete_grabber_project(settings: dict, name: str) -> dict:
+    """Forget one project."""
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    wanted = str(name or "").strip()
+    out["grabber_projects"] = [
+        p for p in out.get("grabber_projects", [])
+        if str((p or {}).get("name", "")).strip() != wanted]
+    return out
+
+
+def grabber_filter_patterns(text: str) -> list:
+    """The patterns typed into one of the Grabber's filter boxes.
+
+    Whitespace- or comma-separated, so both "a b" and "a, b" work.
+    """
+    raw = (text or "").replace(",", " ").split()
+    return [p.strip() for p in raw if p.strip()]
+
+
+def grabber_allows(url: str, include=None, exclude=None) -> bool:
+    """Whether a found URL passes the include/exclude filters.
+
+    A pattern with a wildcard is matched against the whole URL with fnmatch;
+    one without is treated as a substring, which is what a user typing
+    "/docs/" means. Matching is case-insensitive. An empty include list means
+    "everything", and exclude always wins -- the narrower intent is the one
+    worth honouring.
+    """
+    import fnmatch
+
+    u = (url or "").lower()
+
+    def hit(pattern):
+        p = (pattern or "").strip().lower()
+        if not p:
+            return False
+        if any(ch in p for ch in "*?["):
+            return fnmatch.fnmatch(u, p) or fnmatch.fnmatch(u, "*" + p + "*")
+        return p in u
+
+    if any(hit(p) for p in (exclude or [])):
+        return False
+    inc = [p for p in (include or []) if (p or "").strip()]
+    if inc and not any(hit(p) for p in inc):
+        return False
+    return True
+
+
 def crawl_site(start_url: str, max_pages: int = 50,
                file_exts=None, same_site_only: bool = True,
-               timeout: float = 8.0, should_stop=None) -> list:
+               timeout: float = 8.0, should_stop=None,
+               max_depth=None, external_depth=None,
+               include=None, exclude=None) -> list:
     """Explore a site breadth-first and return file URLs (the IDM Grabber).
 
     Only HTML pages are followed; anything whose path ends in one of
@@ -1446,6 +1627,19 @@ def crawl_site(start_url: str, max_pages: int = 50,
     `should_stop` is checked before each page: when it returns true the crawl
     returns what it has so far. Without it "Stop Exploring" is unimplementable,
     because the crawl would hold the Tk thread for its whole run.
+
+    Link depth is counted separately for the two kinds of page, because the
+    interesting limits differ: `max_depth` is how many links away from the
+    start page the crawl may go on the start site (0 = the start page only),
+    while `external_depth` is how many links deep it may go once it has left
+    that site (0 = never open a page elsewhere). `None` means "no limit",
+    which is what the crawl did before either knob existed. A file linked from
+    a page that was visited is always collected -- the depth limits say which
+    pages get opened, not which files count.
+
+    `include`/`exclude` are pattern lists (see grabber_allows) applied to the
+    files that would be returned, so a crawl can be narrowed to one corner of
+    a site without changing the file types.
     """
     import re
     from urllib.parse import urljoin, urlparse
@@ -1456,12 +1650,12 @@ def crawl_site(start_url: str, max_pages: int = 50,
         return []
     seen_pages = set()
     found = set()
-    queue = [start]
+    queue = [(start, 0, 0)]   # (url, links from the start page, hops off-site)
     href_re = re.compile(r'''(?:href|src)\s*=\s*["']([^"']+)["']''', re.I)
     while queue and len(seen_pages) < max_pages:
         if should_stop is not None and should_stop():
             break
-        url = queue.pop(0)
+        url, own, ext_hops = queue.pop(0)
         if url in seen_pages:
             continue
         seen_pages.add(url)
@@ -1480,28 +1674,39 @@ def crawl_site(start_url: str, max_pages: int = 50,
             link = urljoin(url, raw.strip())
             if not link.lower().startswith(("http://", "https://", "ftp://")):
                 continue
-            if same_site_only and not _same_site(link, start):
+            on_site = _same_site(link, start)
+            if same_site_only and not on_site:
                 continue
+            # A link stays at the same own-site depth once the crawl is away
+            # from the start site; the off-site hops are what grow there.
+            link_own = own + 1 if on_site else own
+            link_ext = 0 if on_site else ext_hops + 1
+            too_deep = ((max_depth is not None and link_own > max_depth)
+                        or (external_depth is not None
+                            and link_ext > external_depth))
             path = urlparse(link).path.lower()
             ext = path.rsplit(".", 1)[-1] if "." in path else ""
             if ext in exts:
                 found.add(link)
             elif ext in ("", "html", "htm", "php", "asp", "aspx", "jsp"):
-                if link not in seen_pages:
-                    queue.append(link)
+                if link not in seen_pages and not too_deep:
+                    queue.append((link, link_own, link_ext))
             else:
                 if not exts or ext in exts:
                     found.add(link)
-    return sorted(found)
+    return sorted(u for u in found if grabber_allows(u, include, exclude))
 
 
-def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
+def _dialog_grabber(parent, api=None, state_dir="", out_dir="", project=None):
     """IDM Grabber: a 4-step wizard plus the main action dialog.
 
     Mirrors docs/idm/idm-grabber_grabber_wizard.txt and
     idm-grabber_grabber_main_dialog.txt. Step 1 is the start page, step 2 the
     save folder, steps 3/4 are filters; the main dialog then explores the site
     and can add the checked files to the main download list.
+
+    The whole wizard is one named project: it can be saved to settings.json
+    and opened again later, and `project` opens the dialog on a saved one.
     """
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox
@@ -1518,19 +1723,26 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
     s1 = ttk.Frame(wiz)
     wiz.add(s1, text="1. Start page")
     ttk.Label(s1, text="Grabber Project Name:").grid(row=0, column=0, sticky="w", padx=6, pady=4)
-    proj = ttk.Entry(s1, width=40)
-    proj.insert(0, "My project")
+    proj = ttk.Combobox(
+        s1, width=38, values=grabber_project_names(load_settings(state_dir)))
+    proj.set("My project")
     proj.grid(row=0, column=1, padx=6, pady=4, sticky="w")
+    proj_btns = ttk.Frame(s1)
+    proj_btns.grid(row=0, column=2, sticky="w", padx=6)
+    save_proj_btn = ttk.Button(proj_btns, text="Save Project")
+    save_proj_btn.pack(side="left", padx=2)
+    load_proj_btn = ttk.Button(proj_btns, text="Load Project")
+    load_proj_btn.pack(side="left", padx=2)
+    del_proj_btn = ttk.Button(proj_btns, text="Delete Project")
+    del_proj_btn.pack(side="left", padx=2)
     ttk.Label(s1, text="Start page (URL):").grid(row=1, column=0, sticky="w", padx=6, pady=4)
     start = ttk.Entry(s1, width=50)
     start.insert(0, "https://")
     start.grid(row=1, column=1, padx=6, pady=4, sticky="w")
     ttk.Label(s1, text="Project template:").grid(row=2, column=0, sticky="w", padx=6, pady=4)
-    template = ttk.Combobox(s1, values=["custom", "All files from a web site",
-                                        "All images from a web site",
-                                        "All video from a web site",
-                                        "All audio from a web site"], width=30)
-    template.set("All files from a web site")
+    template = ttk.Combobox(
+        s1, values=grabber_template_names() + [GRABBER_CUSTOM], width=30)
+    template.set("All files")
     template.grid(row=2, column=1, sticky="w", padx=6, pady=4)
 
     s2 = ttk.Frame(wiz)
@@ -1547,10 +1759,12 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
             folder.insert(0, d)
 
     ttk.Button(s2, text="Browse...", command=pick).grid(row=0, column=2, padx=6)
-    ttk.Checkbutton(s2, text="Save each file to the folder of its category").grid(
-        row=1, column=1, sticky="w", padx=6)
-    ttk.Checkbutton(s2, text="Add checked files to IDM on close").grid(
-        row=2, column=1, sticky="w", padx=6)
+    by_category = tk.BooleanVar(value=False)
+    ttk.Checkbutton(s2, text="Save each file to the folder of its category",
+                    variable=by_category).grid(row=1, column=1, sticky="w", padx=6)
+    add_on_close = tk.BooleanVar(value=False)
+    ttk.Checkbutton(s2, text="Add checked files to IDM on close",
+                    variable=add_on_close).grid(row=2, column=1, sticky="w", padx=6)
 
     s3 = ttk.Frame(wiz)
     wiz.add(s3, text="3. Explore")
@@ -1561,14 +1775,45 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
     max_pages = ttk.Spinbox(s3, from_=1, to=1000, width=6)
     max_pages.set(50)
     max_pages.grid(row=1, column=1, sticky="w", padx=6)
+    ttk.Label(s3, text="Link depth on this site (0 = start page only):").grid(
+        row=2, column=0, sticky="w", padx=6, pady=4)
+    depth = ttk.Spinbox(s3, from_=0, to=50, width=6)
+    depth.set(3)
+    depth.grid(row=2, column=1, sticky="w", padx=6)
+    ttk.Label(s3, text="Link depth on other sites (0 = do not leave):").grid(
+        row=3, column=0, sticky="w", padx=6, pady=4)
+    external_depth = ttk.Spinbox(s3, from_=0, to=50, width=6)
+    external_depth.set(0)
+    external_depth.grid(row=3, column=1, sticky="w", padx=6)
 
     s4 = ttk.Frame(wiz)
     wiz.add(s4, text="4. Filters")
     ttk.Label(s4, text="File types to download (space separated):").grid(
         row=0, column=0, sticky="w", padx=6, pady=4)
     exts = ttk.Entry(s4, width=50)
-    exts.insert(0, "zip rar 7z pdf doc docx mp3 mp4 mkv avi jpg jpeg png gif exe msi")
+    exts.insert(0, " ".join(grabber_template_exts("All files")))
     exts.grid(row=0, column=1, padx=6, pady=4, sticky="w")
+
+    def on_template(_e=None):
+        """Show the picked template's file types, so the filter is visible."""
+        chosen = grabber_template_exts(template.get())
+        if chosen:
+            exts.delete(0, "end")
+            exts.insert(0, " ".join(chosen))
+
+    template.bind("<<ComboboxSelected>>", on_template)
+
+    ttk.Label(s4, text="Only URLs matching (blank = all):").grid(
+        row=1, column=0, sticky="w", padx=6, pady=4)
+    include = ttk.Entry(s4, width=50)
+    include.grid(row=1, column=1, padx=6, pady=4, sticky="w")
+    ttk.Label(s4, text="Never URLs matching:").grid(
+        row=2, column=0, sticky="w", padx=6, pady=4)
+    exclude = ttk.Entry(s4, width=50)
+    exclude.grid(row=2, column=1, padx=6, pady=4, sticky="w")
+    ttk.Label(s4, text="(space separated; * and ? work, plain text matches "
+                       "anywhere in the URL)").grid(
+        row=3, column=0, columnspan=2, sticky="w", padx=6)
 
     main = ttk.Frame(win)
     main.pack(fill="both", expand=True, padx=8, pady=4)
@@ -1640,8 +1885,12 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
         crawl["busy"] = True
         info.set("Exploring...")
         pages = int(max_pages.get() or 50)
-        file_exts = exts.get().split()
+        file_exts = grabber_crawl_exts(template.get(), exts.get())
         on_site = bool(same_site.get())
+        own_depth = _as_int(depth.get(), 3)
+        out_depth = _as_int(external_depth.get(), 0)
+        inc = grabber_filter_patterns(include.get())
+        exc = grabber_filter_patterns(exclude.get())
 
         def done(found, error):
             crawl["busy"] = False
@@ -1660,6 +1909,9 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
             try:
                 found = crawl_site(url, max_pages=pages, file_exts=file_exts,
                                    same_site_only=on_site,
+                                   max_depth=own_depth,
+                                   external_depth=out_depth,
+                                   include=inc, exclude=exc,
                                    should_stop=lambda: crawl["stop"])
                 err = None
             except Exception as e:  # noqa: BLE001
@@ -1673,18 +1925,34 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
 
     def add_to_idm():
         if api is None:
-            return
+            return 0
         added = 0
         settings = load_settings(state_dir)
+        base = folder.get().strip() or out_dir
         for i in sorted(state["checked"]):
             url = state["files"][i]
             try:
-                opts = download_options(settings, url, fallback_dir=out_dir)
+                opts = download_options(settings, url, fallback_dir=base)
+                if by_category.get():
+                    # "the folder of its category": one subfolder per kind,
+                    # under the folder this project saves to.
+                    opts = dict(opts)
+                    opts["out_dir"] = os.path.join(
+                        base, item_category(settings, url))
                 api.add(url, connections=opts["connections"], options=opts)
                 added += 1
             except Exception:  # noqa: BLE001
                 pass
         info.set(f"Added {added} files to IDM.")
+        return added
+
+    def on_close():
+        """"Add checked files to IDM on close" -- the only chance to do it."""
+        if add_on_close.get():
+            add_to_idm()
+        win.destroy()
+
+    win.protocol("WM_DELETE_WINDOW", on_close)
 
     def stats():
         messagebox.showinfo(
@@ -1693,6 +1961,83 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
             f"Checked: {len(state['checked'])}\n"
             f"Start page: {start.get().strip()}\n"
             f"Save to: {folder.get().strip()}", parent=win)
+
+    # --- the wizard as a saved project ------------------------------------
+    def collect_project():
+        """Everything on screen, as a project dict."""
+        return {
+            "name": proj.get().strip(),
+            "start": start.get().strip(),
+            "folder": folder.get().strip(),
+            "template": template.get().strip(),
+            "exts": exts.get().strip(),
+            "same_site_only": bool(same_site.get()),
+            "max_pages": _as_int(max_pages.get(), 50),
+            "depth": _as_int(depth.get(), 3),
+            "external_depth": _as_int(external_depth.get(), 0),
+            "include": include.get().strip(),
+            "exclude": exclude.get().strip(),
+            "by_category": bool(by_category.get()),
+            "add_on_close": bool(add_on_close.get()),
+        }
+
+    def _set_entry(widget, value):
+        widget.delete(0, "end")
+        widget.insert(0, value)
+
+    def apply_project(p):
+        """Put a saved project back on screen."""
+        proj.set(p.get("name", ""))
+        _set_entry(start, p.get("start", ""))
+        _set_entry(folder, p.get("folder", ""))
+        template.set(p.get("template", "All files"))
+        # An empty stored filter means "whatever the template says".
+        _set_entry(exts, p.get("exts", "")
+                   or " ".join(grabber_template_exts(p.get("template", ""))))
+        same_site.set(bool(p.get("same_site_only", True)))
+        max_pages.set(p.get("max_pages", 50))
+        depth.set(p.get("depth", 3))
+        external_depth.set(p.get("external_depth", 0))
+        _set_entry(include, p.get("include", ""))
+        _set_entry(exclude, p.get("exclude", ""))
+        by_category.set(bool(p.get("by_category", False)))
+        add_on_close.set(bool(p.get("add_on_close", False)))
+
+    def refresh_project_list():
+        proj.config(values=grabber_project_names(load_settings(state_dir)))
+
+    def save_project():
+        entry = collect_project()
+        if not entry["name"]:
+            messagebox.showwarning("Grabber", "Pojmenuj projekt.", parent=win)
+            return
+        save_settings(state_dir, save_grabber_project(
+            load_settings(state_dir), entry))
+        refresh_project_list()
+        info.set(f"Project saved: {entry['name']}")
+
+    def load_project():
+        name = proj.get().strip()
+        if name not in grabber_project_names(load_settings(state_dir)):
+            info.set(f"No saved project named {name!r}.")
+            return
+        apply_project(grabber_project(load_settings(state_dir), name))
+        info.set(f"Project loaded: {name}")
+
+    def delete_project():
+        name = proj.get().strip()
+        save_settings(state_dir, delete_grabber_project(
+            load_settings(state_dir), name))
+        refresh_project_list()
+        info.set(f"Project deleted: {name}")
+
+    save_proj_btn.config(command=save_project)
+    load_proj_btn.config(command=load_project)
+    del_proj_btn.config(command=delete_project)
+
+    if project:
+        apply_project(grabber_project(load_settings(state_dir), project))
+        info.set(f"Project loaded: {project}")
 
     btns = toolbar.winfo_children()
     btns[0].config(command=explore)
@@ -1704,7 +2049,20 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
     btns[6].config(command=stats)
 
     wiz.select(0)
-    win._idm_grabber = {"state": state, "start": start, "render": render}
+    win._idm_grabber = {"state": state, "start": start, "render": render,
+                        "template": template, "exts": exts, "explore": explore,
+                        "crawl": crawl, "same_site": same_site,
+                        "depth": depth, "external_depth": external_depth,
+                        "include": include, "exclude": exclude,
+                        "proj": proj, "folder": folder,
+                        "max_pages": max_pages,
+                        "save_project": save_project,
+                        "load_project": load_project,
+                        "delete_project": delete_project,
+                        "collect_project": collect_project,
+                        "by_category": by_category,
+                        "add_on_close": add_on_close,
+                        "add_to_idm": add_to_idm, "on_close": on_close}
     return win
 
 
@@ -3003,14 +3361,22 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     def rebuild_tree():
         """Fill the category tree from the persisted settings."""
         tree.delete(*tree.get_children(""))
-        for c in list_categories(load_settings(state_dir)):
+        settings = load_settings(state_dir)
+        w["grabber_nodes"] = {}
+        for c in list_categories(settings):
             spec = CATEGORY_ICONS.get(c)
             img = _icon(spec[0], spec[1], 14, master=root) if spec else None
             if img is not None:
                 w["icons"].append(img)
-                tree.insert("", "end", text=c, image=img)
+                node = tree.insert("", "end", text=c, image=img)
             else:
-                tree.insert("", "end", text=c)
+                node = tree.insert("", "end", text=c)
+            if c == "Grabber projects":
+                # The node is not a file category: it holds the saved
+                # projects, one child each, openable with a double click.
+                for name in grabber_project_names(settings):
+                    w["grabber_nodes"][tree.insert(node, "end", text=name)] = name
+                tree.item(node, open=True)
         w["categories"] = [tree.item(i, "text") for i in tree.get_children("")]
         w["categories_with_icons"] = sum(
             1 for i in tree.get_children("") if tree.item(i, "image")
@@ -3452,6 +3818,19 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         status.set(f"category: {name}")
 
     tree.bind("<<TreeviewSelect>>", _on_tree_select)
+
+    def _open_grabber_project(_e=None):
+        """Double-clicking a saved project opens the Grabber on it."""
+        sel = tree.selection()
+        name = w.get("grabber_nodes", {}).get(sel[0]) if sel else None
+        if not name:
+            return None
+        status.set(f"grabber project: {name}")
+        return _dialog_grabber(root, api=api, state_dir=state_dir,
+                               out_dir=out_dir, project=name)
+
+    tree.bind("<Double-1>", _open_grabber_project)
+    w["open_grabber_project"] = _open_grabber_project
 
     # --- menu bar, like IDM (File / Downloads / View / Help) ---
     menubar = tk.Menu(root)
@@ -4064,6 +4443,259 @@ def selftest_properties_ok():
     return 0
 
 
+def selftest_grabber_explore(url, template="All files", depth=None,
+                             external_depth=None, same_site_only=True,
+                             include="", exclude=""):
+    """Explore a real site through the Grabber dialog and print what it found.
+
+    This drives the widgets, not crawl_site() directly: the point is that the
+    template combobox and the depth boxes are what the crawl obeys.
+    """
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    win = _dialog_grabber(root)
+    win.withdraw()
+    g = win._idm_grabber
+
+    g["start"].delete(0, "end")
+    g["start"].insert(0, url)
+    g["template"].set(template)
+    g["template"].event_generate("<<ComboboxSelected>>")
+    g["same_site"].set(bool(same_site_only))
+    if depth is not None:
+        g["depth"].set(depth)
+    if external_depth is not None:
+        g["external_depth"].set(external_depth)
+    g["include"].delete(0, "end")
+    g["include"].insert(0, include)
+    g["exclude"].delete(0, "end")
+    g["exclude"].insert(0, exclude)
+    g["explore"]()
+
+    # A real event loop, not a poll of update(): the crawl thread hands its
+    # result back with win.after(), and a Tcl call from another thread is only
+    # delivered while the main thread sits in mainloop().
+    def poll():
+        if g["crawl"]["busy"]:
+            root.after(50, poll)
+        else:
+            root.quit()
+
+    root.after(50, poll)
+    root.after(60000, root.quit)   # never hang a test run
+    root.mainloop()
+
+    found = list(g["state"]["files"])
+    try:
+        win.destroy()
+        root.destroy()
+    except Exception:  # noqa: BLE001
+        pass
+    print("GRAB:" + json.dumps(found), flush=True)
+    return 0
+
+
+def selftest_grabber_project(state_dir):
+    """Save the Grabber wizard as a project, then open it in a fresh dialog."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+
+    win = _dialog_grabber(root, state_dir=state_dir)
+    win.withdraw()
+    g = win._idm_grabber
+    g["proj"].set("Nightly")
+    g["start"].delete(0, "end")
+    g["start"].insert(0, "https://example.com/files/")
+    g["template"].set("Images")
+    g["template"].event_generate("<<ComboboxSelected>>")
+    g["same_site"].set(False)
+    g["max_pages"].set(7)
+    g["depth"].set(4)
+    g["external_depth"].set(2)
+    g["include"].insert(0, "/files/")
+    g["exclude"].insert(0, "thumb")
+    root.update()
+
+    # Click the button, not the function behind it.
+    for b in _buttons_by_text(win, "Save Project"):
+        b.invoke()
+    win.destroy()
+
+    saved = grabber_project(load_settings(state_dir), "Nightly")
+
+    win2 = _dialog_grabber(root, state_dir=state_dir, project="Nightly")
+    win2.withdraw()
+    h = win2._idm_grabber
+    loaded = {
+        "name": h["proj"].get(),
+        "start": h["start"].get(),
+        "template": h["template"].get(),
+        "exts": h["exts"].get(),
+        "same_site_only": bool(h["same_site"].get()),
+        "max_pages": h["max_pages"].get(),
+        "depth": h["depth"].get(),
+        "external_depth": h["external_depth"].get(),
+        "include": h["include"].get(),
+        "exclude": h["exclude"].get(),
+    }
+    try:
+        win2.destroy()
+        root.destroy()
+    except Exception:  # noqa: BLE001
+        pass
+
+    print("GRABPROJ:" + json.dumps({"saved": saved, "loaded": loaded}),
+          flush=True)
+    return 0
+
+
+class _RecordingApi:
+    """Stands in for the engine API: remembers what would be added."""
+
+    def __init__(self):
+        self.adds = []
+
+    def add(self, url, connections=None, options=None):
+        self.adds.append({"url": url,
+                          "connections": connections,
+                          "out_dir": (options or {}).get("out_dir", "")})
+        return {"id": len(self.adds)}
+
+
+def selftest_grabber_checks(state_dir):
+    """The two "Save to" checkbuttons must be readable and must act."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+
+    base = os.path.join(state_dir, "grabbed")
+    urls = ["https://example.com/a/song.mp3", "https://example.com/b/pack.zip"]
+
+    def dialog(api):
+        win = _dialog_grabber(root, api=api, state_dir=state_dir, out_dir=base)
+        win.withdraw()
+        g = win._idm_grabber
+        g["folder"].delete(0, "end")
+        g["folder"].insert(0, base)
+        g["state"]["files"] = list(urls)
+        g["state"]["checked"] = set(range(len(urls)))
+        g["render"]()
+        return win, g
+
+    # 1. every checkbutton can be read at all
+    win, g = dialog(None)
+    unbound = _unbound_checkbuttons(win)
+    win.destroy()
+
+    # 2. "Add to IDM" with the category checkbox off, then on
+    plain_api = _RecordingApi()
+    win, g = dialog(plain_api)
+    g["by_category"].set(False)
+    for b in _buttons_by_text(win, "Add to IDM"):
+        b.invoke()
+    win.destroy()
+
+    cat_api = _RecordingApi()
+    win, g = dialog(cat_api)
+    g["by_category"].set(True)
+    for b in _buttons_by_text(win, "Add to IDM"):
+        b.invoke()
+    win.destroy()
+
+    # 3. closing the dialog, with "add on close" on and off
+    close_api = _RecordingApi()
+    win, g = dialog(close_api)
+    g["add_on_close"].set(True)
+    g["on_close"]()
+
+    quiet_api = _RecordingApi()
+    win, g = dialog(quiet_api)
+    g["add_on_close"].set(False)
+    g["on_close"]()
+
+    # 4. both checkboxes belong to the saved project
+    win, g = dialog(None)
+    g["proj"].set("Checked")
+    g["by_category"].set(True)
+    g["add_on_close"].set(True)
+    g["save_project"]()
+    win.destroy()
+    saved = grabber_project(load_settings(state_dir), "Checked")
+    win, g = dialog(None)
+    g["proj"].set("Checked")
+    g["load_project"]()
+    reloaded = {"by_category": bool(g["by_category"].get()),
+                "add_on_close": bool(g["add_on_close"].get())}
+    win.destroy()
+
+    try:
+        root.destroy()
+    except Exception:  # noqa: BLE001
+        pass
+
+    print("GRABCHECK:" + json.dumps({
+        "unbound": unbound,
+        "folder": base,
+        "urls": urls,
+        "plain": plain_api.adds,
+        "by_category": cat_api.adds,
+        "on_close": close_api.adds,
+        "no_close": quiet_api.adds,
+        "saved": saved,
+        "reloaded": reloaded,
+    }), flush=True)
+    return 0
+
+
+def selftest_grabber_tree(state_dir):
+    """The saved projects must show up under the "Grabber projects" node."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    api = Api("127.0.0.1:1", timeout=0.2)
+    main_root, _refresh, w = build_window(api, out_dir=".", state_dir=state_dir)
+    main_root.withdraw()
+
+    tree = w["tree"]
+    node = None
+    for i in tree.get_children(""):
+        if tree.item(i, "text") == "Grabber projects":
+            node = i
+    children = ([tree.item(c, "text") for c in tree.get_children(node)]
+                if node else [])
+
+    # Open the second one the way a user would: select it, double click.
+    opened_title, opened_start = "", ""
+    kids = tree.get_children(node) if node else []
+    if kids:
+        tree.selection_set(kids[-1])
+        dialog = w["open_grabber_project"]()
+        if dialog is not None:
+            dialog.withdraw()
+            opened_title = dialog.title()
+            opened_start = dialog._idm_grabber["start"].get()
+            dialog.destroy()
+
+    try:
+        main_root.destroy()
+        root.destroy()
+    except Exception:  # noqa: BLE001
+        pass
+
+    print("GRABTREE:" + json.dumps({
+        "children": children,
+        "opened_title": opened_title,
+        "opened_start": opened_start,
+    }), flush=True)
+    return 0
+
+
 def selftest_row():
     """Render one item exactly as the main list does."""
     item = {
@@ -4303,6 +4935,42 @@ def _collect_widgets(widget, acc, depth=0):
         _collect_widgets(child, acc, depth + 1)
 
 
+def _unbound_checkbuttons(widget, found=None):
+    """Labels of checkbuttons under `widget` with no variable behind them.
+
+    The Grabber had two of these: tickable, and unreadable by any code, so
+    they could not possibly do what their labels promised.
+    """
+    if found is None:
+        found = []
+    for child in widget.winfo_children():
+        if child.winfo_class() in ("TCheckbutton", "Checkbutton"):
+            try:
+                var = str(child.cget("variable") or "").strip()
+                text = str(child.cget("text") or "")
+            except Exception:  # noqa: BLE001
+                continue
+            if not var:
+                found.append(text)
+        _unbound_checkbuttons(child, found)
+    return found
+
+
+def _buttons_by_text(widget, text, found=None):
+    """Every button under `widget` whose label is `text`."""
+    if found is None:
+        found = []
+    for child in widget.winfo_children():
+        if child.winfo_class() in ("TButton", "Button"):
+            try:
+                if str(child.cget("text") or "") == text:
+                    found.append(child)
+            except Exception:  # noqa: BLE001
+                pass
+        _buttons_by_text(child, text, found)
+    return found
+
+
 def _dead_buttons(widget, found=None):
     """Labels of buttons under `widget` that have no command bound.
 
@@ -4521,7 +5189,35 @@ def main(argv=None):
     p.add_argument("--selftest-drop-paste", action="store_true")
     p.add_argument("--selftest-live-graph", action="store_true")
     p.add_argument("--meta", help="path to a .idmmeta for --selftest-live-graph")
+    p.add_argument("--selftest-grabber-explore", action="store_true")
+    p.add_argument("--grabber-template", default="All files",
+                   help="template for --selftest-grabber-explore")
+    p.add_argument("--grabber-depth", type=int, default=None)
+    p.add_argument("--grabber-external-depth", type=int, default=None)
+    p.add_argument("--selftest-grabber-project", action="store_true")
+    p.add_argument("--selftest-grabber-tree", action="store_true")
+    p.add_argument("--selftest-grabber-checks", action="store_true")
+    p.add_argument("--grabber-include", default="")
+    p.add_argument("--grabber-exclude", default="")
+    p.add_argument("--grabber-all-sites", action="store_true",
+                   help="untick 'explore the current site only'")
     args = p.parse_args(rest)
+
+    if args.selftest_grabber_project:
+        return selftest_grabber_project(args.state_dir)
+    if args.selftest_grabber_tree:
+        return selftest_grabber_tree(args.state_dir)
+    if args.selftest_grabber_checks:
+        return selftest_grabber_checks(args.state_dir)
+    if args.selftest_grabber_explore:
+        if not args.url:
+            print("--selftest-grabber-explore needs --url", file=sys.stderr)
+            return 2
+        return selftest_grabber_explore(
+            args.url, args.grabber_template, depth=args.grabber_depth,
+            external_depth=args.grabber_external_depth,
+            same_site_only=not args.grabber_all_sites,
+            include=args.grabber_include, exclude=args.grabber_exclude)
 
     if args.selftest_live_graph:
         if not args.meta:
