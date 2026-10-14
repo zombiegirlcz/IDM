@@ -251,3 +251,86 @@ fn a_broken_vault_keeps_the_plaintext() {
 
     let _ = srv.kill();
 }
+
+/// The GUI has no engine binary to call -- it only ever speaks to
+/// `idm --serve` over the loopback API -- so storing a password needs an
+/// endpoint. The value travels in the request body, the same way `auth` has
+/// always travelled to /api/add, and comes back as a reference.
+#[test]
+fn the_api_can_store_a_password_and_return_a_reference() {
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+    let mut srv = spawn_server(&addr, &out, &state);
+    wait_ready(&addr);
+
+    let (st, resp) = http_req(
+        &addr,
+        "POST",
+        "/api/secrets",
+        Some(&serde_json::json!({ "value": "s3cret" }).to_string()),
+    );
+    assert_eq!(st, 200, "POST /api/secrets returned {}: {}", st, resp);
+    let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["ok"].as_bool(), Some(true), "{}", resp);
+    let reference = v["ref"].as_str().unwrap_or("").to_string();
+    assert!(reference.starts_with("secret:"), "no reference in {}", resp);
+
+    // And the status the GUI shows next to Site Logins.
+    let (st, resp) = http_req(&addr, "GET", "/api/secrets-status", None);
+    assert_eq!(st, 200, "GET /api/secrets-status returned {}: {}", st, resp);
+    let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    let text = v["status"].as_str().unwrap_or("");
+    assert!(text.contains("encrypted"), "unhelpful status: {}", resp);
+    assert!(text.contains("local file"), "this build has no keyring: {}", resp);
+
+    // The reference resolves for a download added with it.
+    add(
+        &addr,
+        serde_json::json!({
+            "url": "http://127.0.0.1:9/f.bin",
+            "auth_user": "alice",
+            "auth_password_ref": reference,
+        }),
+    );
+    let queue = read_queue(&state);
+    assert!(!queue.contains("s3cret"), "plaintext in queue.json: {}", queue);
+
+    let _ = srv.kill();
+}
+
+/// A stored password must not come back out through the API: the reference is
+/// the only thing a caller gets.
+#[test]
+fn there_is_no_way_to_read_a_password_back_over_the_api() {
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+    let mut srv = spawn_server(&addr, &out, &state);
+    wait_ready(&addr);
+
+    let (_st, resp) = http_req(
+        &addr,
+        "POST",
+        "/api/secrets",
+        Some(&serde_json::json!({ "value": "s3cret" }).to_string()),
+    );
+    let reference = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["ref"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+
+    for (method, path) in [
+        ("GET", format!("/api/secrets?ref={}", reference)),
+        ("POST", "/api/secrets-get".to_string()),
+    ] {
+        let body = serde_json::json!({ "ref": reference }).to_string();
+        let (st, resp) = http_req(&addr, method, &path, Some(&body));
+        assert!(!resp.contains("s3cret"), "{} {} handed the password back: {}", method, path, resp);
+        assert_ne!(st, 0, "no response at all from {} {}", method, path);
+    }
+
+    let _ = srv.kill();
+}
