@@ -124,10 +124,20 @@ struct Item {
     #[serde(default)]
     limit_rate: u64,
     /// HTTP basic credentials as USER:PASSWORD, from the Site Logins tab.
-    /// Kept with the queue so a resume can authenticate again; the queue file
-    /// is as sensitive as settings.json, which already holds these.
+    /// LEGACY: only still read, so a queue file written by an older build
+    /// keeps working. New entries use auth_user + auth_ref and leave this
+    /// empty; the migration in `save` empties it once the password is in the
+    /// vault.
     #[serde(default)]
     auth: String,
+    /// The user half of the credentials. Not a secret -- it is on screen in
+    /// the Site Logins list -- and kept apart from the password so that a
+    /// password containing a colon stays unambiguous.
+    #[serde(default)]
+    auth_user: String,
+    /// `secret:<16 hex>` pointing into STATE_DIR/secrets.json.
+    #[serde(default)]
+    auth_ref: String,
     /// Resume even when the server reports a different Last-Modified.
     #[serde(default)]
     ignore_mtime: bool,
@@ -349,7 +359,76 @@ fn load_items(path: &Path) -> Vec<Item> {
     items
 }
 
+/// The vault that belongs to this server's state directory.
+fn vault_of(st: &State) -> crate::secrets::Vault {
+    let dir = st
+        .state_path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    crate::secrets::Vault::new(&dir)
+}
+
+/// "user:password" -> (user, password). Split on the FIRST colon, so a
+/// password containing one survives, exactly as the engine has always done.
+fn split_auth(auth: &str) -> (String, String) {
+    match auth.split_once(':') {
+        Some((u, p)) => (u.to_string(), p.to_string()),
+        None => (auth.to_string(), String::new()),
+    }
+}
+
+/// Move any plaintext password left by an older build into the vault. Runs on
+/// the way to disk, never on the way in: reading a queue file stays reading.
+///
+/// A failure leaves the plaintext exactly where it is. Losing a password is
+/// worse for the user than keeping it in the clear a little longer, so this
+/// reports and gives up rather than writing an entry it cannot resolve later.
+async fn migrate_plaintext_auth(st: &State, items: &mut Vec<Item>) {
+    if !items.iter().any(|i| !i.auth.is_empty() && i.auth_ref.is_empty()) {
+        return;
+    }
+    // The only way back to an older build. Written before anything changes.
+    if st.state_path.exists() {
+        let backup = st.state_path.with_extension("json.pre-secrets");
+        if !backup.exists() {
+            if let Ok(raw) = tokio::fs::read(&st.state_path).await {
+                let _ = tokio::fs::write(&backup, &raw).await;
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(
+                        &backup,
+                        std::fs::Permissions::from_mode(0o600),
+                    );
+                }
+            }
+        }
+    }
+    let vault = vault_of(st);
+    for i in items.iter_mut() {
+        if i.auth.is_empty() || !i.auth_ref.is_empty() {
+            continue;
+        }
+        let (user, pass) = split_auth(&i.auth);
+        match vault.set(&pass) {
+            Ok(r) => {
+                i.auth_user = user;
+                i.auth_ref = r;
+                i.auth = String::new();
+            }
+            Err(e) => eprintln!("[!] cannot migrate a stored password: {:#}", e),
+        }
+    }
+}
+
 async fn save(st: &State) {
+    {
+        let mut g = st.items.lock().await;
+        let mut items = g.clone();
+        migrate_plaintext_auth(st, &mut items).await;
+        *g = items;
+    }
     let items = st.items.lock().await.clone();
     if let Ok(s) = serde_json::to_string_pretty(&items) {
         let _ = tokio::fs::write(&st.state_path, s).await;
@@ -415,6 +494,8 @@ struct AddOptions {
     proxy: String,
     limit_rate: u64,
     auth: String,
+    auth_user: String,
+    auth_password_ref: String,
     ignore_mtime: bool,
     queue: String,
     retries: u32,
@@ -453,6 +534,27 @@ async fn add_item(
         .filter(|n| !n.is_empty() && n != "." && n != "..")
         .unwrap_or_else(|| basename(&url));
     let output = dir.join(wanted);
+
+    // Credentials: a reference the GUI already made, or the legacy
+    // "user:password" field, whose password goes into the vault right here so
+    // that no new plaintext reaches queue.json. If the vault refuses, the
+    // plaintext is kept -- a download that cannot authenticate is worse than a
+    // password that waits one more day for its migration.
+    let (auth_user, auth_ref, plain_auth) = if !opts.auth_password_ref.is_empty() {
+        (opts.auth_user.clone(), opts.auth_password_ref.clone(), String::new())
+    } else if !opts.auth.is_empty() {
+        let (user, pass) = split_auth(&opts.auth);
+        match vault_of(st).set(&pass) {
+            Ok(r) => (user, r, String::new()),
+            Err(e) => {
+                eprintln!("[!] cannot store the password in the vault: {:#}", e);
+                (String::new(), String::new(), opts.auth.clone())
+            }
+        }
+    } else {
+        (opts.auth_user.clone(), String::new(), String::new())
+    };
+
     let item = Item {
         id,
         url,
@@ -462,7 +564,9 @@ async fn add_item(
         user_agent: opts.user_agent,
         proxy: opts.proxy,
         limit_rate: opts.limit_rate,
-        auth: opts.auth,
+        auth: plain_auth,
+        auth_user,
+        auth_ref,
         ignore_mtime: opts.ignore_mtime,
         queue: opts.queue,
         retries: opts.retries,
@@ -522,6 +626,8 @@ async fn run_item(st: Arc<State>, id: u64) {
         proxy,
         limit_rate,
         auth,
+        auth_user,
+        auth_ref,
         ignore_mtime,
         format,
         cookie,
@@ -539,6 +645,8 @@ async fn run_item(st: Arc<State>, id: u64) {
                 i.proxy.clone(),
                 i.limit_rate,
                 i.auth.clone(),
+                i.auth_user.clone(),
+                i.auth_ref.clone(),
                 i.ignore_mtime,
                 i.format.clone(),
                 i.cookie.clone(),
@@ -547,6 +655,30 @@ async fn run_item(st: Arc<State>, id: u64) {
             ),
             None => return,
         }
+    };
+
+    // Unlock the stored password now, at the moment of use. A vault that will
+    // not open ends the download with an error instead of trying without
+    // credentials: the server would answer 401 in the middle of a resume and
+    // the failure would read like a network fault.
+    let credentials = if !auth_ref.is_empty() {
+        match vault_of(&st).get(&auth_ref) {
+            Ok(pass) => format!("{}:{}", auth_user, pass),
+            Err(e) => {
+                eprintln!("[x] {:#}", e);
+                set_status(
+                    &st,
+                    id,
+                    "error",
+                    Some("cannot unlock stored password".to_string()),
+                )
+                .await;
+                return;
+            }
+        }
+    } else {
+        // Legacy plaintext, from a queue file not migrated yet.
+        auth
     };
 
     set_status(&st, id, "running", None).await;
@@ -573,12 +705,12 @@ async fn run_item(st: Arc<State>, id: u64) {
     if limit_rate > 0 {
         cmd.arg("--limit-rate").arg(limit_rate.to_string());
     }
-    if !auth.is_empty() {
+    if !credentials.is_empty() {
         // Through the environment, not argv: process arguments are readable by
         // every process of this user (`ps`, /proc/<pid>/cmdline), while
         // /proc/<pid>/environ is readable only by the owner. The engine reads
         // the variable named here and keeps it from its own children.
-        cmd.env("IDM_AUTH", &auth);
+        cmd.env("IDM_AUTH", &credentials);
         cmd.arg("--auth-env").arg("IDM_AUTH");
     }
     if ignore_mtime {
@@ -887,6 +1019,8 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 proxy: v["proxy"].as_str().unwrap_or("").to_string(),
                 limit_rate: v["limit_rate"].as_u64().unwrap_or(0),
                 auth: v["auth"].as_str().unwrap_or("").to_string(),
+                auth_user: v["auth_user"].as_str().unwrap_or("").to_string(),
+                auth_password_ref: v["auth_password_ref"].as_str().unwrap_or("").to_string(),
                 ignore_mtime: v["ignore_mtime"].as_bool().unwrap_or(false),
                 queue: v["queue"].as_str().unwrap_or("").to_string(),
                 retries: v["retries"].as_u64().unwrap_or(0) as u32,
