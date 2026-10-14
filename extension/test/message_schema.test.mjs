@@ -221,6 +221,40 @@ test('install-host.sh generates a wrapper + installed manifest pointing at it', 
   assert.ok(existsSync(link), 'manifest must be linked into the browser dir');
 });
 
+test('the wrapper points the host at the GUI settings file', () => {
+  const home = mkdtempSync(join(tmpdir(), 'idm_home_settings_'));
+  const downloads = join(home, 'Downloads');
+  const stateDir = join(home, '.local', 'share', 'idm-native');
+  execFileSync('bash', [join(ext, 'install-host.sh')], {
+    env: {
+      ...process.env,
+      HOME: home,
+      XDG_DATA_HOME: join(home, '.local', 'share'),
+      IDM_DOWNLOADS_DIR: downloads,
+    },
+    stdio: 'pipe',
+  });
+
+  // Without --settings the host answers get_settings with source "default",
+  // so the Options dialog would have no effect on capture at all.
+  const wsrc = readFileSync(join(stateDir, 'idm-host-wrapper.sh'), 'utf8');
+  assert.ok(wsrc.includes('--settings'), 'wrapper must pass --settings');
+
+  // It has to be the SAME file the GUI writes: install.sh starts the GUI with
+  // --state-dir <dir>, and the GUI keeps settings.json inside it.
+  const guiStateDir = join(home, '.local', 'share', 'idm-gui');
+  assert.ok(
+    wsrc.includes(join(guiStateDir, 'settings.json')),
+    `wrapper must point at the GUI's settings.json, got: ${wsrc}`,
+  );
+
+  const installSh = readFileSync(join(repoRoot, 'install.sh'), 'utf8');
+  assert.ok(
+    /--state-dir\s+"\$DATA_HOME\/idm-gui"/.test(installSh),
+    'install.sh must still start the GUI with the state dir the wrapper assumes',
+  );
+});
+
 test('content.js references the content->background opcodes', () => {
   const src = readFileSync(contentPath, 'utf8');
   // Each opcode should appear as a first element of a posted array.
