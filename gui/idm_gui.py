@@ -39,10 +39,12 @@ import argparse
 import json
 import os
 import secrets
+import shutil
 import subprocess
 import threading
 import sys
 import time
+import urllib.parse
 import urllib.request
 
 DEFAULT_ADDR = "127.0.0.1:8080"
@@ -222,10 +224,21 @@ class Api:
     def items(self) -> list[dict]:
         return self._req("GET", "/api/items").get("items", [])
 
-    def add(self, url: str, connections: int = 4, aria2: bool = False) -> int:
+    def add(self, url: str, connections: int = 4, aria2: bool = False,
+            options: dict | None = None) -> int:
+        """Queue a download.
+
+        `options` is the dict from download_options(): the engine honours
+        out_dir / temp_dir / user_agent / proxy, so the Options dialog is not
+        decoration. An older engine ignores the extra keys.
+        """
         body = {"url": url, "connections": connections}
         if aria2:
             body["aria2"] = True
+        for key in ("out_dir", "temp_dir", "user_agent", "proxy"):
+            value = (options or {}).get(key)
+            if value:
+                body[key] = value
         r = self._req("POST", "/api/add", body)
         return int(r.get("id", 0))
 
@@ -373,6 +386,38 @@ SOUND_EVENTS = [
 ]
 
 
+def play_sound(path: str) -> bool:
+    """Best-effort playback of a notification sound.
+
+    Tk has no audio, so we hand the file to whatever the platform ships
+    (winsound on Windows, one of the usual CLI players elsewhere). Returns
+    True when a player was started; failures are never fatal.
+    """
+    if not path or not os.path.isfile(path):
+        return False
+    if os.name == "nt":
+        try:
+            import winsound
+            winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+            return True
+        except Exception:  # noqa: BLE001
+            return False
+    for player in ("paplay", "aplay", "ffplay", "afplay"):
+        exe = shutil.which(player)
+        if not exe:
+            continue
+        args = [exe, path]
+        if player == "ffplay":
+            args = [exe, "-nodisp", "-autoexit", "-loglevel", "quiet", path]
+        try:
+            subprocess.Popen(args, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+            return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
+
+
 def settings_path(state_dir: str) -> str:
     return os.path.join(state_dir or ".", "settings.json")
 
@@ -450,6 +495,160 @@ def _delete_category(settings: dict, name: str) -> dict:
     out["categories"] = [c for c in out.get("categories", [])
                          if (c or {}).get("name") != name]
     return out
+
+
+# --- Options list sections ------------------------------------------------
+#
+# site_logins is a LIST of records, and connection.exceptions / sounds.events /
+# save_to.category_dirs are keyed collections. The Options dialog used to bind
+# them as dotted keys ("site_logins.url"), which collect() turned into
+# list.setdefault() -> AttributeError -> silently dropped. They get real
+# helpers instead, so the dialog edits the same shape that is persisted.
+
+
+def _upsert_site_login(settings: dict, url: str, user: str, password: str) -> dict:
+    """Add or replace the login for `url` (one record per URL)."""
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    url = (url or "").strip()
+    if not url:
+        return out
+    logins = [x for x in out.get("site_logins", [])
+              if (x or {}).get("url") != url]
+    logins.append({"url": url, "user": user or "", "password": password or ""})
+    out["site_logins"] = logins
+    return out
+
+
+def _delete_site_login(settings: dict, url: str) -> dict:
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    out["site_logins"] = [x for x in out.get("site_logins", [])
+                          if (x or {}).get("url") != url]
+    return out
+
+
+def _find_site_login(settings: dict, url: str):
+    for x in (settings or {}).get("site_logins", []):
+        if (x or {}).get("url") == url:
+            return x
+    return None
+
+
+def _upsert_exception(settings: dict, server: str, connections) -> dict:
+    """Add or replace the per-server connection limit for `server`."""
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    server = (server or "").strip()
+    if not server:
+        return out
+    try:
+        n = int(connections)
+    except (TypeError, ValueError):
+        return out
+    excs = [e for e in out["connection"].get("exceptions", [])
+            if (e or {}).get("server") != server]
+    excs.append({"server": server, "connections": n})
+    out["connection"]["exceptions"] = excs
+    return out
+
+
+def _delete_exception(settings: dict, server: str) -> dict:
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    out["connection"]["exceptions"] = [
+        e for e in out["connection"].get("exceptions", [])
+        if (e or {}).get("server") != server
+    ]
+    return out
+
+
+def _set_category_dir(settings: dict, category: str, directory: str) -> dict:
+    """Point a category at its own download directory ("" clears it)."""
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    category = (category or "").strip()
+    if not category:
+        return out
+    dirs = dict(out["save_to"].get("category_dirs", {}))
+    if directory:
+        dirs[category] = directory
+    else:
+        dirs.pop(category, None)
+    out["save_to"]["category_dirs"] = dirs
+    return out
+
+
+def _set_sound_event(settings: dict, event: str, path: str) -> dict:
+    """Bind a sound file to one of SOUND_EVENTS ("" unbinds it)."""
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    event = (event or "").strip()
+    if not event:
+        return out
+    events = dict(out["sounds"].get("events", {}))
+    if path:
+        events[event] = path
+    else:
+        events.pop(event, None)
+    out["sounds"]["events"] = events
+    return out
+
+
+def host_of(url: str) -> str:
+    """Host name of a URL, without the port ("" when it has none)."""
+    try:
+        return (urllib.parse.urlsplit(url).hostname or "").lower()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
+    """The engine options a download of `url` must run with.
+
+    This is where the Options dialog stops being decoration: every value here
+    comes from settings.json and is sent to `/api/add`, which passes it on to
+    the engine.
+
+      connections  connection.max_connections, overridden by the per-server
+                   exception for this URL's host
+      out_dir      save_to.category_dirs[category] for this URL's category,
+                   else save_to.default_dir, else `fallback_dir`
+      temp_dir     save_to.temp_dir (where the .idmpart chunks live)
+      user_agent   downloads.user_agent
+      proxy        proxy.socks preferred over proxy.http/https; empty when
+                   proxy.use_system is on (then the engine/browser decides) or
+                   when the host is in proxy.no_proxy
+    """
+    s = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    host = host_of(url)
+
+    conns = int(s["connection"].get("max_connections") or 1)
+    for e in s["connection"].get("exceptions", []):
+        if (e or {}).get("server", "").strip().lower() == host and host:
+            try:
+                conns = int(e["connections"])
+            except (KeyError, TypeError, ValueError):
+                pass
+            break
+
+    cat = category_of(url)
+    out_dir = (s["save_to"].get("category_dirs", {}).get(cat)
+               or s["save_to"].get("default_dir")
+               or fallback_dir
+               or "")
+
+    proxy = ""
+    if not s["proxy"].get("use_system"):
+        proxy = (s["proxy"].get("socks") or s["proxy"].get("http")
+                 or s["proxy"].get("https") or "")
+        for skip in s["proxy"].get("no_proxy", []):
+            skip = (skip or "").strip().lower().lstrip(".")
+            if skip and host and (host == skip or host.endswith("." + skip)):
+                proxy = ""
+                break
+
+    return {
+        "connections": max(1, conns),
+        "out_dir": out_dir,
+        "temp_dir": s["save_to"].get("temp_dir") or "",
+        "user_agent": s["downloads"].get("user_agent") or "",
+        "proxy": proxy,
+    }
 
 
 def _dialog_category(parent, settings=None):
@@ -742,9 +941,12 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
         if api is None:
             return
         added = 0
+        settings = load_settings(state_dir)
         for i in sorted(state["checked"]):
+            url = state["files"][i]
             try:
-                api.add(state["files"][i])
+                opts = download_options(settings, url, fallback_dir=out_dir)
+                api.add(url, connections=opts["connections"], options=opts)
                 added += 1
             except Exception:  # noqa: BLE001
                 pass
@@ -868,7 +1070,8 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
         controls[name]["labels"].append(text)
         ttk.Label(row, text=text).pack(side="left")
         v = tk.StringVar(value=str(value or ""))
-        vals[key] = (v, "str")
+        if key:
+            vals[key] = (v, "str")
         controls[name]["entries"].append(text)
         ttk.Entry(row, textvariable=v, show=show).pack(
             side="left", fill="x", expand=True, padx=4
@@ -919,12 +1122,41 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
             vals[key] = (lb, "list")
         return lb
 
-    def add_buttons(f, name, labels):
+    def add_buttons(f, name, items):
+        """Add a row of buttons. `items` is [(label, command), ...].
+
+        A command is mandatory: a button without one is decoration, which is
+        what every button in this dialog used to be.
+        """
         row = ttk.Frame(f)
         row.pack(anchor="w", padx=10, pady=4)
-        for lab in labels:
+        for lab, cmd in items:
             controls[name]["buttons"].append(lab)
-            ttk.Button(row, text=lab).pack(side="left", padx=2)
+            ttk.Button(row, text=lab, command=cmd).pack(side="left", padx=2)
+        return row
+
+    def ask(title, prompt, initial="", secret=False):
+        from tkinter import simpledialog
+        return simpledialog.askstring(title, prompt, initialvalue=initial,
+                                      show="*" if secret else "", parent=win)
+
+    def lb_selected(lb):
+        sel = lb.curselection()
+        return lb.get(sel[0]) if sel else None
+
+    def lb_remove_selected(lb):
+        sel = lb.curselection()
+        for i in reversed(sel):
+            lb.delete(i)
+
+    def lb_add_value(lb, value):
+        """Append to a plain string listbox, skipping blanks and duplicates."""
+        value = (value or "").strip()
+        if not value:
+            return
+        if value in [lb.get(i) for i in range(lb.size())]:
+            return
+        lb.insert("end", value)
 
     # --- General -----------------------------------------------------------
     g = tab("General")
@@ -940,27 +1172,90 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
             "general.force_keys", s["general"]["force_keys"])
     add_row(g, "General", "Prevent downloading with key(s):",
             "general.prevent_keys", s["general"]["prevent_keys"])
-    add_list(g, "General", "Browsers:", s["general"]["browsers"], "general.browsers")
-    add_buttons(g, "General", ["Add Browser..."])
+    browsers_lb = add_list(g, "General", "Browsers:",
+                           s["general"]["browsers"], "general.browsers")
+
+    def _add_browser():
+        path = filedialog.askopenfilename(parent=win, title="Add Browser")
+        lb_add_value(browsers_lb, path)
+
+    add_buttons(g, "General", [
+        ("Add Browser...", _add_browser),
+        ("Remove", lambda: lb_remove_selected(browsers_lb)),
+    ])
 
     # --- File Types --------------------------------------------------------
     ft = tab("File Types")
-    add_list(ft, "File Types",
-             "Automatically start downloading the following file types:",
-             s["file_types"]["auto"], "file_types.auto")
-    add_list(ft, "File Types",
-             "Don't start downloading automatically from the following sites:",
-             s["file_types"]["exclude_sites"], "file_types.exclude_sites")
-    add_buttons(ft, "File Types", ["Add", "Remove", "Edit list..."])
+    auto_lb = add_list(ft, "File Types",
+                       "Automatically start downloading the following file types:",
+                       s["file_types"]["auto"], "file_types.auto")
+    sites_lb = add_list(ft, "File Types",
+                        "Don't start downloading automatically from the following sites:",
+                        s["file_types"]["exclude_sites"], "file_types.exclude_sites")
+
+    def _add_type():
+        ext = ask("Add file type", "Extension (without the dot):")
+        lb_add_value(auto_lb, (ext or "").lstrip(".").lower())
+
+    def _edit_types():
+        cur = " ".join(auto_lb.get(i) for i in range(auto_lb.size()))
+        txt = ask("Edit list", "Extensions, separated by spaces:", cur)
+        if txt is None:
+            return
+        auto_lb.delete(0, "end")
+        for ext in txt.replace(",", " ").split():
+            lb_add_value(auto_lb, ext.lstrip(".").lower())
+
+    def _add_site():
+        site = ask("Add site", "Site to exclude (host or URL):")
+        lb_add_value(sites_lb, site)
+
+    add_buttons(ft, "File Types", [
+        ("Add", _add_type),
+        ("Remove", lambda: lb_remove_selected(auto_lb)),
+        ("Edit list...", _edit_types),
+        ("Add site", _add_site),
+        ("Remove site", lambda: lb_remove_selected(sites_lb)),
+    ])
 
     # --- Connection --------------------------------------------------------
     cn = tab("Connection")
     add_int(cn, "Connection", "Max connections per server:",
             "connection.max_connections", s["connection"]["max_connections"])
-    add_list(cn, "Connection", "Exceptions (server -> connections):",
-             [f"{e.get('server', '')} -> {e.get('connections', '')}"
-              for e in s["connection"]["exceptions"]])
-    add_buttons(cn, "Connection", ["Add", "Remove"])
+    exc_lb = add_list(cn, "Connection", "Exceptions (server -> connections):", [])
+
+    def _render_exceptions():
+        exc_lb.delete(0, "end")
+        for e in s["connection"]["exceptions"]:
+            exc_lb.insert("end", f"{e.get('server', '')} -> {e.get('connections', '')}")
+
+    def _add_exception():
+        nonlocal s
+        server = ask("Add exception", "Server (host name):")
+        if not server:
+            return
+        cur = next((e for e in s["connection"]["exceptions"]
+                    if e.get("server") == server.strip()), None)
+        n = ask("Add exception", f"Max connections for {server.strip()}:",
+                str((cur or {}).get("connections", 1)))
+        if n is None:
+            return
+        s = _upsert_exception(s, server, n)
+        _render_exceptions()
+
+    def _remove_exception():
+        nonlocal s
+        row = lb_selected(exc_lb)
+        if not row:
+            return
+        s = _delete_exception(s, row.split(" -> ")[0])
+        _render_exceptions()
+
+    _render_exceptions()
+    add_buttons(cn, "Connection", [
+        ("Add", _add_exception),
+        ("Remove", _remove_exception),
+    ])
     add_check(cn, "Connection", "Download Limits",
               "connection.download_limits", s["connection"]["download_limits"])
     add_int(cn, "Connection", "Download no more than (MB):",
@@ -972,8 +1267,40 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
     st = tab("Save To")
     add_row(st, "Save To", "Default download directory:",
             "save_to.default_dir", s["save_to"]["default_dir"], browse=True)
-    add_list(st, "Save To", "Category directories:",
-             [f"{k}: {v}" for k, v in s["save_to"]["category_dirs"].items()])
+    cat_lb = add_list(st, "Save To", "Category directories:", [])
+
+    def _render_category_dirs():
+        cat_lb.delete(0, "end")
+        for k, v in sorted(s["save_to"]["category_dirs"].items()):
+            cat_lb.insert("end", f"{k}: {v}")
+
+    def _set_cat_dir():
+        nonlocal s
+        cats = list_categories(s)
+        name = ask("Category directory",
+                   "Category (%s):" % ", ".join(cats), cats[0] if cats else "")
+        if not name:
+            return
+        d = filedialog.askdirectory(parent=win,
+                                    title=f"Download directory for {name}")
+        if not d:
+            return
+        s = _set_category_dir(s, name, d)
+        _render_category_dirs()
+
+    def _clear_cat_dir():
+        nonlocal s
+        row = lb_selected(cat_lb)
+        if not row:
+            return
+        s = _set_category_dir(s, row.split(":")[0], "")
+        _render_category_dirs()
+
+    _render_category_dirs()
+    add_buttons(st, "Save To", [
+        ("Set directory...", _set_cat_dir),
+        ("Clear", _clear_cat_dir),
+    ])
     add_row(st, "Save To", "Temporary directory:",
             "save_to.temp_dir", s["save_to"]["temp_dir"], browse=True)
     add_check(st, "Save To", "Change folder for a category on last selected",
@@ -1005,13 +1332,44 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
     px = tab("Proxy / Socks")
     add_check(px, "Proxy / Socks", "Use proxy/socks from a browser's request",
               "proxy.use_system", s["proxy"]["use_system"])
-    add_buttons(px, "Proxy / Socks", ["Get System"])
-    add_row(px, "Proxy / Socks", "HTTP proxy:", "proxy.http", s["proxy"]["http"])
-    add_row(px, "Proxy / Socks", "HTTPS proxy:", "proxy.https", s["proxy"]["https"])
-    add_row(px, "Proxy / Socks", "FTP proxy:", "proxy.ftp", s["proxy"]["ftp"])
-    add_row(px, "Proxy / Socks", "SOCKS proxy:", "proxy.socks", s["proxy"]["socks"])
-    add_list(px, "Proxy / Socks", "Don't use proxy for the following addresses:",
-             s["proxy"]["no_proxy"], "proxy.no_proxy")
+    _px_row = ttk.Frame(px)  # placeholder so the button row sits above the fields
+    _px_row.pack(fill="x")
+    http_v = add_row(px, "Proxy / Socks", "HTTP proxy:", "proxy.http", s["proxy"]["http"])
+    https_v = add_row(px, "Proxy / Socks", "HTTPS proxy:", "proxy.https", s["proxy"]["https"])
+    ftp_v = add_row(px, "Proxy / Socks", "FTP proxy:", "proxy.ftp", s["proxy"]["ftp"])
+    socks_v = add_row(px, "Proxy / Socks", "SOCKS proxy:", "proxy.socks", s["proxy"]["socks"])
+    noproxy_lb = add_list(px, "Proxy / Socks",
+                          "Don't use proxy for the following addresses:",
+                          s["proxy"]["no_proxy"], "proxy.no_proxy")
+
+    def _get_system_proxy():
+        """Fill the fields from the environment, like IDM reads the OS config."""
+        env = os.environ
+        for var, target in (
+            (("http_proxy", "HTTP_PROXY"), http_v),
+            (("https_proxy", "HTTPS_PROXY"), https_v),
+            (("ftp_proxy", "FTP_PROXY"), ftp_v),
+            (("all_proxy", "ALL_PROXY"), socks_v),
+        ):
+            for name in var:
+                if env.get(name):
+                    target.set(env[name])
+                    break
+        for name in ("no_proxy", "NO_PROXY"):
+            if env.get(name):
+                noproxy_lb.delete(0, "end")
+                for host in env[name].split(","):
+                    lb_add_value(noproxy_lb, host)
+                break
+
+    def _add_no_proxy():
+        lb_add_value(noproxy_lb, ask("No proxy for", "Address or host:"))
+
+    add_buttons(_px_row, "Proxy / Socks", [
+        ("Get System", _get_system_proxy),
+        ("Add", _add_no_proxy),
+        ("Remove", lambda: lb_remove_selected(noproxy_lb)),
+    ])
     add_check(px, "Proxy / Socks", "Use FTP in PASV mode",
               "proxy.ftp_pasv", s["proxy"]["ftp_pasv"])
     add_check(px, "Proxy / Socks", "Proxy requires authorization",
@@ -1022,12 +1380,55 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
 
     # --- Site Logins -------------------------------------------------------
     sl = tab("Site Logins")
-    add_list(sl, "Site Logins", "Sites requiring authorization:",
-             [x.get("url", "") for x in s["site_logins"]])
-    add_buttons(sl, "Site Logins", ["New", "Remove"])
-    add_row(sl, "Site Logins", "URL:", "site_logins.url", "")
-    add_row(sl, "Site Logins", "User name:", "site_logins.user", "")
-    add_row(sl, "Site Logins", "Password:", "site_logins.password", "", show="*")
+    login_lb = add_list(sl, "Site Logins", "Sites requiring authorization:", [])
+    _sl_row = ttk.Frame(sl)
+    _sl_row.pack(fill="x")
+    # These are NOT bound into `vals`: site_logins is a list of records, and a
+    # dotted key would make collect() call list.setdefault() and drop them.
+    url_v = add_row(sl, "Site Logins", "URL:", None, "")
+    user_v = add_row(sl, "Site Logins", "User name:", None, "")
+    pass_v = add_row(sl, "Site Logins", "Password:", None, "", show="*")
+
+    def _render_logins():
+        login_lb.delete(0, "end")
+        for x in s["site_logins"]:
+            login_lb.insert("end", x.get("url", ""))
+
+    def _save_login():
+        nonlocal s
+        if not url_v.get().strip():
+            return
+        s = _upsert_site_login(s, url_v.get(), user_v.get(), pass_v.get())
+        _render_logins()
+
+    def _new_login():
+        for v in (url_v, user_v, pass_v):
+            v.set("")
+        url_v.set("https://")
+
+    def _remove_login():
+        nonlocal s
+        url = lb_selected(login_lb)
+        if not url:
+            return
+        s = _delete_site_login(s, url)
+        _render_logins()
+
+    def _on_pick_login(_e=None):
+        url = lb_selected(login_lb)
+        rec = _find_site_login(s, url) if url else None
+        if rec:
+            url_v.set(rec.get("url", ""))
+            user_v.set(rec.get("user", ""))
+            pass_v.set(rec.get("password", ""))
+
+    login_lb.bind("<<ListboxSelect>>", _on_pick_login)
+    _render_logins()
+    add_buttons(_sl_row, "Site Logins", [
+        ("New", _new_login),
+        ("Save", _save_login),
+        ("Remove", _remove_login),
+    ])
 
     # --- Dial-Up / VPN -----------------------------------------------------
     du = tab("Dial-Up / VPN")
@@ -1046,9 +1447,56 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
     # --- Sounds ------------------------------------------------------------
     so = tab("Sounds")
     add_check(so, "Sounds", "Enable sounds", "sounds.enabled", s["sounds"]["enabled"])
-    add_list(so, "Sounds", "Events:", SOUND_EVENTS)
-    add_row(so, "Sounds", "Sound file:", "sounds.file", "")
-    add_buttons(so, "Sounds", ["Browse...", "Play"])
+    events_lb = add_list(so, "Sounds", "Events:", [])
+    sound_v = add_row(so, "Sounds", "Sound file:", None, "")
+
+    def _render_events():
+        events_lb.delete(0, "end")
+        for ev in SOUND_EVENTS:
+            path = s["sounds"]["events"].get(ev, "")
+            events_lb.insert("end", f"{ev}: {path}" if path else ev)
+
+    def _selected_event():
+        row = lb_selected(events_lb)
+        return row.split(":")[0].strip() if row else None
+
+    def _on_pick_event(_e=None):
+        ev = _selected_event()
+        sound_v.set(s["sounds"]["events"].get(ev, "") if ev else "")
+
+    def _browse_sound():
+        nonlocal s
+        ev = _selected_event()
+        if not ev:
+            return
+        path = filedialog.askopenfilename(
+            parent=win, title=f"Sound for {ev}",
+            filetypes=[("Sound files", "*.wav *.ogg *.mp3"), ("All files", "*")])
+        if not path:
+            return
+        sound_v.set(path)
+        s = _set_sound_event(s, ev, path)
+        _render_events()
+
+    def _clear_sound():
+        nonlocal s
+        ev = _selected_event()
+        if not ev:
+            return
+        sound_v.set("")
+        s = _set_sound_event(s, ev, "")
+        _render_events()
+
+    def _play_sound():
+        play_sound(sound_v.get())
+
+    events_lb.bind("<<ListboxSelect>>", _on_pick_event)
+    _render_events()
+    add_buttons(so, "Sounds", [
+        ("Browse...", _browse_sound),
+        ("Play", _play_sound),
+        ("Clear", _clear_sound),
+    ])
 
     def collect():
         out = _deep_merge(DEFAULT_SETTINGS, s)
@@ -1597,35 +2045,30 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             if not u:
                 return
             win.destroy()
-            # IDM shows "Download File Info" next.
+            # Every Options value that affects a download (target directory,
+            # connections, user agent, proxy, temp dir) is resolved here.
+            opts = download_options(load_settings(state_dir), u,
+                                    fallback_dir=out_dir or ".")
+            # IDM shows "Download File Info" next, with the real target folder.
             info_win, start, later_btn = _dialog_file_info(
-                root, u, out_dir or ".", category_of(u)
+                root, u, opts["out_dir"] or out_dir or ".", category_of(u)
             )
 
-            def _conns():
-                # Honour the Connection tab's "max connections" setting.
+            def _add(verb):
+                info_win.destroy()
                 try:
-                    return int(load_settings(state_dir)["connection"]["max_connections"])
-                except Exception:  # noqa: BLE001
-                    return 4
+                    api.add(u, connections=opts["connections"],
+                            aria2=bool(aria2_var.get()), options=opts)
+                    status.set(f"{verb}: {basename(u)}")
+                except Exception as e:  # noqa: BLE001
+                    status.set(f"error: {e}")
+                refresh()
 
             def do_start():
-                info_win.destroy()
-                try:
-                    api.add(u, connections=_conns(), aria2=bool(aria2_var.get()))
-                    status.set(f"added: {basename(u)}")
-                except Exception as e:  # noqa: BLE001
-                    status.set(f"error: {e}")
-                refresh()
+                _add("added")
 
             def do_later():
-                info_win.destroy()
-                try:
-                    api.add(u, connections=_conns(), aria2=bool(aria2_var.get()))
-                    status.set(f"queued: {basename(u)}")
-                except Exception as e:  # noqa: BLE001
-                    status.set(f"error: {e}")
-                refresh()
+                _add("queued")
 
             start.config(command=do_start)
             later_btn.config(command=do_later)
@@ -1849,12 +2292,11 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     clip_state = {"last": ""}
 
     def _add_url_now(url):
+        opts = download_options(load_settings(state_dir), url,
+                                fallback_dir=out_dir or ".")
         try:
-            conns = int(load_settings(state_dir)["connection"]["max_connections"])
-        except Exception:  # noqa: BLE001
-            conns = 4
-        try:
-            api.add(url, connections=conns, aria2=bool(aria2_var.get()))
+            api.add(url, connections=opts["connections"],
+                    aria2=bool(aria2_var.get()), options=opts)
             status.set(f"added: {basename(url)}")
         except Exception as e:  # noqa: BLE001
             status.set(f"error: {e}")
@@ -2017,6 +2459,116 @@ def selftest_settings(state_dir):
     return 0
 
 
+def selftest_options_data(state_dir):
+    """Exercise the Options list sections: edit -> save -> reload must survive.
+
+    These are the sections that used to be dropped silently (site logins) or
+    rendered read-only (exceptions, category dirs, sound events).
+    """
+    s = load_settings(state_dir)
+
+    # A login that gets edited afterwards, and one that gets removed again.
+    s = _upsert_site_login(s, "https://example.com/files", "bob", "old")
+    s = _upsert_site_login(s, "https://example.com/files", "alice", "s3cret")
+    s = _upsert_site_login(s, "https://gone.example.com/", "x", "y")
+    s = _delete_site_login(s, "https://gone.example.com/")
+
+    s = _upsert_exception(s, "slow.example.com", 2)
+    s = _upsert_exception(s, "drop.example.com", 1)
+    s = _delete_exception(s, "drop.example.com")
+
+    s = _set_category_dir(s, "Video", "/data/video")
+    s = _set_category_dir(s, "Music", "/data/music")
+    s = _set_category_dir(s, "Music", "")  # clearing removes the override
+
+    s = _set_sound_event(s, "Download complete", "/usr/share/done.wav")
+
+    save_settings(state_dir, s)
+    r = load_settings(state_dir)
+
+    def fail(msg):
+        print("OPTIONS-DATA: FAIL " + msg, file=sys.stderr)
+
+    login = _find_site_login(r, "https://example.com/files")
+    if not login:
+        fail("site login not persisted")
+        return 1
+    if (login.get("user"), login.get("password")) != ("alice", "s3cret"):
+        fail("editing a site login did not replace it: %r" % (login,))
+        return 1
+    if len([x for x in r["site_logins"]
+            if x.get("url") == "https://example.com/files"]) != 1:
+        fail("duplicate site login records for one URL")
+        return 1
+    if _find_site_login(r, "https://gone.example.com/"):
+        fail("removed site login came back")
+        return 1
+
+    excs = {e["server"]: e["connections"] for e in r["connection"]["exceptions"]}
+    if excs.get("slow.example.com") != 2 or "drop.example.com" in excs:
+        fail("connection exceptions not persisted: %r" % (excs,))
+        return 1
+
+    dirs = r["save_to"]["category_dirs"]
+    if dirs.get("Video") != "/data/video" or "Music" in dirs:
+        fail("category dirs not persisted: %r" % (dirs,))
+        return 1
+
+    if r["sounds"]["events"].get("Download complete") != "/usr/share/done.wav":
+        fail("sound event not persisted: %r" % (r["sounds"]["events"],))
+        return 1
+
+    print("OPTIONS-DATA: OK", flush=True)
+    return 0
+
+
+def selftest_download_options(state_dir, url):
+    """Print the engine options the persisted settings produce for `url`."""
+    opts = download_options(load_settings(state_dir), url)
+    print("OPTIONS:" + json.dumps(opts, sort_keys=True), flush=True)
+    return 0
+
+
+def selftest_add_body(state_dir, url):
+    """Prove the options actually reach /api/add as a request body.
+
+    Runs a one-shot stub of the engine's API on localhost, calls Api.add the
+    way the window does, and prints the body the engine would receive.
+    """
+    import http.server
+
+    received = {}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            n = int(self.headers.get("Content-Length") or 0)
+            received.update(json.loads(self.rfile.read(n) or b"{}"))
+            out = b'{"ok":true,"id":1}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+
+        def log_message(self, *a):  # silence the stub
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=srv.handle_request, daemon=True).start()
+
+    settings = load_settings(state_dir)
+    opts = download_options(settings, url)
+    api = Api("127.0.0.1:%d" % srv.server_address[1], timeout=5.0)
+    api.add(url, connections=opts["connections"], options=opts)
+    srv.server_close()
+
+    if not received:
+        print("BODY: FAIL nothing reached /api/add", file=sys.stderr)
+        return 1
+    print("BODY:" + json.dumps(received, sort_keys=True), flush=True)
+    return 0
+
+
 def selftest_live_graph(meta_path):
     """Build the progress dialog from a real .idmmeta and report fill fractions."""
     import tkinter as tk
@@ -2097,6 +2649,27 @@ def _collect_widgets(widget, acc, depth=0):
         _collect_widgets(child, acc, depth + 1)
 
 
+def _dead_buttons(widget, found=None):
+    """Labels of buttons under `widget` that have no command bound.
+
+    Every tab of the Options dialog used to be built with command-less
+    buttons -- they looked complete and did nothing when clicked.
+    """
+    if found is None:
+        found = []
+    for child in widget.winfo_children():
+        if child.winfo_class() in ("TButton", "Button"):
+            try:
+                cmd = str(child.cget("command") or "").strip()
+                text = str(child.cget("text") or "")
+            except Exception:  # noqa: BLE001
+                continue
+            if not cmd:
+                found.append(text)
+        _dead_buttons(child, found)
+    return found
+
+
 def selftest_dump(engine):
     """Build the main window and every dialog, dump the structure as JSON."""
     import tkinter as tk
@@ -2141,7 +2714,8 @@ def selftest_dump(engine):
     acc = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(ow, acc)
     dialogs.append({"title": ow.title(), "widgets": acc["labels"] + acc["buttons"],
-                    "tabs": acc["tabs"], "controls": octrl})
+                    "tabs": acc["tabs"], "controls": octrl,
+                    "dead_buttons": _dead_buttons(ow)})
 
     sw, _snb = _dialog_scheduler(root)
     sw.withdraw()
@@ -2246,6 +2820,9 @@ def main(argv=None):
     p.add_argument("--selftest-window", action="store_true")
     p.add_argument("--selftest-dump", action="store_true")
     p.add_argument("--selftest-settings", action="store_true")
+    p.add_argument("--selftest-options-data", action="store_true")
+    p.add_argument("--selftest-download-options", action="store_true")
+    p.add_argument("--selftest-add-body", action="store_true")
     p.add_argument("--selftest-live-graph", action="store_true")
     p.add_argument("--meta", help="path to a .idmmeta for --selftest-live-graph")
     args = p.parse_args(argv)
@@ -2255,6 +2832,18 @@ def main(argv=None):
             print("--selftest-live-graph needs --meta", file=sys.stderr)
             return 2
         return selftest_live_graph(args.meta)
+    if args.selftest_download_options:
+        if not args.url:
+            print("--selftest-download-options needs --url", file=sys.stderr)
+            return 2
+        return selftest_download_options(args.state_dir, args.url)
+    if args.selftest_add_body:
+        if not args.url:
+            print("--selftest-add-body needs --url", file=sys.stderr)
+            return 2
+        return selftest_add_body(args.state_dir, args.url)
+    if args.selftest_options_data:
+        return selftest_options_data(args.state_dir)
     if args.selftest_settings:
         return selftest_settings(args.state_dir)
     if args.selftest_dump:

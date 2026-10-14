@@ -98,6 +98,12 @@ struct Item {
     /// Download through aria2c instead of the built-in engine.
     #[serde(default)]
     aria2: bool,
+    /// Options the GUI resolved from its Options dialog (settings.json).
+    /// Empty means "use the engine default", so an older queue file still loads.
+    #[serde(default)]
+    user_agent: String,
+    #[serde(default)]
+    proxy: String,
     #[serde(default)]
     status: String,
     #[serde(default)]
@@ -291,15 +297,44 @@ async fn finish_item(st: &State, id: u64, size: u64) {
     save(st).await;
 }
 
-async fn add_item(st: &Arc<State>, url: String, conns: usize, aria2: bool) -> u64 {
+/// Per-download options the GUI sends with /api/add.
+///
+/// They come straight from the Options dialog: without them every download ran
+/// with the engine defaults and the dialog was decoration.
+#[derive(Default, Clone)]
+struct AddOptions {
+    out_dir: String,
+    user_agent: String,
+    proxy: String,
+}
+
+async fn add_item(
+    st: &Arc<State>,
+    url: String,
+    conns: usize,
+    aria2: bool,
+    opts: AddOptions,
+) -> u64 {
     let id = st.next_id.fetch_add(1, Ordering::SeqCst);
-    let output = st.output_dir.join(basename(&url));
+    // The GUI's "Save To" tab (default directory, or the directory for this
+    // file's category) wins over the server-wide output dir.
+    let dir = if opts.out_dir.is_empty() {
+        st.output_dir.clone()
+    } else {
+        PathBuf::from(&opts.out_dir)
+    };
+    if !opts.out_dir.is_empty() {
+        let _ = std::fs::create_dir_all(&dir);
+    }
+    let output = dir.join(basename(&url));
     let item = Item {
         id,
         url,
         output,
         connections: conns.max(1),
         aria2,
+        user_agent: opts.user_agent,
+        proxy: opts.proxy,
         status: "pending".to_string(),
         downloaded: 0,
         total: 0,
@@ -340,10 +375,17 @@ async fn run_item(st: Arc<State>, id: u64) {
         Ok(p) => p,
         Err(_) => return,
     };
-    let (url, output, conns, aria2) = {
+    let (url, output, conns, aria2, user_agent, proxy) = {
         let g = st.items.lock().await;
         match g.iter().find(|i| i.id == id) {
-            Some(i) => (i.url.clone(), i.output.clone(), i.connections, i.aria2),
+            Some(i) => (
+                i.url.clone(),
+                i.output.clone(),
+                i.connections,
+                i.aria2,
+                i.user_agent.clone(),
+                i.proxy.clone(),
+            ),
             None => return,
         }
     };
@@ -361,6 +403,13 @@ async fn run_item(st: Arc<State>, id: u64) {
         cmd.arg("--aria2");
     } else {
         cmd.arg("--resume");
+    }
+    // Options-dialog values. Empty means "leave the engine default alone".
+    if !user_agent.is_empty() {
+        cmd.arg("--user-agent").arg(&user_agent);
+    }
+    if !proxy.is_empty() {
+        cmd.arg("--proxy").arg(&proxy);
     }
     // `--` so a URL starting with `-` is never parsed as a flag by the child.
     cmd.arg("--").arg(&url);
@@ -569,7 +618,12 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
             }
             let conns = v["connections"].as_u64().unwrap_or(4) as usize;
             let use_aria2 = v["aria2"].as_bool().unwrap_or(false);
-            let id = add_item(&st, url, conns, use_aria2).await;
+            let opts = AddOptions {
+                out_dir: v["out_dir"].as_str().unwrap_or("").to_string(),
+                user_agent: v["user_agent"].as_str().unwrap_or("").to_string(),
+                proxy: v["proxy"].as_str().unwrap_or("").to_string(),
+            };
+            let id = add_item(&st, url, conns, use_aria2, opts).await;
             let out = serde_json::json!({ "ok": true, "id": id });
             respond(&mut sock, 200, json, out.to_string().as_bytes()).await;
         }

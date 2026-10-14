@@ -478,3 +478,61 @@ fn api_rejects_unauthenticated_and_cross_origin_requests() {
     let _ = srv.kill();
     let _ = srv.wait();
 }
+
+/// The GUI's Options dialog resolves a target directory, a user agent and a
+/// proxy per download and sends them with /api/add. Before this, the server
+/// ignored them: everything landed in the server-wide output dir and ran with
+/// the engine defaults, which made the whole dialog decoration.
+#[test]
+fn api_add_honours_the_gui_download_options() {
+    let data = make_data(300_000);
+    let origin = start_origin(data.clone(), 0, 0);
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    // Where the "Save To" tab points -- deliberately NOT the server's out dir,
+    // and deliberately not created in advance: the server must create it.
+    let category_dir = unique_dir("category").join("Video");
+
+    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
+    wait_ready(&addr);
+
+    let body = serde_json::json!({
+        "url": format!("{}/file.bin", origin),
+        "connections": 4,
+        "out_dir": category_dir.to_string_lossy(),
+        "user_agent": "IDM/6.43",
+        "proxy": "",
+    })
+    .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "POST /api/add returned {}: {}", st, resp);
+    let added: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    let id = added["id"].as_u64().expect("add must return an id");
+
+    wait_status(&addr, id, "done", 40);
+
+    // The file must be in the directory the GUI asked for, not the default one.
+    let file = category_dir.join("file.bin");
+    let got = std::fs::read(&file)
+        .unwrap_or_else(|e| panic!("{} missing: {}", file.display(), e));
+    assert_eq!(crc32(&got), crc32(&data), "crc mismatch in the category dir");
+    assert!(
+        !out.join("file.bin").exists(),
+        "out_dir was ignored: the file also landed in the server output dir"
+    );
+
+    // The user agent must be remembered, so a resume runs with it too.
+    let it = find_item(&json(&addr, "/api/items"), id);
+    assert_eq!(
+        it["user_agent"].as_str(),
+        Some("IDM/6.43"),
+        "user_agent must be stored on the item: {}",
+        it
+    );
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}
