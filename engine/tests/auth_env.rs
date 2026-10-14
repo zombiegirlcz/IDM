@@ -42,26 +42,87 @@ fn start_origin() -> String {
 }
 
 fn handle(mut s: TcpStream) -> std::io::Result<()> {
-    let mut buf = [0u8; 4096];
-    let n = s.read(&mut buf)?;
-    let req = String::from_utf8_lossy(&buf[..n]).to_string();
+    // Read the whole request head first: a single read can land mid-header,
+    // which would look like missing credentials.
+    let mut buf = Vec::new();
+    let mut tmp = [0u8; 1024];
+    loop {
+        let n = s.read(&mut tmp)?;
+        if n == 0 {
+            return Ok(());
+        }
+        buf.extend_from_slice(&tmp[..n]);
+        if buf.windows(4).any(|w| w == b"\r\n\r\n") {
+            break;
+        }
+    }
+    let req = String::from_utf8_lossy(&buf).to_string();
     let want = format!("Basic {}", base64_std(CREDS.as_bytes()));
-    let ok = req
+    let authorized = req
         .lines()
         .any(|l| l.to_ascii_lowercase().starts_with("authorization:") && l.contains(&want));
-    if !ok {
+    if !authorized {
         let head = "HTTP/1.1 401 Unauthorized\r\n\
                     WWW-Authenticate: Basic realm=\"idm\"\r\n\
                     Content-Length: 0\r\nConnection: close\r\n\r\n";
         s.write_all(head.as_bytes())?;
         return Ok(());
     }
-    let head = format!(
-        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nConnection: close\r\n\r\n",
-        BODY.len()
-    );
+
+    let total = BODY.len() as u64;
+    let mut lines = req.lines();
+    let method = lines
+        .next()
+        .unwrap_or("")
+        .split_whitespace()
+        .next()
+        .unwrap_or("GET")
+        .to_string();
+    let mut range: Option<(u64, u64)> = None;
+    for l in lines {
+        let ll = l.to_ascii_lowercase();
+        if let Some(v) = ll.strip_prefix("range:") {
+            if let Some(r) = v.trim().strip_prefix("bytes=") {
+                let mut it = r.split(',').next().unwrap_or("").split('-');
+                let a = it.next().unwrap_or("").trim().parse::<u64>().ok();
+                let b = it.next().unwrap_or("").trim().parse::<u64>().ok();
+                if let Some(a) = a {
+                    range = Some((a, b.unwrap_or(total - 1)));
+                }
+            }
+        }
+    }
+
+    if method == "HEAD" {
+        let h = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nETag: \"e\"\r\nConnection: close\r\n\r\n",
+            total
+        );
+        s.write_all(h.as_bytes())?;
+        return Ok(());
+    }
+
+    let (head, body) = if let Some((a, b)) = range {
+        let b = b.min(total.saturating_sub(1));
+        let slice = BODY[a as usize..=b as usize].to_vec();
+        (
+            format!(
+                "HTTP/1.1 206 Partial Content\r\nContent-Length: {}\r\nContent-Range: bytes {}-{}/{}\r\nAccept-Ranges: bytes\r\nConnection: close\r\n\r\n",
+                slice.len(), a, b, total
+            ),
+            slice,
+        )
+    } else {
+        (
+            format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nETag: \"e\"\r\nConnection: close\r\n\r\n",
+                total
+            ),
+            BODY.to_vec(),
+        )
+    };
     s.write_all(head.as_bytes())?;
-    s.write_all(BODY)?;
+    s.write_all(&body)?;
     Ok(())
 }
 
