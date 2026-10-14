@@ -153,6 +153,15 @@ import { execFileSync as run } from 'node:child_process';
 import { existsSync, readFileSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
+/** null when the binary is not in PATH. */
+function which(bin) {
+  try {
+    return run('sh', ['-c', `command -v ${bin}`], { encoding: 'utf8' }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 /** The GUI with DISPLAY scrubbed, so nothing can quietly use the desktop. */
 function guiRun(argv) {
   const env = { ...process.env };
@@ -169,16 +178,28 @@ test('--own-display builds the window with no DISPLAY in the environment', () =>
   assert.equal(r.window, 'ok', 'the Tk window must have been built on that display');
 });
 
-test('--screenshot writes a real PNG of the window', () => {
+const HAVE_FFMPEG = Boolean(which('ffmpeg'));
+const HAVE_XWD = Boolean(which('xwd'));
+
+test('--screenshot writes a real picture of the window', { skip: !HAVE_FFMPEG && !HAVE_XWD
+  ? 'neither ffmpeg nor xwd is installed' : false }, () => {
+  // Which file lands depends on the tool: ffmpeg gives PNG, xwd gives the X11
+  // window dump. Asserting PNG unconditionally would fail on a machine that
+  // only has xwd — where the code is behaving exactly as designed.
   const dir = mkdtempSync(join(tmpdir(), 'idm-shot-'));
   try {
-    const shot = join(dir, 'window.png');
-    const out = guiRun(['--own-display', '--screenshot', shot, '--selftest-display']);
+    const asked = join(dir, 'window.png');
+    const out = guiRun(['--own-display', '--screenshot', asked, '--selftest-display']);
     const r = JSON.parse(out.split('\n').find((l) => l.startsWith('DISPLAY-SELFTEST:')).slice(17));
-    assert.equal(r.shot, shot, `reported ${r.shot}, files: ${readdirSync(dir)}`);
-    assert.ok(existsSync(shot), 'the screenshot file must exist');
-    const head = readFileSync(shot).subarray(0, 8);
-    assert.deepEqual([...head], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'not a PNG');
+    const expected = HAVE_FFMPEG ? asked : join(dir, 'window.xwd');
+    assert.equal(r.shot, expected, `reported ${r.shot}, files: ${readdirSync(dir)}`);
+    assert.ok(existsSync(expected), 'the screenshot file must exist');
+    const bytes = readFileSync(expected);
+    assert.ok(bytes.length > 0, 'the screenshot must not be empty');
+    if (HAVE_FFMPEG) {
+      assert.deepEqual([...bytes.subarray(0, 8)],
+        [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'not a PNG');
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
