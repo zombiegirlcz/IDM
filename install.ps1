@@ -78,6 +78,29 @@ function Get-DesktopDir {
 }
 function Get-StartMenuDir { return (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs") }
 
+# Add a directory to the user PATH, once. Matching the exact entry (not a
+# substring) keeps repeated installs from stacking duplicates.
+function Add-UserPath {
+    param([string]$Dir)
+    if ([string]::IsNullOrEmpty($Dir)) { return }
+    $cur = [Environment]::GetEnvironmentVariable("Path", "User")
+    if ($null -eq $cur) { $cur = "" }
+    $parts = @($cur.Split(';') | Where-Object { $_ -ne "" })
+    if ($parts -notcontains $Dir) {
+        $new = (($parts + $Dir) -join ';')
+        [Environment]::SetEnvironmentVariable("Path", $new, "User")
+        Write-Log "PATH: pridan $Dir"
+    }
+}
+
+function Remove-UserPath {
+    param([string]$Dir)
+    $cur = [Environment]::GetEnvironmentVariable("Path", "User")
+    if ([string]::IsNullOrEmpty($cur)) { return }
+    $parts = @($cur.Split(';') | Where-Object { $_ -ne "" -and $_ -ne $Dir })
+    [Environment]::SetEnvironmentVariable("Path", ($parts -join ';'), "User")
+}
+
 # --------------------------------------------------------------------------- #
 # Uninstall
 # --------------------------------------------------------------------------- #
@@ -90,6 +113,7 @@ if ($Uninstall) {
     Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path (Get-DesktopDir) "IDM.lnk")
     Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path (Get-StartMenuDir) "IDM.lnk")
     [Environment]::SetEnvironmentVariable("IDM_ALLOWED_DIR", $null, "User")
+    Remove-UserPath -Dir $Prefix
     if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix -ErrorAction SilentlyContinue }
     Write-Log "hotovo - odstraneno"
     exit 0
@@ -258,6 +282,9 @@ $desktopLnk = Join-Path (Get-DesktopDir) "IDM.lnk"
 New-IdmShortcut -Path $desktopLnk
 Write-Log "ikona na plose: $desktopLnk"
 New-IdmShortcut -Path (Join-Path (Get-StartMenuDir) "IDM.lnk")
+
+# Put the install dir on the user PATH so `idm` runs from any shell/CMD.
+Add-UserPath -Dir $Prefix
 
 Write-Host ""
 Write-Log "hotovo!"

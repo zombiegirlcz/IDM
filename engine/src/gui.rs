@@ -229,16 +229,10 @@ fn read_meta(out: &Path) -> Option<(u64, u64)> {
 /// (a backslash is one on Windows), no `..`, nothing that could escape the
 /// download directory.
 fn basename(url: &str) -> String {
-    let u = url.trim_end_matches('/');
-    let n = u.rsplit('/').next().unwrap_or("download.bin");
-    let n = n.split('?').next().unwrap_or(n);
-    let n = n.split('#').next().unwrap_or(n);
-    let n = crate::media::sanitize(n);
-    if n.is_empty() || n == "." || n == ".." || n == "download" {
-        "download.bin".to_string()
-    } else {
-        n
-    }
+    // Shared with the engine's --output fallback so both agree, and so a URL
+    // like `.../slug/?utm=...` yields `slug` instead of an empty name that
+    // would make the queue write into the download directory itself.
+    crate::media::filename_from_url(url)
 }
 
 fn load_items(path: &Path) -> Vec<Item> {

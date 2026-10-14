@@ -32,6 +32,66 @@ const MEDIA_HOSTS: &[&str] = &[
 /// Streaming manifest extensions (HLS / DASH / HDS).
 const MEDIA_EXTS: &[&str] = &[".m3u8", ".mpd", ".f4m"];
 
+/// The path component of a URL (everything after `host[:port]`), query and
+/// fragment stripped. For `https://x.example/a/b/?q#f` this is `a/b/`.
+fn url_path(url: &str) -> String {
+    let no_frag = url.split('#').next().unwrap_or(url);
+    let no_query = no_frag.split('?').next().unwrap_or(no_frag);
+    let after_scheme = match no_query.split_once("://") {
+        Some((_, rest)) => rest,
+        None => no_query,
+    };
+    match after_scheme.split_once('/') {
+        Some((_, path)) => path.to_string(),
+        None => String::new(),
+    }
+}
+
+/// The last non-empty path segment of a URL (never the host), or the host when
+/// the URL has no path at all (`https://x.example` -> `x.example`).
+fn last_segment(url: &str) -> String {
+    let path = url_path(url);
+    match path.split('/').rev().find(|s| !s.is_empty()) {
+        Some(seg) => seg.to_string(),
+        None => {
+            // No path: fall back to the authority (host[:port]) so a bare host
+            // still yields a usable name.
+            let no_frag = url.split('#').next().unwrap_or(url);
+            let no_query = no_frag.split('?').next().unwrap_or(no_frag);
+            let after_scheme = match no_query.split_once("://") {
+                Some((_, rest)) => rest,
+                None => no_query,
+            };
+            let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
+            let host = authority.rsplit('@').next().unwrap_or(authority);
+            host.split(':').next().unwrap_or(host).to_string()
+        }
+    }
+}
+
+/// True when the URL's last path segment carries a file extension.
+///
+/// A URL *with* one (`/file.mp4`, `/archive.zip`) names a file and is fetched
+/// directly; one *without* it (`/watch/123`, `/videos/1062766/slug/`) names a
+/// page, and if the server then answers `text/html` it is a web page, not a
+/// file to save (see `run()` in main.rs).
+///
+/// A trailing dot counts as "no extension" (a Windows-hostile name we must not
+/// invent ourselves).
+pub fn has_file_extension(url: &str) -> bool {
+    // Only the PATH can name a file. A bare host (`https://x.example/`) has no
+    // path segment and therefore no extension, even though the host has a dot.
+    let path = url_path(url);
+    let seg = match path.split('/').rev().find(|s| !s.is_empty()) {
+        Some(s) => s,
+        None => return false,
+    };
+    match seg.rsplit_once('.') {
+        Some((stem, ext)) => !stem.is_empty() && !ext.is_empty(),
+        None => false,
+    }
+}
+
 /// True when `url` looks like a media/stream URL rather than a plain file.
 pub fn is_media_url(url: &str) -> bool {
     let u = url.to_ascii_lowercase();
@@ -45,6 +105,32 @@ pub fn is_media_url(url: &str) -> bool {
         let host = host.split(':').next().unwrap_or(host);
         for h in MEDIA_HOSTS {
             if host == *h || host.ends_with(&format!(".{}", h)) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// True when the configured yt-dlp binary can actually be run.
+///
+/// A bare name (`yt-dlp`) is looked up on PATH; an explicit path is checked
+/// directly. This gates the HTML-page -> media-backend switch in main.rs so a
+/// machine without yt-dlp still saves web pages the plain way instead of
+/// failing on a missing backend.
+pub fn yt_dlp_available(bin: &Path) -> bool {
+    let s = bin.to_string_lossy();
+    let has_sep = s.contains('/') || s.contains('\\');
+    if has_sep || bin.is_absolute() {
+        return bin.is_file();
+    }
+    if let Ok(path) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path) {
+            if dir.join(s.as_ref()).is_file() {
+                return true;
+            }
+            #[cfg(windows)]
+            if dir.join(format!("{}.exe", s)).is_file() {
                 return true;
             }
         }
@@ -127,6 +213,19 @@ pub fn summarize(meta: &serde_json::Value) -> serde_json::Value {
         "ext": meta.get("ext"),
         "formats": list,
     })
+}
+
+/// File name for a plain URL, used as the default `--output` and by the GUI
+/// queue. Unlike a naive `rsplit('/')`, a URL ending in `/` or `/?query` does
+/// not collapse to an empty string: the last *non-empty* path segment wins, so
+/// `https://x/some-slug/?utm=1` becomes `some-slug` instead of `download.bin`.
+pub fn filename_from_url(url: &str) -> String {
+    let name = sanitize(&last_segment(url));
+    if name.is_empty() || name == "download" || name == "." || name == ".." {
+        "download.bin".to_string()
+    } else {
+        name
+    }
 }
 
 /// Make a filesystem-safe file name (no path separators).
@@ -296,8 +395,50 @@ mod tests {
     }
 
     #[test]
+    fn yt_dlp_available_checks_path_and_explicit_paths() {
+        // An explicit path that does not exist is unavailable.
+        assert!(!yt_dlp_available(Path::new("/nonexistent/yt-dlp")));
+        // A binary that exists is available.
+        assert!(yt_dlp_available(Path::new("/bin/sh")));
+        // A bare name that is not installed is unavailable.
+        assert!(!yt_dlp_available(Path::new("definitely-not-installed-xyz")));
+    }
+
+    #[test]
     fn sanitize_strips_path_separators() {
         assert_eq!(sanitize("a/b\\c"), "a_b_c");
         assert_eq!(sanitize("   "), "download");
+    }
+
+    #[test]
+    fn filename_from_url_keeps_the_slug_before_query_and_slash() {
+        // The bug that produced `download.bin` (a real video-page URL).
+        assert_eq!(
+            filename_from_url(
+                "https://www.lesbian8.com/videos/1062766/experiences-this-babe/?utm_source=donnie"
+            ),
+            "experiences-this-babe"
+        );
+        // Trailing slash with a query right after it.
+        assert_eq!(
+            filename_from_url("https://x.example/charma-kelley/?utm_source=donnie"),
+            "charma-kelley"
+        );
+        // Plain file names still work.
+        assert_eq!(filename_from_url("https://x.example/a/b/file.zip"), "file.zip");
+
+        // A URL with an extension is a file; one without is a page.
+        assert!(has_file_extension("https://x.example/a/file.zip"));
+        assert!(!has_file_extension("https://x.example/videos/1062766/slug/"));
+        assert!(!has_file_extension("https://x.example/watch?v=abc"));
+        assert!(!has_file_extension("https://x.example/"));
+        // A dotless segment with a trailing dot is NOT a file either.
+        assert!(!has_file_extension("https://x.example/weird."));
+        // A bare host (or a root URL) has no path segment, so the host itself
+        // is the most useful name -- better than a generic `download.bin`.
+        assert_eq!(filename_from_url("https://x.example/"), "x.example");
+        assert_eq!(filename_from_url("https://x.example"), "x.example");
+        // A truly empty string still falls back safely.
+        assert_eq!(filename_from_url(""), "download.bin");
     }
 }
