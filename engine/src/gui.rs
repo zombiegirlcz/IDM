@@ -365,6 +365,8 @@ struct AddOptions {
     cookie: String,
     referer: String,
     force_media: bool,
+    /// Target file name, from IDM's `/f NAME`. Empty = derive it from the URL.
+    filename: String,
 }
 
 async fn add_item(
@@ -385,7 +387,15 @@ async fn add_item(
     if !opts.out_dir.is_empty() {
         let _ = std::fs::create_dir_all(&dir);
     }
-    let output = dir.join(basename(&url));
+    // `/f NAME` renames the target. The value can arrive from a desktop file
+    // association, so only the file component is kept: a name carrying `..` or
+    // an absolute path must not write outside the download directory.
+    let wanted = Path::new(&opts.filename)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .filter(|n| !n.is_empty() && n != "." && n != "..")
+        .unwrap_or_else(|| basename(&url));
+    let output = dir.join(wanted);
     let item = Item {
         id,
         url,
@@ -818,6 +828,7 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 cookie: v["cookie"].as_str().unwrap_or("").to_string(),
                 referer: v["referer"].as_str().unwrap_or("").to_string(),
                 force_media: v["force_media"].as_bool().unwrap_or(false),
+                filename: v["filename"].as_str().unwrap_or("").to_string(),
             };
             let id = add_item(&st, url, conns, use_aria2, opts).await;
             let out = serde_json::json!({ "ok": true, "id": id });
