@@ -665,8 +665,12 @@ fn a_failed_download_is_retried_until_the_budget_runs_out() {
     let port = free_port();
     let addr = format!("127.0.0.1:{}", port);
 
-    // Nothing is listening here, so every attempt fails fast.
-    let dead_port = free_port();
+    // Nothing is listening here, so every attempt fails fast. Port 9 (discard)
+    // rather than free_port(): that only *finds* a free port and lets it go,
+    // so a parallel test's origin could take it over and answer with real
+    // data -- which is exactly how this test failed, ending up "done" with
+    // another test's 80000 bytes.
+    let dead_port = 9;
 
     let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
     wait_ready(&addr);
