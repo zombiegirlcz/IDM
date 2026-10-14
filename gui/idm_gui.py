@@ -237,7 +237,7 @@ class Api:
         if aria2:
             body["aria2"] = True
         for key in ("out_dir", "temp_dir", "user_agent", "proxy", "auth",
-                    "queue"):
+                    "queue", "format", "cookie", "referer"):
             value = (options or {}).get(key)
             if value:
                 body[key] = value
@@ -247,8 +247,27 @@ class Api:
             body["retries"] = int(options["retries"])
         if (options or {}).get("ignore_mtime"):
             body["ignore_mtime"] = True
+        if (options or {}).get("force_media"):
+            body["force_media"] = True
         r = self._req("POST", "/api/add", body)
         return int(r.get("id", 0))
+
+    def formats(self, url: str, cookie: str = "", referer: str = "",
+                proxy: str = "") -> list[dict]:
+        """Available media formats for `url` ([] when there are none).
+
+        The GUI has no engine of its own, so the listing happens through the
+        API. A URL with nothing to list answers ok:false, which is a normal
+        case for a plain file and not an error worth showing.
+        """
+        body: dict = {"url": url}
+        for key, value in (("cookie", cookie), ("referer", referer), ("proxy", proxy)):
+            if value:
+                body[key] = value
+        r = self._req("POST", "/api/formats", body)
+        if not r.get("ok"):
+            return []
+        return list(r.get("formats") or [])
 
     def update(self, i: int, url: str | None = None, output: str | None = None,
                description: str | None = None) -> dict:
@@ -1678,14 +1697,20 @@ def _dialog_add_url(parent):
     return win, url, auth
 
 
-def _dialog_file_info(parent, url, folder, category):
-    """IDM 'Download File Info' dialog."""
+def _dialog_file_info(parent, url, folder, category, formats=None):
+    """IDM 'Download File Info' dialog.
+
+    `formats` is a list from Api.formats(); the combobox offers them and
+    `win.selected_format()` returns the yt-dlp selector the user picked ("" =
+    let the backend choose). With no formats the combobox still exists and
+    offers only that default, so a plain file URL behaves as before.
+    """
     import tkinter as tk
     from tkinter import ttk
 
     win = tk.Toplevel(parent)
     win.title("Download File Info")
-    win.geometry("460x230")
+    win.geometry("520x280")
     ttk.Label(win, text="File Description:").grid(row=0, column=0, sticky="w", padx=8, pady=6)
     desc = ttk.Entry(win, width=44)
     desc.grid(row=0, column=1, padx=8, pady=6)
@@ -1697,8 +1722,25 @@ def _dialog_file_info(parent, url, folder, category):
     cat = ttk.Combobox(win, values=[c for c in CATEGORIES if c not in ("All Downloads",)], width=30)
     cat.set(category)
     cat.grid(row=2, column=1, sticky="w", padx=8, pady=6)
+
+    ttk.Label(win, text="Format:").grid(row=3, column=0, sticky="w", padx=8, pady=6)
+    entries = format_labels(formats)
+    fmt = ttk.Combobox(win, values=[e["label"] for e in entries], width=42,
+                       state="readonly")
+    fmt.current(0)
+    fmt.grid(row=3, column=1, sticky="w", padx=8, pady=6)
+
+    def selected_format():
+        label = fmt.get()
+        for e in entries:
+            if e["label"] == label:
+                return e["format"]
+        return ""
+
+    win.selected_format = selected_format
+
     btns = ttk.Frame(win)
-    btns.grid(row=3, column=0, columnspan=2, sticky="e", padx=8, pady=10)
+    btns.grid(row=4, column=0, columnspan=2, sticky="e", padx=8, pady=10)
     start = ttk.Button(btns, text="Start Download")
     later = ttk.Button(btns, text="Download Later")
     cancel = ttk.Button(btns, text="Cancel", command=win.destroy)
@@ -2465,6 +2507,37 @@ def _dialog_properties(parent, url, out, description="", on_ok=None):
     return win
 
 
+def format_labels(formats: list) -> list:
+    """Turn /api/formats rows into dialog entries.
+
+    The first entry is always "Best available" with an empty selector, so a
+    plain file URL (no formats at all) still has a sane, non-committal choice.
+    `kind` comes from the engine's summarize(): video+audio / video only /
+    audio only.
+    """
+    out = [{"label": "Best available (let the backend choose)", "format": ""}]
+    for f in formats or []:
+        fid = str(f.get("format_id") or "").strip()
+        if not fid:
+            continue
+        parts = [fid]
+        if f.get("ext"):
+            parts.append(str(f["ext"]))
+        if f.get("resolution"):
+            parts.append(str(f["resolution"]))
+        kind = str(f.get("kind") or "")
+        # "audio only" is often already the resolution; don't say it twice.
+        if kind and kind != "video+audio" and kind not in parts:
+            parts.append(kind)
+        if f.get("note"):
+            parts.append(str(f["note"]))
+        size = f.get("filesize")
+        if size:
+            parts.append(fmt_size(int(size)))
+        out.append({"label": "  ".join(parts), "format": fid})
+    return out
+
+
 def row_values(it: dict) -> tuple:
     """One value per entry in COLUMNS, for a single item from /api/items."""
     dl = it.get("downloaded") or 0
@@ -2956,16 +3029,29 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
                 return
 
             # IDM shows "Download File Info" next, with the real target folder.
+            # The format list needs the engine (yt-dlp behind /api/formats) and
+            # is empty for a plain file URL, which the dialog handles.
+            try:
+                available = api.formats(u, proxy=opts.get("proxy", ""))
+            except Exception:  # noqa: BLE001
+                available = []
             info_win, start, later_btn = _dialog_file_info(
-                root, u, opts["out_dir"] or out_dir or ".", category_of(u)
+                root, u, opts["out_dir"] or out_dir or ".", category_of(u),
+                formats=available,
             )
 
             def do_start():
+                chosen = info_win.selected_format()
                 info_win.destroy()
+                if chosen:
+                    opts["format"] = chosen
                 _add("added")
 
             def do_later():
+                chosen = info_win.selected_format()
                 info_win.destroy()
+                if chosen:
+                    opts["format"] = chosen
                 _add("queued")
 
             start.config(command=do_start)
@@ -3584,6 +3670,118 @@ def selftest_add_body(state_dir, url):
     return 0
 
 
+def _stub_api(handler_body, count=1):
+    """Run a one-shot API stub and return (api, seen) for the GUI's Api."""
+    import http.server
+
+    seen = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            n = int(self.headers.get("Content-Length") or 0)
+            seen.append((self.path, json.loads(self.rfile.read(n) or b"{}")))
+            out = json.dumps(handler_body).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+
+        def log_message(self, *a):  # silence the stub
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(
+        target=lambda: [srv.handle_request() for _ in range(count)], daemon=True
+    ).start()
+    return Api("127.0.0.1:%d" % srv.server_address[1], timeout=5.0), seen, srv
+
+
+SAMPLE_FORMATS = [
+    {"format_id": "137", "ext": "mp4", "resolution": "1920x1080",
+     "vcodec": "avc1", "acodec": "none", "filesize": 5_000_000,
+     "note": "1080p", "kind": "video only"},
+    {"format_id": "140", "ext": "m4a", "resolution": "audio only",
+     "vcodec": "none", "acodec": "mp4a", "kind": "audio only"},
+]
+
+
+def selftest_formats_body():
+    """Api.formats must ask /api/formats and return the parsed list."""
+    api, seen, srv = _stub_api({"ok": True, "title": "T", "formats": SAMPLE_FORMATS})
+    returned = api.formats("https://example.com/watch?v=x", cookie="SID=1")
+    srv.server_close()
+    if not seen:
+        print("FORMATS: FAIL nothing reached the engine", file=sys.stderr)
+        return 1
+    print("FORMATS:" + json.dumps(
+        {"path": seen[0][0], "body": seen[0][1], "returned": returned},
+        sort_keys=True), flush=True)
+    return 0
+
+
+def selftest_format_labels():
+    """The dialog's entries, built from a format list."""
+    print("LABELS:" + json.dumps(format_labels(SAMPLE_FORMATS)), flush=True)
+    return 0
+
+
+def selftest_add_format():
+    """A chosen format (and the media headers) must reach /api/add."""
+    api, seen, srv = _stub_api({"ok": True, "id": 1})
+    api.add("https://example.com/watch?v=x", connections=4, options={
+        "format": "137+140",
+        "cookie": "SID=1",
+        "referer": "https://example.com/watch",
+        "force_media": True,
+    })
+    srv.server_close()
+    if not seen:
+        print("ADD: FAIL nothing reached /api/add", file=sys.stderr)
+        return 1
+    print("ADD:" + json.dumps(seen[0][1], sort_keys=True), flush=True)
+    return 0
+
+
+def selftest_file_info():
+    """The Download File Info dialog must offer the formats it was given."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    win, _start, _later = _dialog_file_info(
+        root, "https://example.com/watch?v=x", "/tmp", "Video",
+        formats=SAMPLE_FORMATS,
+    )
+
+    combos = []
+    for w in win.winfo_children():
+        if w.winfo_class() == "TCombobox":
+            combos.append(" ".join(str(v) for v in w.cget("values")))
+    # Pick the 1080p row and read back the selector the caller would get.
+    fmt_combo = None
+    for w in win.winfo_children():
+        if w.winfo_class() == "TCombobox" and any(
+                "137" in str(v) for v in w.cget("values")):
+            fmt_combo = w
+    if fmt_combo is None:
+        print("FILE-INFO: FAIL no format combo", file=sys.stderr)
+        return 1
+    for value in fmt_combo.cget("values"):
+        if str(value).startswith("137"):
+            fmt_combo.set(value)
+    selected = win.selected_format()
+    format_values = [str(v) for v in fmt_combo.cget("values")]
+    root.destroy()
+
+    print("FILE-INFO:" + json.dumps({
+        "combos": combos,
+        "format_values": format_values,
+        "selected_format": selected,
+    }), flush=True)
+    return 0
+
+
 def selftest_properties_body():
     """Prove Api.update reaches /api/update with only the edited fields."""
     import http.server
@@ -3996,6 +4194,10 @@ def main(argv=None):
     p.add_argument("--selftest-properties-body", action="store_true")
     p.add_argument("--selftest-properties-ok", action="store_true")
     p.add_argument("--selftest-row", action="store_true")
+    p.add_argument("--selftest-formats-body", action="store_true")
+    p.add_argument("--selftest-format-labels", action="store_true")
+    p.add_argument("--selftest-add-format", action="store_true")
+    p.add_argument("--selftest-file-info", action="store_true")
     p.add_argument("--selftest-scheduler", action="store_true")
     p.add_argument("--selftest-live-graph", action="store_true")
     p.add_argument("--meta", help="path to a .idmmeta for --selftest-live-graph")
@@ -4008,6 +4210,14 @@ def main(argv=None):
         return selftest_live_graph(args.meta)
     if args.selftest_row:
         return selftest_row()
+    if args.selftest_formats_body:
+        return selftest_formats_body()
+    if args.selftest_format_labels:
+        return selftest_format_labels()
+    if args.selftest_add_format:
+        return selftest_add_format()
+    if args.selftest_file_info:
+        return selftest_file_info()
     if args.selftest_properties_body:
         return selftest_properties_body()
     if args.selftest_properties_ok:
