@@ -165,3 +165,22 @@ print("R:" + json.dumps([
 `);
   assert.deepEqual(r, [[], []], 'an unscheduled queue stays under manual control');
 });
+
+test('the retry budget comes from the queue schedule and reaches the engine', () => {
+  const r = py(`
+s = g._deep_merge(g.DEFAULT_SETTINGS, {
+    "queues": [{"name": g.DEFAULT_QUEUE_NAMES[0], "retries": 3}],
+})
+none = g._deep_merge(g.DEFAULT_SETTINGS, {
+    "queues": [{"name": g.DEFAULT_QUEUE_NAMES[0], "retries": 0}],
+})
+print("R:" + json.dumps({
+  "three": g.download_options(s, "http://h/a.zip")["retries"],
+  "zero": g.download_options(none, "http://h/a.zip")["retries"],
+  "default": g.download_options({}, "http://h/a.zip")["retries"],
+}))
+`);
+  assert.equal(r.three, 3);
+  assert.equal(r.zero, 0, '0 retries means fail on the first error');
+  assert.equal(r.default, 10, 'the documented default applies when unset');
+});

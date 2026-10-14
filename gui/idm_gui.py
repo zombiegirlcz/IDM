@@ -242,6 +242,8 @@ class Api:
                 body[key] = value
         if (options or {}).get("limit_rate"):
             body["limit_rate"] = int(options["limit_rate"])
+        if (options or {}).get("retries"):
+            body["retries"] = int(options["retries"])
         if (options or {}).get("ignore_mtime"):
             body["ignore_mtime"] = True
         r = self._req("POST", "/api/add", body)
@@ -858,6 +860,9 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
         "limit_rate": limit_rate,
         "auth": site_login_for(s, url),
         "ignore_mtime": bool(s["downloads"].get("ignore_mtime")),
+        # How many times the engine may retry this file. The Scheduler keeps
+        # it per queue; a manually added download lands in the main one.
+        "retries": int(queue_schedule(s, DEFAULT_QUEUE_NAMES[0])["retries"]),
     }
 
 
