@@ -41,11 +41,12 @@ td,th{padding:8px 12px;border-bottom:1px solid #222;text-align:left;font-size:13
 .bar{height:6px;background:#333;border-radius:3px;overflow:hidden;margin-top:4px}
 .bar i{display:block;height:100%;background:#2d6cdf}
 .done{color:#4caf50}.paused{color:#ff9800}.error{color:#e53935}.running{color:#2d6cdf}
+input.desc{width:100%;flex:none;padding:4px 6px;font:inherit}
 </style></head>
 <body>
 <header><h1>IDM — správce stahování</h1></header>
 <form id="add"><input id="url" placeholder="https://... (URL souboru nebo videa)" autocomplete="off"><button>Stáhnout</button></form>
-<table><thead><tr><th>#</th><th>Soubor</th><th>Stav</th><th>Velikost</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+<table><thead><tr><th>#</th><th>Soubor</th><th>Stav</th><th>Velikost</th><th>Popis</th><th></th></tr></thead><tbody id="rows"></tbody></table>
 <script>
 const TOKEN = '__IDM_TOKEN__';
 async function api(path, body){
@@ -58,6 +59,10 @@ function fmt(n){ if(!n) return '—'; const u=['B','KB','MB','GB']; let i=0;
   while(n>=1024 && i<u.length-1){ n/=1024; i++; } return n.toFixed(i?1:0)+' '+u[i]; }
 function name(u){ try { return decodeURIComponent(new URL(u).pathname.split('/').pop()||u); } catch(e){ return u; } }
 async function refresh(){
+  // Never rebuild the table while a description is being typed: the poll runs
+  // every second and would throw the half-written note away.
+  const ae = document.activeElement;
+  if(ae && ae.dataset && ae.dataset.a==='desc') return;
   const d = await api('/api/items'); const tb = document.getElementById('rows'); tb.innerHTML='';
   for(const it of d.items){
     const pct = it.total ? Math.min(100, it.downloaded/it.total*100) : 0;
@@ -66,6 +71,13 @@ async function refresh(){
       + '<td>'+name(it.url)+'<div class="bar"><i style="width:'+pct+'%"></i></div></td>'
       + '<td class="'+it.status+'">'+it.status+(it.error?' ('+it.error+')':'')+'</td>'
       + '<td>'+fmt(it.downloaded)+' / '+fmt(it.total)+'</td>';
+    // The description is free-form user text, so it goes in through .value
+    // rather than innerHTML.
+    const dtd = document.createElement('td');
+    const di = document.createElement('input');
+    di.className='desc'; di.dataset.a='desc'; di.dataset.i=it.id;
+    di.placeholder='popis'; di.value=it.description||'';
+    dtd.appendChild(di); tr.appendChild(dtd);
     const td = document.createElement('td');
     if(it.status==='running' || it.status==='pending')
       td.innerHTML = '<button class="sec" data-a="pause" data-i="'+it.id+'">Pauza</button>';
@@ -82,6 +94,10 @@ document.getElementById('add').addEventListener('submit', async e=>{
 document.getElementById('rows').addEventListener('click', async e=>{
   const b = e.target.closest('button'); if(!b) return;
   await api('/api/'+b.dataset.a, {id:+b.dataset.i}); refresh();
+});
+document.getElementById('rows').addEventListener('change', async e=>{
+  const i = e.target.closest('input[data-a="desc"]'); if(!i) return;
+  await api('/api/update', {id:+i.dataset.i, description:i.value});
 });
 refresh(); setInterval(refresh, 1000);
 </script></body></html>
