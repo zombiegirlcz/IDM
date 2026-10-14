@@ -52,6 +52,8 @@ function baseEnv(home) {
     XDG_CONFIG_HOME: join(home, '.config'),
     IDM_INSTALL_PREFIX: join(home, '.local', 'share', 'idm'),
     IDM_DOWNLOADS_DIR: join(home, 'Downloads'),
+    // The tests must not try to apt-get install python3-tk on the host.
+    IDM_SKIP_GUI_DEPS: '1',
     PATH: process.env.PATH,
   };
 }
@@ -124,6 +126,20 @@ test('uninstall works through the copy kept in the prefix (curl | bash case)', (
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   assert.ok(!existsSync(prefix), 'prefix should be gone after --uninstall');
+});
+
+test('ensures the GUI runtime (python3 + tkinter) on the default path', () => {
+  const s = src();
+  // The desktop icon runs a Python/Tk window; without python3 or tkinter the
+  // icon silently does nothing (Terminal=false hides the error). The installer
+  // must provide them, like real IDM ships everything.
+  assert.match(s, /install_gui_deps/, 'must have a GUI dependency step');
+  assert.match(s, /python3-tk/, 'must install tkinter on apt systems');
+  assert.match(s, /python3-tkinter/, 'must cover dnf/yum naming');
+  assert.match(s, /install_gui_deps\n/, 'the step must actually be called');
+  assert.match(s, /IDM_SKIP_GUI_DEPS/, 'must offer an escape hatch');
+  // The launcher must log why it failed instead of dying silently.
+  assert.match(s, /launcher\.log/, 'launcher must write a log');
 });
 
 test('refuses a plain-http archive URL', () => {

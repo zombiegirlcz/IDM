@@ -236,9 +236,57 @@ function Find-Python {
         $c = Get-Command $name -ErrorAction SilentlyContinue
         if ($c) { return $c.Source }
     }
+    # A winget / python.org per-user install is not always on PATH yet.
+    $globs = @(
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python3*\pythonw.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python3*\python.exe"),
+        (Join-Path $env:ProgramFiles "Python3*\pythonw.exe"),
+        "C:\Python3*\pythonw.exe"
+    )
+    foreach ($g in $globs) {
+        $f = Get-ChildItem -Path $g -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($f) { return $f.FullName }
+    }
     return $null
 }
-$python = Find-Python
+
+function Test-PythonTk {
+    param([string]$Py)
+    if ([string]::IsNullOrEmpty($Py)) { return $false }
+    try {
+        & $Py -c "import tkinter" 2>$null | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    } catch { return $false }
+}
+
+# Install Python (the python.org build, which bundles tkinter) when it is
+# missing, so a click on the desktop icon really opens a window. The icon runs
+# a Python/Tk window; without it the shortcut silently does nothing.
+# Set IDM_NO_PYTHON_INSTALL=1 to only report instead of installing.
+function Ensure-Python {
+    $py = Find-Python
+    if (Test-PythonTk $py) { return $py }
+    if ($env:IDM_NO_PYTHON_INSTALL -eq "1") {
+        Write-Warn "Python/tkinter chybi a IDM_NO_PYTHON_INSTALL=1 zakazuje instalaci"
+        return $py
+    }
+    Write-Log "Python s tkinter chybi - instaluji pres winget"
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        try {
+            winget install --id Python.Python.3.12 -e --scope user `
+                --accept-source-agreements --accept-package-agreements | Out-Null
+        } catch {
+            Write-Warn "winget instalace Pythonu selhala: $_"
+        }
+    } else {
+        Write-Warn "winget neni k dispozici - nainstaluj Python z python.org"
+    }
+    # Refresh PATH so the freshly installed interpreter is found.
+    $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
+    return (Find-Python)
+}
+
+$python = Ensure-Python
 $guiPy  = Join-Path $Prefix "idm_gui.py"
 $stateDir = Join-Path $Prefix "state"
 New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
