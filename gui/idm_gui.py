@@ -856,6 +856,75 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
     }
 
 
+# --- the main list: filtering and sorting ---------------------------------
+#
+# The left tree, the Search box and the column headings were all inert: the
+# headings had no command, the Search entry was never bound, and the selected
+# category only ever fed the category editor. These two functions are what
+# the window drives them with.
+
+# Sort key per column -> how to read a comparable value off an item. Size and
+# speed must compare as numbers: the cell shows "39.1 KB", and sorting that
+# text puts 2000 before 300.
+_SORT_KEYS = {
+    "name": lambda it: basename(it.get("url", "")).lower(),
+    "size": lambda it: int(it.get("total") or 0),
+    "status": lambda it: str(it.get("status", "")).lower(),
+    "speed": lambda it: float(it.get("speed_bps") or 0),
+    "time": lambda it: float(it.get("time_left_s") or 0),
+    "queue": lambda it: str(it.get("status", "")) in ("running", "pending"),
+}
+
+
+def item_category(settings: dict, url: str) -> str:
+    """Which category a URL belongs to, custom categories taking precedence."""
+    name = basename(url).lower()
+    ext = name.rsplit(".", 1)[-1] if "." in name else ""
+    for c in (settings or {}).get("categories", []):
+        exts = [str(e).lower().lstrip(".") for e in (c or {}).get("extensions", [])]
+        if ext and ext in exts:
+            return c.get("name", "")
+    return category_of(url)
+
+
+def filter_items(items: list, category: str, query: str, settings: dict) -> list:
+    """The rows the list should show for a tree selection and a search string.
+
+    Category and search narrow the list together: picking Video and typing a
+    PDF's name shows nothing, rather than one overriding the other.
+    """
+    category = (category or "All Downloads").strip()
+    needle = (query or "").strip().lower()
+    out = []
+    for it in items or []:
+        url = it.get("url", "")
+        status = it.get("status", "")
+        if category in ("", "All Downloads"):
+            keep = True
+        elif category == "Finished":
+            keep = status == "done"
+        elif category == "Unfinished":
+            keep = status != "done"
+        elif category in ("Queues", "Grabber projects"):
+            # Not per-file categories: these nodes hold their own objects.
+            keep = False
+        else:
+            keep = item_category(settings, url) == category
+        if keep and needle and needle not in basename(url).lower():
+            keep = False
+        if keep:
+            out.append(it)
+    return out
+
+
+def sort_items(items: list, key: str, reverse: bool = False) -> list:
+    """Sort the list by a column. An unknown column leaves the order alone."""
+    getter = _SORT_KEYS.get(key)
+    if getter is None:
+        return list(items or [])
+    return sorted(items or [], key=getter, reverse=bool(reverse))
+
+
 # --- what happens when a download finishes --------------------------------
 #
 # The queue API only reports a snapshot, so the window has to spot the
@@ -2495,8 +2564,14 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     listview = ttk.Treeview(
         right, columns=[c[0] for c in COLUMNS], show="headings", selectmode="extended"
     )
+    def _sort_by(key):
+        view["reverse"] = not view["reverse"] if view["sort"] == key else False
+        view["sort"] = key
+        apply_items(view["items"])
+
     for key, title, width in COLUMNS:
-        listview.heading(key, text=title)
+        listview.heading(key, text=title,
+                         command=lambda k=key: _sort_by(k))
         listview.column(key, width=width, anchor="w")
     listview.pack(fill="both", expand=True)
     w["list"] = listview
@@ -2791,8 +2866,19 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             except Exception:  # noqa: BLE001
                 pass
 
+    # What the list is currently showing: the tree selection, the Search box
+    # and the column the user sorted by. Kept so re-filtering does not need
+    # another API round trip.
+    view = {"category": "All Downloads", "query": "", "sort": None,
+            "reverse": False, "items": []}
+
     def apply_items(items):
         """Render a queue snapshot. Must run on the Tk thread."""
+        view["items"] = list(items or [])
+        items = filter_items(items, view["category"], view["query"],
+                             load_settings(state_dir))
+        if view["sort"]:
+            items = sort_items(items, view["sort"], view["reverse"])
         seen = set()
         for it in items:
             try:
@@ -2820,8 +2906,10 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             if iid not in seen:
                 listview.delete(iid)
         # Anything that just finished gets IDM's post-download treatment.
-        for i in just_completed(completion_seen, items):
-            it = next((x for x in items if x.get("id") == i), None)
+        # Driven from the unfiltered snapshot: a download hidden by the current
+        # category still finished.
+        for i in just_completed(completion_seen, view["items"]):
+            it = next((x for x in view["items"] if x.get("id") == i), None)
             if it:
                 _on_completed(it)
 
@@ -2834,6 +2922,24 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         apply_items(items)
 
     w["apply_items"] = apply_items
+
+    # --- Search box and category tree drive the list -----------------------
+    # Both are created above, before `view` exists, so they are bound here.
+    def _on_search(_e=None):
+        view["query"] = w["search"].get()
+        apply_items(view["items"])
+
+    w["search"].bind("<KeyRelease>", _on_search)
+    w["search"].bind("<Return>", _on_search)
+
+    def _on_tree_select(_e=None):
+        name = _selected_category()
+        if name:
+            view["category"] = name
+            apply_items(view["items"])
+            status.set(f"category: {name}")
+
+    tree.bind("<<TreeviewSelect>>", _on_tree_select)
 
     # --- menu bar, like IDM (File / Downloads / View / Help) ---
     menubar = tk.Menu(root)
