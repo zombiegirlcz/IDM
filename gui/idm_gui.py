@@ -1394,6 +1394,32 @@ def looks_like_url(text: str) -> bool:
     return t.lower().startswith(("http://", "https://", "ftp://"))
 
 
+def extract_urls(text: str) -> list:
+    """Every downloadable URL in a blob of text, in order, without duplicates.
+
+    This is what "add a batch of URLs from the clipboard" runs on: people copy
+    a whole paragraph, a list of links or a few lines out of a page, so we pick
+    the tokens apart, drop the punctuation that surrounds a link in running
+    text, and keep only the schemes the engine can fetch. A scheme with no
+    host after it (a bare "http://") is not a URL.
+    """
+    import re
+
+    out: list = []
+    seen = set()
+    for token in re.split(r"[\s<>\"'|]+", text or ""):
+        t = token.strip().strip("()[]{}<>\"',;:!?.")
+        low = t.lower()
+        for scheme in ("http://", "https://", "ftp://"):
+            if low.startswith(scheme):
+                host = t[len(scheme):].split("/")[0].split("?")[0].split("#")[0]
+                if host and t not in seen:
+                    seen.add(t)
+                    out.append(t)
+                break
+    return out
+
+
 def _same_site(a: str, b: str) -> bool:
     try:
         from urllib.parse import urlparse
@@ -2648,6 +2674,77 @@ def _dialog_about(parent):
     return win
 
 
+def _dialog_drop_target(parent, on_urls=None, clipboard=None):
+    """The floating drop box: a small window that stays above everything.
+
+    IDM leaves a little target on the desktop you can drag links onto. Real
+    drag & drop needs the optional tkinterdnd2 extension, which we refuse to
+    depend on, so the window is useful on its own: the button takes whatever
+    is on the clipboard and queues every URL in it. When the extension *is*
+    installed the same handler is wired to the real <<Drop>> event, so dragged
+    links work too.
+
+    `on_urls` is called with the list of URLs that were accepted.
+    Returns (win, handle_text) -- handle_text(text) is the drop/paste path.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+
+    win = tk.Toplevel(parent)
+    win.title("Drop target")
+    win.geometry("210x120")
+    win.resizable(False, False)
+
+    def _stay_on_top(_event=None):
+        # Re-asserted on <Map> too: a window manager can drop the hint when
+        # the window is hidden and shown again.
+        try:
+            win.wm_attributes("-topmost", True)
+        except Exception:  # noqa: BLE001
+            pass
+
+    _stay_on_top()
+    win.bind("<Map>", _stay_on_top)
+
+    status = tk.StringVar(value="Drop a link here")
+    ttk.Label(win, text="IDM", font=("", 14, "bold")).pack(pady=(10, 0))
+    ttk.Label(win, textvariable=status, wraplength=190,
+              justify="center").pack(pady=(2, 6))
+
+    def handle_text(text):
+        urls = extract_urls(text)
+        if not urls:
+            status.set("No URL in that text")
+            return []
+        if on_urls:
+            on_urls(urls)
+        status.set(f"Added {len(urls)} file(s)")
+        return urls
+
+    def _paste():
+        text = ""
+        try:
+            text = win.clipboard_get() if clipboard is None else clipboard()
+        except Exception:  # noqa: BLE001
+            text = ""
+        return handle_text(text)
+
+    row = ttk.Frame(win)
+    row.pack(fill="x", padx=8, pady=(0, 8))
+    ttk.Button(row, text="Paste URL", command=_paste).pack(side="left")
+    ttk.Button(row, text="Close", command=win.destroy).pack(side="right")
+
+    # Real drag & drop, only if the optional extension is there.
+    try:
+        from tkinterdnd2 import DND_TEXT  # noqa: F401
+        win.drop_target_register(DND_TEXT)
+        win.dnd_bind("<<Drop>>", lambda e: handle_text(getattr(e, "data", "")))
+    except Exception:  # noqa: BLE001
+        pass
+
+    return win, handle_text
+
+
 def _dialog_registration(parent):
     """IDM 'Registration' dialog.
 
@@ -3331,6 +3428,31 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
                                command=lambda: _delete_completed())
     menubar.add_cascade(label="Downloads", menu=downloads_menu)
 
+    # Tasks: the things that act on the queue as a whole, plus the two ways of
+    # getting links in without the browser extension (clipboard, drop target).
+    tasks_menu = tk.Menu(menubar, tearoff=0)
+    tasks_items = []
+
+    def _tasks_add(label, command):
+        tasks_menu.add_command(label=label, command=command)
+        tasks_items.append(label)
+
+    _tasks_add("Add Batch of URLs from Clipboard",
+               lambda: _add_batch_from_clipboard())
+    _tasks_add("Show/Hide Drop Target", lambda: _toggle_drop_target())
+    tasks_menu.add_separator()
+    _tasks_add("Start Queue", lambda: _queue_all("Start Queue"))
+    _tasks_add("Stop Queue", lambda: _queue_all("Stop Queue"))
+    _tasks_add("Stop All", lambda: act("Stop All"))
+    tasks_menu.add_separator()
+    _tasks_add("Scheduler...",
+               lambda: _dialog_scheduler(
+                   root, api=api, state_dir=state_dir,
+                   queue_names=queue_names(load_settings(state_dir))))
+    menubar.add_cascade(label="Tasks", menu=tasks_menu)
+    w["tasks_menu"] = tasks_menu
+    w["tasks_menu_items"] = tasks_items
+
     view_menu = tk.Menu(menubar, tearoff=0)
     view_menu.add_command(label="Scheduler...",
                           command=lambda: _dialog_scheduler(
@@ -3352,7 +3474,7 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     except Exception:  # noqa: BLE001
         pass
     w["menubar"] = menubar
-    w["menus"] = ["File", "Downloads", "View", "Help"]
+    w["menus"] = ["File", "Downloads", "Tasks", "View", "Help"]
 
     # --- clipboard monitor (Options -> General) -------------------------
     # IDM watches the clipboard for URLs and offers to download them
@@ -3396,6 +3518,50 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     root.after(1500, _poll_clipboard)
     w["add_url_now"] = _add_url_now
 
+    # --- Tasks -> add a batch of URLs from the clipboard -----------------
+    # People copy a whole list of links at once; we queue every URL in the
+    # copied text rather than making them paste one at a time.
+    def _add_batch_from_clipboard(text=None):
+        if text is None:
+            try:
+                text = root.clipboard_get()
+            except Exception:  # noqa: BLE001
+                text = ""
+        urls = extract_urls(text)
+        if not urls:
+            status.set("clipboard: no URL found")
+            return []
+        for u in urls:
+            _add_url_now(u)
+        status.set(f"clipboard: added {len(urls)} file(s)")
+        return urls
+
+    w["add_batch_from_clipboard"] = _add_batch_from_clipboard
+
+    # --- Tasks -> show/hide the floating drop target ---------------------
+    drop_state = {"win": None}
+
+    def _toggle_drop_target():
+        win = drop_state["win"]
+        if win is not None and win.winfo_exists():
+            win.destroy()
+            drop_state["win"] = None
+            status.set("drop target hidden")
+            return None
+        win, _handle = _dialog_drop_target(
+            root, on_urls=lambda urls: [_add_url_now(u) for u in urls])
+        drop_state["win"] = win
+        w["drop_target"] = win
+        status.set("drop target shown")
+        return win
+
+    def _drop_target_visible():
+        win = drop_state["win"]
+        return bool(win is not None and win.winfo_exists())
+
+    w["toggle_drop_target"] = _toggle_drop_target
+    w["drop_target_visible"] = _drop_target_visible
+
     # --- scheduler tick (Scheduler -> Schedule) -------------------------
     # The schedule itself lives in settings.json; this is what makes it fire.
     # Only transitions act, so a queue is not re-resumed every tick.
@@ -3430,8 +3596,8 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     w["has_dnd"] = _have_dnd
 
     def _drop_text(_event, data=None):
-        url = (data or "").strip()
-        if looks_like_url(url):
+        # A browser can hand over several links at once, so take them all.
+        for url in extract_urls(data or ""):
             _add_url_now(url)
         return "break"
 
@@ -3967,6 +4133,98 @@ def selftest_window():
     return 0
 
 
+class _RecordingApi:
+    """Stand-in for Api in the selftests: records what would be queued."""
+
+    def __init__(self):
+        self.added = []
+
+    def items(self):
+        return []
+
+    def add(self, url, connections=4, aria2=False, options=None):
+        self.added.append(url)
+        return len(self.added)
+
+    def resume(self, i):
+        pass
+
+    def pause(self, i):
+        pass
+
+    def remove(self, i):
+        pass
+
+
+def selftest_batch_clipboard():
+    """Tasks -> batch from clipboard must queue every URL in the copied text."""
+    api = _RecordingApi()
+    root, _refresh, w = build_window(api, out_dir=".")
+    root.withdraw()
+    blob = ("Mirrors: https://example.com/a.bin and https://example.com/b.bin,\n"
+            "plus ftp://example.com/c.bin (same as https://example.com/a.bin).\n"
+            "Ignore mailto:me@example.com.")
+    urls = w["add_batch_from_clipboard"](blob)
+    out = {"added": api.added, "returned": urls,
+           "status": w["status_var"].get()}
+    root.destroy()
+    print("BATCH-CLIP:" + json.dumps(out), flush=True)
+    return 0
+
+
+def selftest_drop_toggle():
+    """The Tasks entry must show the drop target and hide it again."""
+    api = _RecordingApi()
+    root, _refresh, w = build_window(api, out_dir=".")
+    root.withdraw()
+    w["toggle_drop_target"]()
+    first = w["drop_target_visible"]()
+    w["toggle_drop_target"]()
+    second = w["drop_target_visible"]()
+    out = {"after_first_show": first, "after_second_show": second}
+    root.destroy()
+    print("DROP-TOGGLE:" + json.dumps(out), flush=True)
+    return 0
+
+
+def selftest_drop_paste():
+    """The drop target works by click-to-paste as well as by a real drop."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    got = {"added": [], "dropped": []}
+    clip = {"text": "Here: https://example.com/dropped.bin"}
+    win, handle = _dialog_drop_target(
+        root,
+        on_urls=lambda urls: got["added"].extend(urls),
+        clipboard=lambda: clip["text"],
+    )
+    win.withdraw()
+
+    paste = None
+    for frame in win.winfo_children():
+        for child in getattr(frame, "winfo_children", lambda: [])():
+            if child.winfo_class() in ("TButton", "Button") \
+                    and "Paste" in str(child.cget("text")):
+                paste = child
+    if paste is None:
+        print("DROP-PASTE: FAIL no Paste button", file=sys.stderr)
+        return 1
+    paste.invoke()
+
+    # What tkinterdnd2 would deliver on a real drop: the same handler, so the
+    # drag & drop path is covered even where the extension is not installed.
+    before = len(got["added"])
+    handle("https://example.com/dnd.bin")
+    got["dropped"] = got["added"][before:]
+    got["added"] = got["added"][:before]
+
+    root.destroy()
+    print("DROP-PASTE:" + json.dumps(got), flush=True)
+    return 0
+
+
 def _collect_widgets(widget, acc, depth=0):
     """Recursively collect labels/buttons/entries/tabs into acc."""
     import tkinter as tk
@@ -4121,6 +4379,20 @@ def selftest_dump(engine):
         "dead_buttons": _dead_buttons(pw2),
     })
 
+    # The floating drop target.
+    dtw, _dthandle = _dialog_drop_target(root)
+    dtw.update()
+    try:
+        topmost = bool(int(dtw.attributes("-topmost")))
+    except Exception:  # noqa: BLE001
+        topmost = False
+    dtw.withdraw()
+    acc = {"buttons": [], "labels": [], "tabs": []}
+    _collect_widgets(dtw, acc)
+    dialogs.append({"title": dtw.title(), "widgets": acc["labels"] + acc["buttons"],
+                    "tabs": acc["tabs"], "topmost": topmost,
+                    "dead_buttons": _dead_buttons(dtw)})
+
     acc_all = {"buttons": [], "labels": [], "tabs": []}
     _collect_widgets(main_root, acc_all)
     widget_labels = acc_all["labels"] + acc_all["buttons"]
@@ -4144,11 +4416,12 @@ def selftest_dump(engine):
         "category_menu_items": w.get("cat_menu_items", []),
         "has_menubar": "menubar" in w,
         "menus": w.get("menus", []),
+        "tasks_menu_items": w.get("tasks_menu_items", []),
         "dialogs": dialogs,
     }
 
     # Cleanup.
-    for win in (aw, fw, ow, sw, pw, cw, abw, grw, pw2):
+    for win in (aw, fw, ow, sw, pw, cw, abw, grw, pw2, dtw):
         try:
             win.destroy()
         except Exception:  # noqa: BLE001
@@ -4199,6 +4472,9 @@ def main(argv=None):
     p.add_argument("--selftest-add-format", action="store_true")
     p.add_argument("--selftest-file-info", action="store_true")
     p.add_argument("--selftest-scheduler", action="store_true")
+    p.add_argument("--selftest-batch-clipboard", action="store_true")
+    p.add_argument("--selftest-drop-toggle", action="store_true")
+    p.add_argument("--selftest-drop-paste", action="store_true")
     p.add_argument("--selftest-live-graph", action="store_true")
     p.add_argument("--meta", help="path to a .idmmeta for --selftest-live-graph")
     args = p.parse_args(rest)
@@ -4208,6 +4484,12 @@ def main(argv=None):
             print("--selftest-live-graph needs --meta", file=sys.stderr)
             return 2
         return selftest_live_graph(args.meta)
+    if args.selftest_batch_clipboard:
+        return selftest_batch_clipboard()
+    if args.selftest_drop_toggle:
+        return selftest_drop_toggle()
+    if args.selftest_drop_paste:
+        return selftest_drop_paste()
     if args.selftest_row:
         return selftest_row()
     if args.selftest_formats_body:
