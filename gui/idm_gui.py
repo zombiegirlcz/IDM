@@ -5460,6 +5460,177 @@ def selftest_dump(engine):
     return 0
 
 
+# --- running the window on its own X display ---------------------------------
+
+XVFB_SCREEN = "1280x800x24"
+FIRST_OWN_DISPLAY = 99
+
+
+def _display_name(spec) -> str | None:
+    """":7" / "7" / 7 -> ":7". Anything empty -> None."""
+    if spec is None:
+        return None
+    s = str(spec).strip()
+    if not s:
+        return None
+    return s if s.startswith(":") else ":" + s
+
+
+def display_plan(args: dict, env: dict, probe: dict) -> dict:
+    """Decide WHERE the Tk window puts itself, and how to photograph it.
+
+    Pure on purpose: `probe` carries everything that needs the real machine
+    (`have` = tool basenames found in PATH, `busy` = display numbers already
+    taken), so every branch below is testable without starting an X server.
+
+    mode:
+      "inherit" — use an existing display (the surrounding DISPLAY, or
+                  --display); nothing gets started, `xvfb_argv` is None.
+      "own"     — start `xvfb_argv` and point the window at `display`.
+      "error"   — the request cannot be honoured; `reason` says why and
+                  main() must bail out BEFORE spawning an engine.
+
+    A missing display with no flags is deliberately NOT an error here: that
+    case belongs to build_window(), whose message explains how to get one.
+    """
+    have = set(probe.get("have") or ())
+    busy = set(probe.get("busy") or ())
+    own = bool(args.get("own_display"))
+    shot_path = args.get("screenshot") or None
+
+    def fail(reason):
+        return {"mode": "error", "display": None, "xvfb_argv": None,
+                "shot": None, "reason": reason}
+
+    if own:
+        if "Xvfb" not in have:
+            return fail(
+                "--own-display potrebuje Xvfb v PATH (balicek xvfb). "
+                "Bez nej by okno skoncilo na displeji uzivatele, "
+                "coz je presne to, co --own-display odmita."
+            )
+        n = FIRST_OWN_DISPLAY
+        while n in busy:
+            n += 1
+        display = ":%d" % n
+        xvfb_argv = ["Xvfb", display, "-screen", "0", XVFB_SCREEN,
+                     "-nolisten", "tcp"]
+        mode = "own"
+    else:
+        display = _display_name(args.get("display")) or _display_name(env.get("DISPLAY"))
+        xvfb_argv = None
+        mode = "inherit"
+
+    shot = None
+    if shot_path:
+        if "ffmpeg" in have:
+            # x11grab sizes itself from the display, so no -video_size here.
+            shot = {"path": shot_path,
+                    "argv": ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                             "-f", "x11grab", "-i", display or ":0",
+                             "-frames:v", "1", shot_path]}
+        elif "xwd" in have:
+            # xwd writes the X11 window-dump format, never PNG. Handing back a
+            # .png full of xwd bytes would be a file nothing can open, so the
+            # extension follows the actual content.
+            base = shot_path[:-4] if shot_path.lower().endswith(".png") else shot_path
+            out = base + ".xwd"
+            shot = {"path": out,
+                    "argv": ["xwd", "-display", display or ":0", "-root",
+                             "-out", out]}
+        else:
+            return fail(
+                "--screenshot potrebuje ffmpeg (PNG) nebo xwd; "
+                "ani jedno neni v PATH."
+            )
+
+    return {"mode": mode, "display": display, "xvfb_argv": xvfb_argv,
+            "shot": shot, "reason": ""}
+
+
+def probe_displays(env: dict | None = None) -> dict:
+    """The real-machine half of display_plan's input."""
+    tools = [t for t in ("Xvfb", "ffmpeg", "xwd") if shutil.which(t)]
+    busy = []
+    try:
+        for name in os.listdir("/tmp/.X11-unix"):
+            if name.startswith("X") and name[1:].isdigit():
+                busy.append(int(name[1:]))
+    except OSError:
+        pass
+    return {"have": tools, "busy": busy}
+
+
+def start_display(plan: dict, timeout: float = 10.0):
+    """Execute a display_plan: point DISPLAY at it, starting Xvfb if asked.
+
+    Returns the Xvfb Popen when one was started (the caller must reap it) or
+    None. Waiting is on the socket, never a sleep: a fixed nap is either a
+    stall or a race, and this repo has paid for that lesson elsewhere.
+    """
+    if plan["display"]:
+        os.environ["DISPLAY"] = plan["display"]
+    if not plan["xvfb_argv"]:
+        return None
+    proc = subprocess.Popen(plan["xvfb_argv"], stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
+    sock = "/tmp/.X11-unix/X%s" % plan["display"].lstrip(":")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if os.path.exists(sock):
+            return proc
+        if proc.poll() is not None:
+            raise RuntimeError("Xvfb skoncil s kodem %s" % proc.returncode)
+        time.sleep(0.05)
+    stop_display(proc)
+    raise RuntimeError("Xvfb na %s se neozval do %gs" % (plan["display"], timeout))
+
+
+def stop_display(proc) -> None:
+    """Reap the Xvfb we started. An orphan X server per launch is a leak."""
+    if proc is None:
+        return
+    try:
+        proc.terminate()
+        proc.wait(timeout=5)
+    except Exception:  # noqa: BLE001
+        try:
+            proc.kill()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def take_screenshot(plan: dict) -> str | None:
+    """Photograph the display. Returns the path written, or None."""
+    shot = plan.get("shot")
+    if not shot:
+        return None
+    subprocess.run(shot["argv"], check=True, stdout=subprocess.DEVNULL,
+                   stderr=subprocess.PIPE, timeout=30)
+    return shot["path"]
+
+
+def selftest_display(plan: dict):
+    """Build the window on the planned display and photograph it.
+
+    Deliberately no mainloop: this is the non-interactive proof that the
+    window really came up on a display IDM provided itself.
+    """
+    api = Api("127.0.0.1:1", timeout=0.2)
+    out = {"mode": plan["mode"], "display": plan["display"],
+           "window": "no", "shot": None}
+    root, _refresh, _w = build_window(api)
+    try:
+        root.update_idletasks()
+        root.update()
+        out["window"] = "ok"
+        out["shot"] = take_screenshot(plan)
+    finally:
+        root.destroy()
+    print("DISPLAY-SELFTEST:" + json.dumps(out), flush=True)
+    return 0
+
+
 def main(argv=None):
     # IDM's own parameters (/d URL, /p, /f, /a, /s, /q, /h, /n) are pulled out
     # first: argparse would reject "/d" outright, and a file association or a
@@ -5479,6 +5650,13 @@ def main(argv=None):
         default=os.environ.get("IDM_API_TOKEN", ""),
         help="API secret (default: read STATE_DIR/api-token, or generate one with --autostart)",
     )
+    p.add_argument("--display", default=None,
+                   help="put the window on this X display (:7 or 7) instead of $DISPLAY")
+    p.add_argument("--own-display", action="store_true",
+                   help="start a private Xvfb and run the window there (headless machines)")
+    p.add_argument("--screenshot", default=None,
+                   help="write a picture of the window to this path once it is up")
+    p.add_argument("--selftest-display", action="store_true")
     p.add_argument("--url", help="URL for --selftest-api")
     p.add_argument("--selftest-api", action="store_true")
     p.add_argument("--selftest-window", action="store_true")
@@ -5517,6 +5695,28 @@ def main(argv=None):
     p.add_argument("--grabber-all-sites", action="store_true",
                    help="untick 'explore the current site only'")
     args = p.parse_args(rest)
+
+    # The display comes before everything else that could need one. An error
+    # here (no Xvfb, no capture tool) must stop the launch while it is still
+    # free of side effects — no engine spawned, no X server running.
+    dplan = display_plan(vars(args), os.environ, probe_displays())
+    if dplan["mode"] == "error":
+        print("[x] " + dplan["reason"], file=sys.stderr)
+        return 2
+    try:
+        xvfb = start_display(dplan)
+    except RuntimeError as e:
+        print("[x] %s" % e, file=sys.stderr)
+        return 2
+    try:
+        return _main_with_display(args, cmdline, p, dplan)
+    finally:
+        stop_display(xvfb)
+
+
+def _main_with_display(args, cmdline, p, dplan):
+    if args.selftest_display:
+        return selftest_display(dplan)
 
     if args.selftest_grabber_project:
         return selftest_grabber_project(args.state_dir)
@@ -5615,6 +5815,15 @@ def main(argv=None):
             file=sys.stderr,
         )
         return 1
+
+    # With the window up, honour --screenshot. This is the interactive path's
+    # version of what selftest_display does non-interactively; a failed capture
+    # must not take the window down with it.
+    if dplan.get("shot"):
+        try:
+            print("[*] screenshot: %s" % take_screenshot(dplan), flush=True)
+        except Exception as e:  # noqa: BLE001
+            print("[!] screenshot selhal: %s" % e, file=sys.stderr)
 
     # A window exists, so it is safe to make sure an engine is running.
     proc = None
