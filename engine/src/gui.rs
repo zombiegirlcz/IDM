@@ -431,10 +431,34 @@ async fn save(st: &State) {
     }
     let items = st.items.lock().await.clone();
     if let Ok(s) = serde_json::to_string_pretty(&items) {
-        let _ = tokio::fs::write(&st.state_path, s).await;
-        // The queue holds `auth` (and a proxy URL that can carry a password),
-        // so it gets the same 0600 the api-token file has always had. Windows
-        // has no modes; there the file inherits the per-user ACL of its dir.
+        // Atomically: a plain write leaves the file truncated for as long as
+        // it takes to fill it again, so a reader -- or a crash -- can see half
+        // a queue. Writing a temp file and renaming it means the queue is
+        // always either the old one or the new one.
+        //
+        // 0600 from the first byte, too: the queue holds a vault reference and
+        // a proxy URL that can carry a password. Windows has no modes; there
+        // the file inherits the per-user ACL of its directory.
+        let tmp = st.state_path.with_extension("json.tmp");
+        let wrote = {
+            let mut opts = std::fs::OpenOptions::new();
+            opts.write(true).create(true).truncate(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                opts.mode(0o600);
+            }
+            match opts.open(&tmp) {
+                Ok(mut f) => {
+                    use std::io::Write;
+                    f.write_all(s.as_bytes()).and_then(|_| f.sync_all()).is_ok()
+                }
+                Err(_) => false,
+            }
+        };
+        if wrote {
+            let _ = std::fs::rename(&tmp, &st.state_path);
+        }
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
