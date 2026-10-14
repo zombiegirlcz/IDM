@@ -42,3 +42,4 @@ docs/idm/pictures/
 # Python bytecode
 __pycache__/
 *.pyc
+.claude/
