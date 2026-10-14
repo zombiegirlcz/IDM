@@ -1,0 +1,9 @@
+{
+  "name": "com.tonec.idm",
+  "description": "IDM-like native messaging host (spawns the idm engine)",
+  "path": "/root/IDM/engine/target/release/idm-host",
+  "type": "stdio",
+  "allowed_extensions": [
+    "idm@tonec.local"
+  ]
+}
