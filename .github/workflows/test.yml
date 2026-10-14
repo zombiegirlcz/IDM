@@ -7,8 +7,9 @@ name: test
 #   node --test extension/test/*.test.mjs  (excluding the real-Chromium E2E)
 #
 # The real-Chromium harness (extension/test/chrome_e2e.test.mjs) runs in its own
-# `chrome-e2e` job under Xvfb (it is excluded from `npm test` because it needs a
-# working Chromium + display and is blocked in sandboxes). The Windows installer
+# blocking `chrome-e2e` job under Xvfb. Locally it is a gated step of `npm test`
+# that skips itself where Chromium cannot start; this job sets RUN_CHROME_E2E=1,
+# which turns that skip into a failure. The Windows installer
 # gets a `windows-installer` job that at least parses install.ps1 with
 # PowerShell, which no other job can do.
 
@@ -87,10 +88,11 @@ jobs:
 
   chrome-e2e:
     # The only test that exercises the real browser -> content.js -> background
-    # -> native host chain with genuinely trusted user events. Non-blocking for
-    # now: Chromium in CI is flaky, but a failure must be visible.
+    # -> native host chain with genuinely trusted user events. Blocking: it has
+    # passed every run since it was introduced, and RUN_CHROME_E2E=1 below also
+    # makes a missing Chromium/Xvfb a failure, so this job cannot pass by
+    # quietly testing nothing.
     runs-on: ubuntu-24.04
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
 
@@ -119,11 +121,21 @@ jobs:
       - name: Build engine + host
         run: cd engine && cargo build --release
 
+      # Resolving Chromium, deciding about xvfb-run and failing on a missing
+      # prerequisite all live in chromeE2eMode() now, so this job runs the same
+      # path a developer gets locally — just with the skip turned into a fail.
       - name: Run the real-Chromium E2E
+        env:
+          RUN_CHROME_E2E: '1'
         run: |
-          CHROMIUM_BIN="$(node -e "console.log(require('playwright-core').chromium.executablePath())")"
-          echo "using $CHROMIUM_BIN"
-          CHROMIUM_BIN="$CHROMIUM_BIN" xvfb-run -a node --test extension/test/chrome_e2e.test.mjs
+          IFS=$'\t' read -r MODE BIN XVFB REASON < <(node extension/chrome_e2e_decide.mjs)
+          echo "mode=$MODE chromium=$BIN xvfb=${XVFB:-no} ${REASON}"
+          [ "$MODE" = run ] || { echo "::error::$REASON"; exit 1; }
+          if [ -n "$XVFB" ]; then
+            CHROMIUM_BIN="$BIN" xvfb-run -a node --test extension/test/chrome_e2e.test.mjs
+          else
+            CHROMIUM_BIN="$BIN" node --test extension/test/chrome_e2e.test.mjs
+          fi
 
   windows-installer:
     # install.ps1 is Windows-only, so this is the one place it can actually be
