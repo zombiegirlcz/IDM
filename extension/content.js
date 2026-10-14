@@ -75,6 +75,15 @@
     }
   }
 
+  // Losing focus (Alt+Tab, a new tab from a Ctrl+click) means the keyup for a
+  // held modifier is delivered somewhere else and never reaches us, so release
+  // them all here. The background uses this state for force_keys/prevent_keys.
+  function onBlur() {
+    for (var code in INTERESTING_KEYS) {
+      post([31, Number(code), false]);
+    }
+  }
+
   // --- opcode 32: mouse button down/up ---
   function onMouseDown(e) {
     post([32, e.button, true]);
@@ -246,6 +255,7 @@
   document.addEventListener('keyup', onKey, true);
   window.addEventListener('resize', onResize);
   window.addEventListener('focus', onFocus);
+  window.addEventListener('blur', onBlur);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', scanMedia);

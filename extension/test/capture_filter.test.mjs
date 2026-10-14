@@ -68,11 +68,12 @@ async function loadBackground(settings = SETTINGS) {
   await import(url);
 
   let onMsg = null;
+  let onPortDisconnect = null;
   const port = {
     name: 'idm-content',
     sender: { tab: { id: 11, url: 'https://example.com/page' } },
     onMessage: { addListener: (cb) => (onMsg = cb) },
-    onDisconnect: { addListener: () => {} },
+    onDisconnect: { addListener: (cb) => (onPortDisconnect = cb) },
     postMessage: () => {},
   };
   for (const cb of onConnectListeners) cb(port);
@@ -81,6 +82,11 @@ async function loadBackground(settings = SETTINGS) {
   return {
     posted,
     tabRemovedListeners,
+    port,
+    disconnectPort: () => {
+      assert.ok(onPortDisconnect, 'background must listen for port disconnect');
+      onPortDisconnect(port);
+    },
     /** Deliver a content.js opcode and let the settings round trip settle. */
     async send(msg, sender) {
       if (sender) port.sender = sender;
@@ -159,6 +165,17 @@ test('closing a tab forgets the keys it held', async () => {
   for (const cb of bg.tabRemovedListeners) cb(11, {});
   await bg.send(CAPTURE_BIN);
   assert.equal(bg.downloads().length, 1, 'the stale Alt must not survive the tab');
+});
+
+test('navigating away forgets the keys the old page held', async () => {
+  // Ctrl+click often navigates or opens a tab, so the keyup lands somewhere
+  // else and never reaches us. The content port dies with the old page, which
+  // is the one signal that always arrives.
+  const bg = await loadBackground();
+  await bg.send([31, 17, true]); // Ctrl down
+  bg.disconnectPort();
+  await bg.send(CAPTURE_TXT);
+  assert.deepEqual(bg.downloads(), [], 'a stale Ctrl must not force every later capture');
 });
 
 test('the settings are fetched once and reused across captures', async () => {
