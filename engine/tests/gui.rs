@@ -568,8 +568,13 @@ fn api_add_stores_rate_auth_and_mtime_options() {
 
     let it = find_item(&json(&addr, "/api/items"), id);
     assert_eq!(it["limit_rate"].as_u64(), Some(65536), "item: {}", it);
-    assert_eq!(it["auth"].as_str(), Some("alice:s3cret"), "item: {}", it);
     assert_eq!(it["ignore_mtime"].as_bool(), Some(true), "item: {}", it);
+    // The option was stored -- but /api/items must not hand the password back
+    // out: every holder of the API token would get it, the built-in web UI
+    // included. The queue file is where it was actually kept.
+    assert_eq!(it["auth"].as_str(), Some(""), "/api/items leaks auth: {}", it);
+    let queue = std::fs::read_to_string(state.join("queue.json")).expect("queue.json");
+    assert!(queue.contains("alice:s3cret"), "the option was not stored: {}", queue);
 
     // A rate-limited download must still complete correctly.
     wait_status(&addr, id, "done", 60);
@@ -1058,4 +1063,78 @@ fn api_add_honours_a_requested_filename() {
 
     let _ = srv.kill();
     let _ = srv.wait();
+}
+
+/// The queue file holds server passwords, so it must not be world-readable.
+/// The api-token file next to it has been 0600 all along; queue.json was not.
+#[cfg(unix)]
+#[test]
+fn queue_file_is_not_world_readable() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let data = make_data(1000);
+    let origin = start_origin(data.clone(), 0, 0);
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut srv = spawn_server(&addr, &out, &state, &[]);
+    wait_ready(&addr);
+
+    let body = serde_json::json!({
+        "url": format!("{}/file.bin", origin),
+        "auth": "alice:s3cret",
+    })
+    .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "POST /api/add returned {}: {}", st, resp);
+
+    let path = state.join("queue.json");
+    for _ in 0..100 {
+        if path.exists() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    assert!(path.exists(), "queue.json never appeared at {}", path.display());
+    let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode, 0o600, "queue.json is {:o}, must be 600", mode);
+
+    let _ = srv.kill();
+}
+
+/// /api/items must not hand out the proxy password either: it travels inside
+/// the proxy URL's user-info, which is just as readable as `auth` was.
+#[test]
+fn api_items_redacts_the_proxy_password() {
+    let data = make_data(1000);
+    let origin = start_origin(data.clone(), 0, 0);
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut srv = spawn_server(&addr, &out, &state, &[]);
+    wait_ready(&addr);
+
+    let body = serde_json::json!({
+        "url": format!("{}/file.bin", origin),
+        "proxy": "http://bob:hunter2@proxy.example:8080",
+    })
+    .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "POST /api/add returned {}: {}", st, resp);
+    let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .expect("add must return an id");
+
+    let it = find_item(&json(&addr, "/api/items"), id);
+    let proxy = it["proxy"].as_str().unwrap_or("");
+    assert!(!proxy.contains("hunter2"), "/api/items leaks the proxy password: {}", proxy);
+    // The host is not a secret, and the GUI shows it.
+    assert!(proxy.contains("proxy.example"), "the proxy host got lost: {}", proxy);
+    assert!(proxy.contains("bob"), "the proxy user got lost: {}", proxy);
+
+    let _ = srv.kill();
 }
