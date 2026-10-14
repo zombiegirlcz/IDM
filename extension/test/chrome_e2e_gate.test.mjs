@@ -103,3 +103,78 @@ test('an unprobed Chromium is given the benefit of the doubt', () => {
   });
   assert.equal(d.mode, 'run');
 });
+
+// --- the Firefox twin --------------------------------------------------------
+// Firefox needs a different gate, not a copy of this one: it is headless
+// without any X server at all, so a missing DISPLAY is irrelevant there.
+
+test('Firefox runs headless with no display whatsoever', async () => {
+  const { firefoxE2eMode } = await import('../chrome_e2e_gate.mjs');
+  const d = firefoxE2eMode({ firefox: '/bin/firefox', display: null, want: null });
+  assert.equal(d.mode, 'run');
+  assert.equal(d.xvfb, false, 'wrapping Firefox in xvfb-run would be pointless');
+});
+
+test('no Firefox is a skip, or a failure when promised', async () => {
+  const { firefoxE2eMode } = await import('../chrome_e2e_gate.mjs');
+  assert.equal(firefoxE2eMode({ firefox: null, want: null }).mode, 'skip');
+  const forced = firefoxE2eMode({ firefox: null, want: '1' });
+  assert.equal(forced.mode, 'fail');
+  assert.match(forced.reason, /RUN_FIREFOX_E2E/);
+});
+
+test('RUN_FIREFOX_E2E=0 turns it off', async () => {
+  const { firefoxE2eMode } = await import('../chrome_e2e_gate.mjs');
+  const d = firefoxE2eMode({ firefox: '/bin/firefox', want: '0' });
+  assert.equal(d.mode, 'skip');
+});
+
+test('a Firefox that cannot start is a skip like Chromium is', async () => {
+  const { firefoxE2eMode } = await import('../chrome_e2e_gate.mjs');
+  const d = firefoxE2eMode({ firefox: '/bin/firefox', want: null, starts: false });
+  assert.equal(d.mode, 'skip');
+  assert.match(d.reason, /start/i);
+});
+
+// --- handing a decision to the shell ----------------------------------------
+// The runner scripts print one TAB-separated line and the shell reads it with
+// `IFS=$'\t' read`. Tab counts as IFS whitespace there, so a RUN of empty
+// fields collapses into one and every later field shifts left: a skip with no
+// xvfb flag silently moved its reason into the xvfb slot, which both lost the
+// reason and left a non-empty "xvfb". No field may therefore be empty.
+
+test('no field of a printed decision is empty', async () => {
+  const { formatDecision } = await import('../chrome_e2e_gate.mjs');
+  const line = formatDecision({ mode: 'skip', chromium: null, xvfb: false, reason: 'nope' });
+  const fields = line.split('\t');
+  assert.equal(fields.length, 4);
+  assert.ok(fields.every((f) => f.length > 0), `empty field in ${JSON.stringify(line)}`);
+  assert.equal(fields[0], 'skip');
+  assert.equal(fields[3], 'nope');
+});
+
+test('a reason survives a decision with no binary', async () => {
+  const { formatDecision } = await import('../chrome_e2e_gate.mjs');
+  // What bash actually does with the line, modelled: collapse runs of tabs.
+  const line = formatDecision({ mode: 'skip', chromium: null, xvfb: false, reason: 'why' });
+  const [mode, , , reason] = line.replace(/\t+/g, '\t').split('\t');
+  assert.equal(mode, 'skip');
+  assert.equal(reason, 'why', 'the reason must not shift out of its slot');
+});
+
+test('the xvfb flag is a 1 or a 0, never a blank', async () => {
+  const { formatDecision } = await import('../chrome_e2e_gate.mjs');
+  assert.equal(formatDecision({ mode: 'run', chromium: '/c', xvfb: true, reason: '' })
+    .split('\t')[2], '1');
+  assert.equal(formatDecision({ mode: 'run', chromium: '/c', xvfb: false, reason: '' })
+    .split('\t')[2], '0');
+});
+
+test('a Firefox decision prints three filled fields', async () => {
+  const { formatDecision } = await import('../chrome_e2e_gate.mjs');
+  const line = formatDecision({ mode: 'skip', firefox: null, reason: 'none here' }, 'firefox');
+  const fields = line.split('\t');
+  assert.equal(fields.length, 3);
+  assert.ok(fields.every((f) => f.length > 0), `empty field in ${JSON.stringify(line)}`);
+  assert.equal(fields[2], 'none here');
+});

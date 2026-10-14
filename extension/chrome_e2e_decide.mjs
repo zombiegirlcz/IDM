@@ -7,7 +7,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { chromeE2eMode } from './chrome_e2e_gate.mjs';
+import { chromeE2eMode, formatDecision } from './chrome_e2e_gate.mjs';
 
 function which(bin) {
   try {
@@ -60,4 +60,4 @@ const d = chromeE2eMode({
   display: process.env.DISPLAY || null,
   want: process.env.RUN_CHROME_E2E ?? null,
 });
-process.stdout.write([d.mode, d.chromium || '', d.xvfb ? '1' : '', d.reason].join('\t') + '\n');
+process.stdout.write(formatDecision(d) + '\n');
