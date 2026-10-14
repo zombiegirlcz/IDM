@@ -105,10 +105,10 @@ test('the settings carry a hangup_command key', () => {
 // --- the window actually acts on them ------------------------------------- //
 
 test('/q closes the window once the download it started has finished', async () => {
-  const { spawn, execFileSync: exec } = await import('node:child_process');
-  const { createServer } = await import('node:http');
-  const { mkdtempSync, existsSync } = await import('node:fs');
+  const { spawn } = await import('node:child_process');
+  const { mkdtempSync, existsSync, writeFileSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
+  const net = await import('node:net');
 
   const engine = [
     process.env.IDM_ENGINE_BIN,
@@ -117,41 +117,78 @@ test('/q closes the window once the download it started has finished', async () 
   ].filter(Boolean).find((p) => existsSync(p));
   assert.ok(engine, 'engine binary not found');
 
-  const data = Buffer.alloc(40_000, 7);
-  const origin = createServer((req, res) => {
-    res.writeHead(200, { 'Content-Length': data.length, 'Accept-Ranges': 'bytes' });
-    res.end(data);
-  });
-  await new Promise((r) => origin.listen(0, '127.0.0.1', r));
-  const url = `http://127.0.0.1:${origin.address().port}/f.bin`;
+  function freePort() {
+    return new Promise((resolve) => {
+      const s = net.createServer();
+      s.listen(0, '127.0.0.1', () => {
+        const { port } = s.address();
+        s.close(() => resolve(port));
+      });
+    });
+  }
+
+  function waitTcp(host, port, timeoutMs = 15000) {
+    const deadline = Date.now() + timeoutMs;
+    return new Promise((resolve, reject) => {
+      const attempt = () => {
+        const sock = net.connect({ host, port });
+        sock.once('connect', () => { sock.destroy(); resolve(); });
+        sock.once('error', () => {
+          sock.destroy();
+          if (Date.now() > deadline) reject(new Error(`no listener on ${host}:${port}`));
+          else setTimeout(attempt, 150);
+        });
+      };
+      attempt();
+    });
+  }
+
+  // The origin MUST be its own process. An inline node:http server cannot
+  // answer while another test file blocks this event loop with execFileSync,
+  // and then the download never finishes and /q never fires -- which is a
+  // broken test, not a broken /q.
+  const webRoot = mkdtempSync(join(tmpdir(), 'idm_q_web_'));
+  writeFileSync(join(webRoot, 'f.bin'), Buffer.alloc(40_000, 7));
+  const webPort = await freePort();
+  const web = spawn('python3', ['-m', 'http.server', String(webPort), '--bind', '127.0.0.1',
+                                '--directory', webRoot],
+                    { stdio: 'ignore' });
+  await waitTcp('127.0.0.1', webPort);
+  const url = `http://127.0.0.1:${webPort}/f.bin`;
 
   const outDir = mkdtempSync(join(tmpdir(), 'idm_q_out_'));
   const stateDir = mkdtempSync(join(tmpdir(), 'idm_q_state_'));
+  // Its own API port too, so a stray engine from another test cannot answer
+  // for this one.
+  const apiPort = await freePort();
 
   // --autostart brings its own engine up, so this is the real command line a
   // file association would produce: /d URL /q.
   const child = spawn(
     'xvfb-run',
     ['-a', 'python3', guiPy, '--engine', engine, '--out-dir', outDir,
-     '--state-dir', stateDir, '--autostart', '/d', url, '/q'],
+     '--state-dir', stateDir, '--addr', `127.0.0.1:${apiPort}`,
+     '--autostart', '/d', url, '/q'],
     { stdio: ['ignore', 'pipe', 'pipe'] },
   );
   let err = '';
   child.stdout.on('data', () => {});
   child.stderr.on('data', (d) => (err += d));
 
-  const code = await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL');
-      reject(new Error(`/q did not close the window within 60 s:\n${err}`));
-    }, 60000);
-    child.on('exit', (c) => {
-      clearTimeout(timer);
-      resolve(c);
+  try {
+    const code = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        child.kill('SIGKILL');
+        reject(new Error(`/q did not close the window within 90 s:\n${err}`));
+      }, 90000);
+      child.on('exit', (c) => {
+        clearTimeout(timer);
+        resolve(c);
+      });
     });
-  });
-  origin.close();
-
-  assert.equal(code, 0, `the GUI must exit cleanly, got ${code}:\n${err}`);
-  assert.doesNotMatch(err, /not implemented/i, '/q must no longer report itself unimplemented');
+    assert.equal(code, 0, `the GUI must exit cleanly, got ${code}:\n${err}`);
+    assert.doesNotMatch(err, /not implemented/i, '/q must no longer report itself unimplemented');
+  } finally {
+    web.kill('SIGKILL');
+  }
 });
