@@ -18,6 +18,7 @@
 //     -> {"ok":true,"size":N,"crc32":"...","output":"..."}
 //     -> {"ok":false,"error":"..."} on failure
 //   {"action":"list_formats","url":"..."}
+//   {"action":"get_settings"}
 //     -> {"ok":true,"title":...,"formats":[...]}  (media backend)
 
 use std::io::{Read, Write};
@@ -265,12 +266,104 @@ struct HostCtx<'a> {
     engine: &'a Path,
     allowed_dir: &'a Path,
     yt_dlp: &'a Path,
+    /// settings.json the GUI writes, when the installer told us where it is.
+    settings: Option<&'a Path>,
+}
+
+/// Copy a list of strings under `key`, dropping entries of any other type.
+/// A field that is not a list at all is omitted entirely, so the extension
+/// falls back to its own default for it (normalizeCaptureSettings).
+fn copy_str_list(
+    dst: &mut serde_json::Map<String, serde_json::Value>,
+    src: &serde_json::Value,
+    key: &str,
+) {
+    if let Some(arr) = src.get(key).and_then(|v| v.as_array()) {
+        let kept: Vec<serde_json::Value> =
+            arr.iter().filter(|v| v.is_string()).cloned().collect();
+        dst.insert(key.to_string(), serde_json::Value::Array(kept));
+    }
+}
+
+fn copy_string(
+    dst: &mut serde_json::Map<String, serde_json::Value>,
+    src: &serde_json::Value,
+    key: &str,
+) {
+    if let Some(v) = src.get(key).and_then(|v| v.as_str()) {
+        dst.insert(key.to_string(), serde_json::Value::String(v.to_string()));
+    }
+}
+
+fn copy_pos_int(
+    dst: &mut serde_json::Map<String, serde_json::Value>,
+    src: &serde_json::Value,
+    key: &str,
+) {
+    if let Some(n) = src.get(key).and_then(|v| v.as_u64()) {
+        if n > 0 {
+            dst.insert(key.to_string(), serde_json::Value::from(n));
+        }
+    }
+}
+
+/// The capture-relevant subset of settings.json, built as an explicit
+/// WHITELIST. The same file holds auth credentials, the proxy and local paths;
+/// a blacklist would leak the next sensitive field someone adds, so nothing is
+/// copied here unless it is named below.
+fn capture_subset(raw: &serde_json::Value) -> serde_json::Value {
+    let empty = serde_json::json!({});
+    let ft = raw.get("file_types").unwrap_or(&empty);
+    let general = raw.get("general").unwrap_or(&empty);
+    let conn = raw.get("connection").unwrap_or(&empty);
+
+    let mut ft_out = serde_json::Map::new();
+    copy_str_list(&mut ft_out, ft, "auto");
+    copy_str_list(&mut ft_out, ft, "exclude_sites");
+    copy_str_list(&mut ft_out, ft, "exclude_addresses");
+
+    let mut g_out = serde_json::Map::new();
+    copy_string(&mut g_out, general, "force_keys");
+    copy_string(&mut g_out, general, "prevent_keys");
+
+    let mut c_out = serde_json::Map::new();
+    copy_pos_int(&mut c_out, conn, "max_connections");
+
+    serde_json::json!({
+        "file_types": serde_json::Value::Object(ft_out),
+        "general": serde_json::Value::Object(g_out),
+        "connection": serde_json::Value::Object(c_out),
+    })
+}
+
+/// Answer `get_settings`. This never fails: without a path, without a file or
+/// with unparsable contents the caller is told to use its own defaults, because
+/// a broken settings.json must not silently switch download capture off.
+fn get_settings(ctx: &HostCtx) -> serde_json::Value {
+    let default = serde_json::json!({"ok": true, "source": "default", "settings": null});
+    let path = match ctx.settings {
+        Some(p) => p,
+        None => return default,
+    };
+    let bytes = match std::fs::read(path) {
+        Ok(b) => b,
+        Err(_) => return default,
+    };
+    let raw: serde_json::Value = match serde_json::from_slice(&bytes) {
+        Ok(v) => v,
+        Err(_) => return default,
+    };
+    if !raw.is_object() {
+        return default;
+    }
+    serde_json::json!({"ok": true, "source": "file", "settings": capture_subset(&raw)})
 }
 
 fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
     let action = opt_str(req, "action").unwrap_or("");
     match action {
         "ping" => serde_json::json!({"ok": true, "msg": "pong"}),
+        "get_settings" => get_settings(ctx),
         "list_formats" => {
             let url = match check_url(req) {
                 Ok(u) => u,
@@ -418,6 +511,7 @@ fn main() {
     let mut engine: Option<PathBuf> = None;
     let mut allowed_dir: Option<PathBuf> = None;
     let mut yt_dlp: Option<PathBuf> = None;
+    let mut settings: Option<PathBuf> = None;
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
@@ -434,6 +528,14 @@ fn main() {
             "--yt-dlp" => {
                 if let Some(p) = args.next() {
                     yt_dlp = Some(PathBuf::from(p));
+                }
+            }
+            // Optional: the GUI's settings.json, so `get_settings` has
+            // something to read. Absent, capture falls back to the
+            // extension's own defaults.
+            "--settings" => {
+                if let Some(p) = args.next() {
+                    settings = Some(PathBuf::from(p));
                 }
             }
             _ => {}
@@ -471,6 +573,7 @@ fn main() {
         engine: &engine,
         allowed_dir: &allowed_dir,
         yt_dlp: &yt_dlp,
+        settings: settings.as_deref(),
     };
 
     let stdin = std::io::stdin();
