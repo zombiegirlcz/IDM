@@ -241,6 +241,7 @@ class Api:
         if aria2:
             body["aria2"] = True
         for key in ("out_dir", "user_agent", "proxy", "auth",
+                    "auth_user", "auth_password_ref",
                     "queue", "format", "cookie", "referer", "filename"):
             value = (options or {}).get(key)
             if value:
@@ -255,6 +256,28 @@ class Api:
             body["force_media"] = True
         r = self._req("POST", "/api/add", body)
         return int(r.get("id", 0))
+
+    def store_password(self, value: str) -> str:
+        """Put `value` in the engine's vault, return its `secret:<id>` ref.
+
+        The GUI has no engine binary of its own -- it only ever talks to
+        `idm --serve` -- so the password goes over the loopback API, the same
+        channel that has always carried it, and what lands in settings.json is
+        only the reference. "" means the engine would not take it; the caller
+        must then keep the plaintext rather than lose the password.
+        """
+        if not value:
+            return ""
+        r = self._req("POST", "/api/secrets", {"value": value})
+        return str(r.get("ref") or "") if r.get("ok") else ""
+
+    def secrets_status(self) -> str:
+        """One line for Options -> Site Logins: encrypted, and key where."""
+        try:
+            r = self._req("GET", "/api/secrets-status", None)
+        except Exception:  # noqa: BLE001
+            return "cannot reach idm --serve"
+        return str(r.get("status") or "")
 
     def formats(self, url: str, cookie: str = "", referer: str = "",
                 proxy: str = "") -> list[dict]:
@@ -701,15 +724,63 @@ def _delete_category(settings: dict, name: str) -> dict:
 # helpers instead, so the dialog edits the same shape that is persisted.
 
 
-def _upsert_site_login(settings: dict, url: str, user: str, password: str) -> dict:
-    """Add or replace the login for `url` (one record per URL)."""
+def _upsert_site_login(settings: dict, url: str, user: str, password: str,
+                       password_ref: str = "") -> dict:
+    """Add or replace the login for `url` (one record per URL).
+
+    With a `password_ref` the plaintext key is left out entirely rather than
+    written empty: `"password": ""` is a legitimate "no password set" and must
+    not be confused with "the password is in the vault".
+    """
     out = _deep_merge(DEFAULT_SETTINGS, settings or {})
     url = (url or "").strip()
     if not url:
         return out
     logins = [x for x in out.get("site_logins", [])
               if (x or {}).get("url") != url]
-    logins.append({"url": url, "user": user or "", "password": password or ""})
+    rec = {"url": url, "user": user or ""}
+    if password_ref:
+        rec["password_ref"] = password_ref
+    else:
+        rec["password"] = password or ""
+    logins.append(rec)
+    out["site_logins"] = logins
+    return out
+
+
+def migrate_site_logins(settings: dict, store) -> dict:
+    """Move plaintext site-login passwords into the vault.
+
+    `store` is a callable taking the password and returning a `secret:<id>`
+    reference, or "" if it could not be stored -- `Api.store_password` in the
+    window, a stub in the tests.
+
+    Three rules, all of them about not losing a password:
+      * a record that already has a `password_ref` is left alone, so this does
+        not re-send anything on every save;
+      * `"password": ""` means "no password set", which is not a password to
+        migrate;
+      * a refusal from the engine leaves the plaintext exactly where it was.
+        It will be tried again on the next save.
+    """
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    logins = []
+    for rec in out.get("site_logins", []):
+        rec = dict(rec or {})
+        password = str(rec.get("password") or "")
+        if rec.get("password_ref") or not password:
+            logins.append(rec)
+            continue
+        try:
+            ref = store(password)
+        except Exception:  # noqa: BLE001
+            ref = ""
+        if ref:
+            rec["password_ref"] = ref
+            # Removed, not emptied: an empty password is a legitimate value
+            # and must not be mistaken for "already migrated".
+            rec.pop("password", None)
+        logins.append(rec)
     out["site_logins"] = logins
     return out
 
@@ -830,19 +901,28 @@ def proxy_with_credentials(proxy: str, user: str, password: str) -> str:
         (parts.scheme, f"{cred}@{host}", parts.path, parts.query, parts.fragment))
 
 
-def site_login_for(settings: dict, url: str) -> str:
-    """"user:password" for the Site Logins entry covering `url`, else "".
+def site_login_for(settings: dict, url: str) -> tuple:
+    """(user, password_ref, password) for the login covering `url`.
+
+    Three parts rather than "user:password": a password containing a colon
+    makes the composite ambiguous, and the password itself is usually not here
+    any more -- `password_ref` points into the engine's vault.
+
+    Both shapes are accepted, because a settings.json written by an older
+    build still holds plaintext. A record carrying both is a half-finished
+    migration: the reference wins and the stale plaintext is ignored.
 
     Matching is by host, so a login never leaks to a different server, and the
     longest matching path wins when one host has several entries.
     """
+    empty = ("", "", "")
     host = host_of(url)
     if not host:
-        return ""
+        return empty
     try:
         path = urllib.parse.urlsplit(url).path or "/"
     except Exception:  # noqa: BLE001
-        return ""
+        return empty
     best, best_len = None, -1
     for rec in (settings or {}).get("site_logins", []):
         rec_url = (rec or {}).get("url", "")
@@ -855,8 +935,11 @@ def site_login_for(settings: dict, url: str) -> str:
         if path.startswith(rec_path) and len(rec_path) > best_len:
             best, best_len = rec, len(rec_path)
     if not best or not best.get("user"):
-        return ""
-    return "%s:%s" % (best.get("user", ""), best.get("password", ""))
+        return empty
+    ref = str(best.get("password_ref") or "")
+    if ref:
+        return (best.get("user", ""), ref, "")
+    return (best.get("user", ""), "", str(best.get("password") or ""))
 
 
 def dialog_prefs(settings: dict) -> dict:
@@ -926,13 +1009,20 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
         limit_rate = quota_to_rate(s["connection"].get("limit_amount_mb"),
                                    s["connection"].get("limit_period_h"))
 
+    auth_user, auth_ref, auth_pw = site_login_for(s, url)
+
     return {
         "connections": max(1, conns),
         "out_dir": out_dir,
         "user_agent": s["downloads"].get("user_agent") or "",
         "proxy": proxy,
         "limit_rate": limit_rate,
-        "auth": site_login_for(s, url),
+        # The engine takes auth_user + auth_password_ref and unlocks the
+        # password itself. `auth` is only still filled for a login that has
+        # not been migrated yet; the engine stores it in the vault on arrival.
+        "auth": ("%s:%s" % (auth_user, auth_pw)) if auth_pw else "",
+        "auth_user": auth_user,
+        "auth_password_ref": auth_ref,
         "ignore_mtime": bool(s["downloads"].get("ignore_mtime")),
         # How many times the engine may retry this file. The Scheduler keeps
         # it per queue; a manually added download lands in the main one.
@@ -2218,7 +2308,8 @@ def _dialog_file_info(parent, url, folder, category, formats=None):
     return win, start, later
 
 
-def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir=""):
+def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="",
+                    api=None):
     """IDM 'Options' dialog: all 9 tabs, wired to persisted settings.
 
     Every tab mirrors docs/idm/options.txt instead of showing only its name.
@@ -2599,6 +2690,23 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
     user_v = add_row(sl, "Site Logins", "User name:", None, "")
     pass_v = add_row(sl, "Site Logins", "Password:", None, "", show="*")
 
+    # Where the passwords are, in one line. Claiming "encrypted" without
+    # saying where the key lives would be a half-truth: with no system keyring
+    # the key sits in a file next to the vault.
+    vault_status = ttk.Label(sl, text="Passwords: not stored yet")
+    vault_status.pack(anchor="w", padx=10, pady=(8, 2))
+    controls["Site Logins"]["labels"].append("Passwords:")
+
+    def _render_vault_status():
+        if api is None:
+            return
+        try:
+            text = api.secrets_status()
+        except Exception:  # noqa: BLE001
+            return
+        if text:
+            vault_status.config(text="Passwords: " + text)
+
     def _render_logins():
         login_lb.delete(0, "end")
         for x in s["site_logins"]:
@@ -2608,8 +2716,18 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
         nonlocal s
         if not url_v.get().strip():
             return
-        s = _upsert_site_login(s, url_v.get(), user_v.get(), pass_v.get())
+        # The password goes to the engine's vault and only its reference is
+        # kept here. If the engine will not take it, the plaintext is written
+        # as before: losing the password is worse than storing it in the clear.
+        ref = ""
+        if api is not None and pass_v.get():
+            try:
+                ref = api.store_password(pass_v.get())
+            except Exception:  # noqa: BLE001
+                ref = ""
+        s = _upsert_site_login(s, url_v.get(), user_v.get(), pass_v.get(), ref)
         _render_logins()
+        _render_vault_status()
 
     def _new_login():
         for v in (url_v, user_v, pass_v):
@@ -3802,9 +3920,13 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         _dialog_options(
             root,
             settings=load_settings(state_dir),
-            on_save=lambda st: save_settings(state_dir, st),
+            # Migrate on the way out: reading settings.json stays reading,
+            # and an OK in this dialog is what moves the passwords.
+            on_save=lambda st: save_settings(
+                state_dir, migrate_site_logins(st, api.store_password)),
             state_dir=state_dir,
             out_dir=out_dir,
+            api=api,
         )
 
     # Last status per item id, so apply_items can spot a download finishing.
@@ -4370,6 +4492,80 @@ def _stub_api(handler_body, count=1):
         target=lambda: [srv.handle_request() for _ in range(count)], daemon=True
     ).start()
     return Api("127.0.0.1:%d" % srv.server_address[1], timeout=5.0), seen, srv
+
+
+REF_FOR_TESTS = "secret:0123456789abcdef"
+
+
+def selftest_add_ref():
+    """A login with a reference must reach /api/add as the two ref fields."""
+    settings = _deep_merge(DEFAULT_SETTINGS, {
+        "site_logins": [{"url": "https://f.example.com/", "user": "alice",
+                         "password_ref": REF_FOR_TESTS}],
+    })
+    url = "https://f.example.com/private/a.zip"
+    opts = download_options(settings, url)
+    api, seen, srv = _stub_api({"ok": True, "id": 1})
+    api.add(url, connections=opts["connections"], options=opts)
+    srv.server_close()
+    if not seen:
+        print("ADDREF: FAIL nothing reached /api/add", file=sys.stderr)
+        return 1
+    print("ADDREF:" + json.dumps(seen[0][1], sort_keys=True), flush=True)
+    return 0
+
+
+def selftest_store_password():
+    """Saving a site login must store the password and keep only its ref."""
+    api, seen, srv = _stub_api({"ok": True, "ref": REF_FOR_TESTS})
+    ref = api.store_password("tr0ub4dor")
+    srv.server_close()
+    record = {}
+    if ref:
+        out = _upsert_site_login({}, "https://f.example.com/", "alice",
+                                 "tr0ub4dor", ref)
+        record = out["site_logins"][0]
+    print("STORED:" + json.dumps({
+        "path": seen[0][0] if seen else "",
+        "sent": seen[0][1] if seen else {},
+        "ref": ref,
+        "record": record,
+    }, sort_keys=True), flush=True)
+    return 0
+
+
+def selftest_migrate_logins():
+    """Prove a save migrates the plaintext logins and keeps the rest."""
+    sent = []
+
+    def store(password):
+        sent.append(password)
+        return "secret:%016x" % len(sent)
+
+    def refuse(_password):
+        return ""
+
+    settings = {"site_logins": [
+        {"url": "https://a/", "user": "alice", "password": "s3cret"},
+        {"url": "https://b/", "user": "bob", "password": "hunter2"},
+        {"url": "https://c/", "user": "carol", "password_ref": REF_FOR_TESTS},
+        {"url": "https://nopass/", "user": "anon", "password": ""},
+    ]}
+    after = migrate_site_logins(settings, store)
+    one = {"site_logins": [{"url": "https://a/", "user": "alice",
+                            "password": "s3cret"}]}
+    refused = migrate_site_logins(one, refuse)["site_logins"][0]
+
+    with_password = [r for r in after["site_logins"] if r.get("password_ref")]
+    untouched = [r for r in after["site_logins"]
+                 if not r.get("password_ref")]
+    print("MIGRATED:" + json.dumps({
+        "sent": sent,
+        "after": with_password,
+        "untouched": untouched[0] if untouched else {},
+        "on_refusal": refused,
+    }, sort_keys=True), flush=True)
+    return 0
 
 
 SAMPLE_FORMATS = [
@@ -5311,6 +5507,9 @@ def main(argv=None):
     p.add_argument("--grabber-depth", type=int, default=None)
     p.add_argument("--grabber-external-depth", type=int, default=None)
     p.add_argument("--selftest-grabber-project", action="store_true")
+    p.add_argument("--selftest-migrate-logins", action="store_true")
+    p.add_argument("--selftest-add-ref", action="store_true")
+    p.add_argument("--selftest-store-password", action="store_true")
     p.add_argument("--selftest-grabber-tree", action="store_true")
     p.add_argument("--selftest-grabber-checks", action="store_true")
     p.add_argument("--grabber-include", default="")
@@ -5348,6 +5547,12 @@ def main(argv=None):
         return selftest_drop_paste()
     if args.selftest_row:
         return selftest_row()
+    if args.selftest_migrate_logins:
+        return selftest_migrate_logins()
+    if args.selftest_add_ref:
+        return selftest_add_ref()
+    if args.selftest_store_password:
+        return selftest_store_password()
     if args.selftest_formats_body:
         return selftest_formats_body()
     if args.selftest_format_labels:

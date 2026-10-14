@@ -345,6 +345,38 @@ Pokrývá:
   fail-closed skončí s chybou a nezapíše nic; v produkci ho dodává wrapper
   z `install-host.sh`.
 
+### Hesla k serverům (Site Logins)
+
+Heslo zadané v Options → Site Logins **není na disku v plaintextu**. Leží
+v `STATE_DIR/secrets.json`, zašifrované ChaCha20-Poly1305; v `settings.json`
+a `queue.json` zůstává jen `password_ref` / `auth_ref` ve tvaru
+`secret:<16 hex>` a uživatelské jméno.
+
+- **Klíč** je 32 bajtů z OS CSPRNG. Při buildu s `--features keyring` jde do
+  OS keyringu (služba `idm`, účet `secrets-key`); jinak do
+  `STATE_DIR/secrets.key` s právy 0600. Options → Site Logins vždy ukazuje,
+  která z těch dvou možností platí — „encrypted, key in system keyring" vs.
+  „key in a local file (no system keyring available)". Feature je **opt-in**,
+  protože backendy keyringu vyžadují systémovou knihovnu (Secret Service /
+  libdbus) a default-on by znamenal, že `cargo build` na stroji bez ní spadne.
+- **Do enginu** se heslo dostane proměnnou prostředí (`--auth-env`), nikdy
+  argumentem: `argv` je čitelné z `ps` a `/proc/<pid>/cmdline`, `environ` jen
+  pro vlastníka. yt-dlp ani aria2c proměnnou nedědí.
+- **Z API se heslo nedá přečíst.** `POST /api/secrets` ho uloží a vrátí jen
+  referenci, `GET /api/items` `auth` neposílá a z proxy URL vyřízne heslo.
+  Čtecí endpoint neexistuje — engine si heslo odemyká sám ve chvíli stahování.
+- **Migrace** starých souborů proběhne při prvním *zápisu* (OK v Options,
+  uložení fronty), ne při čtení. Předtím se udělá záloha
+  `settings.json.pre-secrets` / `queue.json.pre-secrets` (0600), která se
+  nemaže. Když se do trezoru zapsat nepodaří, **plaintext zůstane** a migrace
+  se zkusí znovu — ztratit heslo je horší než ho mít ještě den v plaintextu.
+- **Co to neřeší:** útočník s přístupem k tvému účtu si klíč přečte (z
+  keyringu po odemčení session, nebo ze `secrets.key`) a trezor otevře.
+  Šifrování chrání zálohy, kopie `STATE_DIR` a cizí uživatele téhož stroje,
+  ne tebe před sebou samým.
+
+Design: `docs/superpowers/specs/2026-10-14-auth-at-rest-design.md`.
+
 ## Co ještě NENÍ hotové
 
 - **E2E v reálném Chrome** — neověřeno v prohlížeči (testy ověřují protokol, ne běh)

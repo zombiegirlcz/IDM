@@ -104,7 +104,11 @@ fn full_settings() -> serde_json::Value {
         "connection": {"max_connections": 12, "exceptions": []},
         "save_to": {"default_dir": "/home/secret/Downloads", "temp_dir": "/tmp/secret"},
         "proxy": {"http": "http://proxy.local:3128"},
-        "auth": {"user": "admin", "password": "hunter2"}
+        "auth": {"user": "admin", "password": "hunter2"},
+        // Since the vault, a login carries a reference instead of a password.
+        // Neither may reach the extension.
+        "site_logins": [{"url": "https://f/", "user": "alice",
+                         "password_ref": "secret:0123456789abcdef"}]
     })
 }
 
@@ -291,4 +295,21 @@ fn an_empty_variable_is_treated_as_unset() {
     drop(stdin);
     let _ = child.wait();
     assert_eq!(resp["source"], serde_json::json!("default"), "{}", resp);
+}
+
+/// The whitelist already guarantees this; the test pins it down so a field
+/// added to settings.json later cannot quietly start travelling to the
+/// browser. A secret reference is not a password, but it names one, and the
+/// extension has no business knowing a login exists at all.
+#[test]
+fn no_login_material_reaches_the_extension() {
+    let dir = unique_dir("logins");
+    let path = dir.join("settings.json");
+    std::fs::write(&path, serde_json::to_vec_pretty(&full_settings()).unwrap()).unwrap();
+    let allowed = unique_dir("allowed");
+    let reply = ask(&allowed, Some(&path));
+    let raw = reply.to_string();
+    for needle in ["hunter2", "password_ref", "secret:", "site_logins", "alice", "admin"] {
+        assert!(!raw.contains(needle), "{:?} leaked to the extension: {}", needle, raw);
+    }
 }

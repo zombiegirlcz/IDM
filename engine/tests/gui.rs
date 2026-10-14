@@ -571,10 +571,14 @@ fn api_add_stores_rate_auth_and_mtime_options() {
     assert_eq!(it["ignore_mtime"].as_bool(), Some(true), "item: {}", it);
     // The option was stored -- but /api/items must not hand the password back
     // out: every holder of the API token would get it, the built-in web UI
-    // included. The queue file is where it was actually kept.
+    // included.
     assert_eq!(it["auth"].as_str(), Some(""), "/api/items leaks auth: {}", it);
+    // And since step 2 the queue file holds a vault reference, not the
+    // password: the user half stays readable, the secret half does not.
     let queue = std::fs::read_to_string(state.join("queue.json")).expect("queue.json");
-    assert!(queue.contains("alice:s3cret"), "the option was not stored: {}", queue);
+    assert!(!queue.contains("s3cret"), "plaintext password in queue.json: {}", queue);
+    assert!(queue.contains("\"auth_user\": \"alice\""), "the user got lost: {}", queue);
+    assert!(queue.contains("secret:"), "no vault reference was stored: {}", queue);
 
     // A rate-limited download must still complete correctly.
     wait_status(&addr, id, "done", 60);
