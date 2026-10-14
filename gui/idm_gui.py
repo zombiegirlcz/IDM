@@ -234,13 +234,13 @@ class Api:
         """Queue a download.
 
         `options` is the dict from download_options(): the engine honours
-        out_dir / temp_dir / user_agent / proxy, so the Options dialog is not
-        decoration. An older engine ignores the extra keys.
+        out_dir / user_agent / proxy / format and the rest, so the Options
+        dialog is not decoration. An older engine ignores the extra keys.
         """
         body = {"url": url, "connections": connections}
         if aria2:
             body["aria2"] = True
-        for key in ("out_dir", "temp_dir", "user_agent", "proxy", "auth",
+        for key in ("out_dir", "user_agent", "proxy", "auth",
                     "queue", "format", "cookie", "referer", "filename"):
             value = (options or {}).get(key)
             if value:
@@ -384,7 +384,6 @@ DEFAULT_SETTINGS = {
     "save_to": {
         "default_dir": "",
         "category_dirs": {},  # category name -> directory
-        "temp_dir": "",
         "change_on_last": False,
     },
     "downloads": {
@@ -853,7 +852,6 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
                    exception for this URL's host
       out_dir      save_to.category_dirs[category] for this URL's category,
                    else save_to.default_dir, else `fallback_dir`
-      temp_dir     save_to.temp_dir (where the .idmpart chunks live)
       user_agent   downloads.user_agent
       proxy        proxy.socks preferred over proxy.http/https; empty when
                    proxy.use_system is on (then the engine/browser decides) or
@@ -899,7 +897,6 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
     return {
         "connections": max(1, conns),
         "out_dir": out_dir,
-        "temp_dir": s["save_to"].get("temp_dir") or "",
         "user_agent": s["downloads"].get("user_agent") or "",
         "proxy": proxy,
         "limit_rate": limit_rate,
@@ -2050,8 +2047,10 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
         ("Set directory...", _set_cat_dir),
         ("Clear", _clear_cat_dir),
     ])
-    add_row(st, "Save To", "Temporary directory:",
-            "save_to.temp_dir", s["save_to"]["temp_dir"], browse=True)
+    # No "Temporary directory" row: the engine set_len()s the final file and
+    # writes its segments into it in place, so there is no part file for such a
+    # directory to hold. A control that cannot affect a single byte is worse
+    # than a missing one. See gui/test/temp_dir_removed.test.mjs.
     add_check(st, "Save To", "Change folder for a category on last selected",
               "save_to.change_on_last", s["save_to"]["change_on_last"])
 

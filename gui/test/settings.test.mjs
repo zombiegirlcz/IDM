@@ -138,7 +138,7 @@ test('settings expose the values the engine can honour', () => {
   for (const key of [
     'max_connections',
     'user_agent',
-    'temp_dir',
+    'format',
     'virus_checker',
     'proxy',
     'no_proxy',
