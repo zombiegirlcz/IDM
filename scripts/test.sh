@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # scripts/test.sh — single entry point for the whole test matrix.
 #
+# Rust is OPT-IN: set WITH_RUST=1 to get steps 1 and 2. A plain `npm test`
+# therefore needs no toolchain and compiles nothing; CI sets the flag and runs
+# the full matrix. WITH_RUST is exported so release_host.test.mjs knows whether
+# a missing release binary is a failure (it was supposed to be built) or a skip.
+#
 # Order matters:
 #   1. `cargo build --release` — the deployed host (engine/target/release/idm-host)
 #      is what the Chrome native-messaging manifest points at, and the
@@ -13,15 +18,26 @@
 #        xvfb-run -a node --test extension/test/chrome_e2e.test.mjs
 set -euo pipefail
 
+WITH_RUST="${WITH_RUST:-}"
+export WITH_RUST
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 echo "== [1/5] cargo build --release =="
-(cd engine && cargo build --release)
+if [[ "$WITH_RUST" == "1" ]]; then
+  (cd engine && cargo build --release)
+else
+  echo "  (skipped: set WITH_RUST=1 to build the release host and run the Rust suites)"
+fi
 
 echo
 echo "== [2/5] cargo test =="
-(cd engine && cargo test)
+if [[ "$WITH_RUST" == "1" ]]; then
+  (cd engine && cargo test)
+else
+  echo "  (skipped: WITH_RUST is not 1)"
+fi
 
 echo
 echo "== [3/5] node --test (extension, excluding chrome_e2e) =="

@@ -1,6 +1,7 @@
 name: test
 
-# Enforces the full matrix on every push/PR:
+# Enforces the full matrix on every push/PR (WITH_RUST=1, which a plain local
+# `npm test` leaves off so it compiles no Rust):
 #   cargo build --release  (so the release_host staleness guard is meaningful)
 #   cargo test
 #   node --test extension/test/*.test.mjs  (excluding the real-Chromium E2E)
@@ -56,10 +57,12 @@ jobs:
           sudo apt-get install -y desktop-file-utils python3-tk xvfb \
                                   python3-pil python3-pil.imagetk
 
-      # Note: `npm test` runs `cargo build --release` first, so a cached
-      # engine/target cannot cause a false "release binary is STALE".
+      # WITH_RUST=1 turns on the two cargo steps, which `npm test` skips by
+      # default (a local run needs no toolchain). The release build runs first,
+      # so a cached engine/target cannot cause a false "release binary is
+      # STALE" — and the release_host guard fails rather than skips here.
       - name: Run full test matrix
-        run: npm test
+        run: WITH_RUST=1 npm test
 
   chrome-e2e:
     # The only test that exercises the real browser -> content.js -> background
