@@ -1859,6 +1859,13 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
     sites_lb = add_list(ft, "File Types",
                         "Don't start downloading automatically from the following sites:",
                         s["file_types"]["exclude_sites"], "file_types.exclude_sites")
+    # Sites are matched against the host, addresses against the whole URL, so
+    # an ad path can be excluded without excluding the site that carries it.
+    # The browser extension reads both through the host's get_settings.
+    addrs_lb = add_list(ft, "File Types",
+                        "Don't start downloading automatically from the following addresses:",
+                        s["file_types"]["exclude_addresses"],
+                        "file_types.exclude_addresses")
 
     def _add_type():
         ext = ask("Add file type", "Extension (without the dot):")
@@ -1877,12 +1884,19 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
         site = ask("Add site", "Site to exclude (host or URL):")
         lb_add_value(sites_lb, site)
 
+    def _add_address():
+        addr = ask("Add address",
+                   "Address to exclude (wildcards allowed, e.g. */ads/*):")
+        lb_add_value(addrs_lb, addr)
+
     add_buttons(ft, "File Types", [
         ("Add", _add_type),
         ("Remove", lambda: lb_remove_selected(auto_lb)),
         ("Edit list...", _edit_types),
         ("Add site", _add_site),
         ("Remove site", lambda: lb_remove_selected(sites_lb)),
+        ("Add address", _add_address),
+        ("Remove address", lambda: lb_remove_selected(addrs_lb)),
     ])
 
     # --- Connection --------------------------------------------------------
@@ -3414,6 +3428,11 @@ def selftest_options_data(state_dir):
 
     s = _set_sound_event(s, "Download complete", "/usr/share/done.wav")
 
+    # Addresses excluded from automatic capture: the extension reads these
+    # through the host, so they have to survive a save/reload like the rest.
+    s["file_types"]["exclude_addresses"] = ["*/ads/*", "*/tracker/*"]
+    s["file_types"]["exclude_addresses"].remove("*/tracker/*")
+
     save_settings(state_dir, s)
     r = load_settings(state_dir)
 
@@ -3447,6 +3466,11 @@ def selftest_options_data(state_dir):
 
     if r["sounds"]["events"].get("Download complete") != "/usr/share/done.wav":
         fail("sound event not persisted: %r" % (r["sounds"]["events"],))
+        return 1
+
+    if r["file_types"]["exclude_addresses"] != ["*/ads/*"]:
+        fail("excluded addresses not persisted: %r"
+             % (r["file_types"]["exclude_addresses"],))
         return 1
 
     print("OPTIONS-DATA: OK", flush=True)
