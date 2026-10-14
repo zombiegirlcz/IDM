@@ -22,7 +22,15 @@ function runScript(env) {
   const dir = mkdtempSync(join(tmpdir(), 'idm_testsh_'));
   const log = join(dir, 'cargo.log');
   writeFileSync(join(dir, 'cargo'), `#!/usr/bin/env bash\necho "$@" >> ${log}\n`);
-  writeFileSync(join(dir, 'node'), '#!/usr/bin/env bash\nexit 0\n');
+  // `node` does nothing — except when asked to decide about the Chromium E2E,
+  // where the script needs an actual decision line to read. Stubbing that as a
+  // skip keeps this test about the Rust opt-in instead of about browsers.
+  writeFileSync(
+    join(dir, 'node'),
+    '#!/usr/bin/env bash\n'
+      + 'case "$*" in *chrome_e2e_decide*) printf "skip\\t\\t\\tstubbed\\n";; esac\n'
+      + 'exit 0\n',
+  );
   chmodSync(join(dir, 'cargo'), 0o755);
   chmodSync(join(dir, 'node'), 0o755);
   const r = spawnSync('bash', [join(repoRoot, 'scripts/test.sh')], {
@@ -45,4 +53,27 @@ test('WITH_RUST=1 runs the release build and the cargo suites', () => {
   assert.equal(r.status, 0, 'stdout: ' + r.stdout + '\nstderr: ' + r.stderr);
   assert.match(r.cargo, /build --release/, 'cargo log: ' + r.cargo);
   assert.match(r.cargo, /^test$/m, 'cargo log: ' + r.cargo);
+});
+
+test('a decider that says nothing fails the run', () => {
+  // The Chromium E2E step reads its decision from a node script. If that
+  // script breaks, the step must stop the suite rather than silently skip the
+  // one test that drives a real browser.
+  const dir = mkdtempSync(join(tmpdir(), 'idm_testsh_'));
+  writeFileSync(join(dir, 'cargo'), '#!/usr/bin/env bash\nexit 0\n');
+  writeFileSync(join(dir, 'node'), '#!/usr/bin/env bash\nexit 0\n');
+  chmodSync(join(dir, 'cargo'), 0o755);
+  chmodSync(join(dir, 'node'), 0o755);
+  const r = spawnSync('bash', [join(repoRoot, 'scripts/test.sh')], {
+    env: { ...process.env, PATH: dir + ':' + process.env.PATH, WITH_RUST: '' },
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  assert.notEqual(r.status, 0, 'an empty decision must not pass: ' + r.stdout);
+});
+
+test('the Chromium E2E is a gated step, not an exclusion', () => {
+  const sh = readFileSync(join(repoRoot, 'scripts/test.sh'), 'utf8');
+  assert.match(sh, /chrome_e2e_decide\.mjs/, 'step 6 must ask the gate');
+  assert.match(sh, /chrome_e2e\.test\.mjs/, 'and then actually run the harness');
 });
