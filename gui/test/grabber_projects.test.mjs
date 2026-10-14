@@ -133,3 +133,37 @@ test('saved projects hang under the "Grabber projects" tree node', () => {
   assert.equal(r.opened_title, 'IDM Grabber');
   assert.equal(r.opened_start, 'https://a/');
 });
+
+// Selecting (single click) a saved project in the tree used to filter the
+// list by a category named after the project -- a category that does not
+// exist, so the list went empty. Only the double click means anything on
+// those nodes; a plain selection must leave the view alone.
+test('selecting a project node is not a category change', () => {
+  const r = py(`
+nodes = {"I003": "Nightly", "I004": "Comics"}
+print("R:" + json.dumps({
+  "category": g.category_for_node("I001", "Compressed", nodes),
+  "project": g.category_for_node("I003", "Nightly", nodes),
+  "heading": g.category_for_node("I002", "Grabber projects", {}),
+  "none": g.category_for_node(None, None, nodes),
+}))
+`);
+  assert.equal(r.category, 'Compressed', 'an ordinary category still selects');
+  assert.equal(r.project, null, 'a project node selects no category');
+  assert.equal(r.heading, 'Grabber projects');
+  assert.equal(r.none, null);
+});
+
+test('the tree keeps its category when a project is selected', () => {
+  const dir = stateDir();
+  writeFileSync(join(dir, 'settings.json'), JSON.stringify({
+    grabber_projects: [{ name: 'Nightly', start: 'https://a/' }],
+  }));
+  const out = execFileSync('xvfb-run', ['-a', 'python3', script,
+    '--selftest-grabber-tree', '--state-dir', dir], { encoding: 'utf8' });
+  const line = out.split('\n').find((l) => l.startsWith('GRABTREE:'));
+  assert.ok(line, `no GRABTREE: line in output:\n${out}`);
+  const r = JSON.parse(line.slice('GRABTREE:'.length));
+  assert.equal(r.category_after_select, 'All Downloads',
+    'selecting a project must not repoint the category filter');
+});

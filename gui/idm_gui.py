@@ -1525,6 +1525,21 @@ def grabber_project(settings: dict, name: str) -> dict:
     return out
 
 
+def category_for_node(iid, text, grabber_nodes) -> str | None:
+    """Which category a selected tree node stands for, if any.
+
+    The nodes under "Grabber projects" are not categories: a saved project
+    named Nightly has no matching category, so treating its selection as a
+    category change emptied the list. Only the double click means anything
+    there, so a plain selection of such a node points at no category.
+    """
+    if not iid or not text:
+        return None
+    if iid in (grabber_nodes or {}):
+        return None
+    return text
+
+
 def grabber_projects(settings: dict) -> list:
     """Every saved project, by name, with the defaults filled in."""
     return [grabber_project(settings, n)
@@ -3675,7 +3690,10 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
 
     def _selected_category():
         sel = tree.selection()
-        return tree.item(sel[0], "text") if sel else None
+        if not sel:
+            return None
+        return category_for_node(sel[0], tree.item(sel[0], "text"),
+                                 w.get("grabber_nodes", {}))
 
     def _add_category():
         cw, getter = _dialog_category(root, load_settings(state_dir))
@@ -3797,6 +3815,7 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         apply_items(items)
 
     w["apply_items"] = apply_items
+    w["view"] = view
 
     # --- Search box and category tree drive the list -----------------------
     # Both are created above, before `view` exists, so they are bound here.
@@ -4694,8 +4713,11 @@ def selftest_grabber_tree(state_dir):
     # Open the second one the way a user would: select it, double click.
     opened_title, opened_start = "", ""
     kids = tree.get_children(node) if node else []
+    category_after_select = w["view"]["category"]
     if kids:
         tree.selection_set(kids[-1])
+        main_root.update()  # let <<TreeviewSelect>> fire, as a click would
+        category_after_select = w["view"]["category"]
         dialog = w["open_grabber_project"]()
         if dialog is not None:
             dialog.withdraw()
@@ -4713,6 +4735,7 @@ def selftest_grabber_tree(state_dir):
         "children": children,
         "opened_title": opened_title,
         "opened_start": opened_start,
+        "category_after_select": category_after_select,
     }), flush=True)
     return 0
 
