@@ -49,10 +49,20 @@ jobs:
         with:
           key: ${{ matrix.target }}
 
+      # The vault key belongs in the OS keyring, and the keyring backends need
+      # a system library. Without this the shipped binary falls back to
+      # secrets.key on disk -- which works, but is the weaker half of the
+      # design, so the published build is the one that gets the real thing.
+      - name: Install keyring backend headers (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Build
         shell: bash
         working-directory: engine
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --features keyring --target ${{ matrix.target }}
 
       - name: Stage artifacts (Windows)
         if: matrix.os == 'windows-latest'
