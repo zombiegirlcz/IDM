@@ -748,6 +748,43 @@ def _upsert_site_login(settings: dict, url: str, user: str, password: str,
     return out
 
 
+def migrate_site_logins(settings: dict, store) -> dict:
+    """Move plaintext site-login passwords into the vault.
+
+    `store` is a callable taking the password and returning a `secret:<id>`
+    reference, or "" if it could not be stored -- `Api.store_password` in the
+    window, a stub in the tests.
+
+    Three rules, all of them about not losing a password:
+      * a record that already has a `password_ref` is left alone, so this does
+        not re-send anything on every save;
+      * `"password": ""` means "no password set", which is not a password to
+        migrate;
+      * a refusal from the engine leaves the plaintext exactly where it was.
+        It will be tried again on the next save.
+    """
+    out = _deep_merge(DEFAULT_SETTINGS, settings or {})
+    logins = []
+    for rec in out.get("site_logins", []):
+        rec = dict(rec or {})
+        password = str(rec.get("password") or "")
+        if rec.get("password_ref") or not password:
+            logins.append(rec)
+            continue
+        try:
+            ref = store(password)
+        except Exception:  # noqa: BLE001
+            ref = ""
+        if ref:
+            rec["password_ref"] = ref
+            # Removed, not emptied: an empty password is a legitimate value
+            # and must not be mistaken for "already migrated".
+            rec.pop("password", None)
+        logins.append(rec)
+    out["site_logins"] = logins
+    return out
+
+
 def _delete_site_login(settings: dict, url: str) -> dict:
     out = _deep_merge(DEFAULT_SETTINGS, settings or {})
     out["site_logins"] = [x for x in out.get("site_logins", [])
@@ -3883,7 +3920,10 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         _dialog_options(
             root,
             settings=load_settings(state_dir),
-            on_save=lambda st: save_settings(state_dir, st),
+            # Migrate on the way out: reading settings.json stays reading,
+            # and an OK in this dialog is what moves the passwords.
+            on_save=lambda st: save_settings(
+                state_dir, migrate_site_logins(st, api.store_password)),
             state_dir=state_dir,
             out_dir=out_dir,
             api=api,
@@ -4490,6 +4530,40 @@ def selftest_store_password():
         "sent": seen[0][1] if seen else {},
         "ref": ref,
         "record": record,
+    }, sort_keys=True), flush=True)
+    return 0
+
+
+def selftest_migrate_logins():
+    """Prove a save migrates the plaintext logins and keeps the rest."""
+    sent = []
+
+    def store(password):
+        sent.append(password)
+        return "secret:%016x" % len(sent)
+
+    def refuse(_password):
+        return ""
+
+    settings = {"site_logins": [
+        {"url": "https://a/", "user": "alice", "password": "s3cret"},
+        {"url": "https://b/", "user": "bob", "password": "hunter2"},
+        {"url": "https://c/", "user": "carol", "password_ref": REF_FOR_TESTS},
+        {"url": "https://nopass/", "user": "anon", "password": ""},
+    ]}
+    after = migrate_site_logins(settings, store)
+    one = {"site_logins": [{"url": "https://a/", "user": "alice",
+                            "password": "s3cret"}]}
+    refused = migrate_site_logins(one, refuse)["site_logins"][0]
+
+    with_password = [r for r in after["site_logins"] if r.get("password_ref")]
+    untouched = [r for r in after["site_logins"]
+                 if not r.get("password_ref")]
+    print("MIGRATED:" + json.dumps({
+        "sent": sent,
+        "after": with_password,
+        "untouched": untouched[0] if untouched else {},
+        "on_refusal": refused,
     }, sort_keys=True), flush=True)
     return 0
 
@@ -5433,6 +5507,7 @@ def main(argv=None):
     p.add_argument("--grabber-depth", type=int, default=None)
     p.add_argument("--grabber-external-depth", type=int, default=None)
     p.add_argument("--selftest-grabber-project", action="store_true")
+    p.add_argument("--selftest-migrate-logins", action="store_true")
     p.add_argument("--selftest-add-ref", action="store_true")
     p.add_argument("--selftest-store-password", action="store_true")
     p.add_argument("--selftest-grabber-tree", action="store_true")
@@ -5472,6 +5547,8 @@ def main(argv=None):
         return selftest_drop_paste()
     if args.selftest_row:
         return selftest_row()
+    if args.selftest_migrate_logins:
+        return selftest_migrate_logins()
     if args.selftest_add_ref:
         return selftest_add_ref()
     if args.selftest_store_password:

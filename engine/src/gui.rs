@@ -1101,6 +1101,45 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 respond(&mut sock, 404, json, br#"{"ok":false,"error":"no such item"}"#).await;
             }
         }
+        ("POST", "/api/secrets") => {
+            // The GUI has no engine binary to shell out to, so this is how a
+            // password gets into the vault. The value arrives in the body, the
+            // same loopback channel that has always carried `auth`; what the
+            // caller gets back is only a reference. There is deliberately no
+            // endpoint that reads one back out.
+            let v: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
+            let value = v["value"].as_str().unwrap_or("");
+            if value.is_empty() {
+                respond(&mut sock, 400, json, br#"{"ok":false,"error":"missing value"}"#).await;
+                return;
+            }
+            match vault_of(&st).set(value) {
+                Ok(r) => {
+                    let msg = serde_json::json!({ "ok": true, "ref": r });
+                    respond(&mut sock, 200, json, msg.to_string().as_bytes()).await;
+                }
+                Err(e) => {
+                    // The GUI keeps the plaintext when this fails, so the
+                    // reason matters more than the status code.
+                    let msg = serde_json::json!({ "ok": false, "error": format!("{:#}", e) });
+                    respond(&mut sock, 500, json, msg.to_string().as_bytes()).await;
+                }
+            }
+        }
+        ("GET", "/api/secrets-status") => {
+            // For the line under Options -> Site Logins.
+            let vault = vault_of(&st);
+            let status = if !vault.exists() {
+                "not stored yet".to_string()
+            } else {
+                match vault.key_source() {
+                    Ok(src) => src.describe().to_string(),
+                    Err(e) => format!("unreadable vault ({:#})", e),
+                }
+            };
+            let msg = serde_json::json!({ "ok": true, "status": status });
+            respond(&mut sock, 200, json, msg.to_string().as_bytes()).await;
+        }
         ("POST", "/api/formats") => {
             // The GUI speaks only to this API, so listing a media URL's formats
             // has to happen here: run the engine's --list-formats and pass the
