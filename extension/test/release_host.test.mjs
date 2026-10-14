@@ -8,12 +8,16 @@
 //
 // This test therefore runs the REAL release binary (not CARGO_BIN_EXE_*) and
 // asserts:
-//   * it exists (fails with a build instruction otherwise),
+//   * it exists — a failure when WITH_RUST=1 built it, a skip when this run
+//     compiled no Rust at all (see extension/release_host_guard.mjs),
 //   * it is not older than its source (staleness guard),
 //   * it fails closed without --allowed-dir,
 //   * it works when --allowed-dir is supplied.
 //
 // Runs with: node --test extension/test/release_host.test.mjs
+//
+// WITH_RUST: `npm test` only builds the release binary when WITH_RUST=1, so
+// without the flag these checks skip instead of failing on an absent binary.
 //
 // CI CAVEAT (mtime guard): the staleness check below compares mtimes, so a
 // fresh checkout layered over a CACHED `engine/target/` can report a FALSE
@@ -29,6 +33,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { releaseHostMode } from '../release_host_guard.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ext = join(here, '..');
@@ -38,6 +43,13 @@ const RELEASE_ENGINE = join(repoRoot, 'engine/target/release/idm');
 const HOST_SRC = join(repoRoot, 'engine/src/bin/idm_host.rs');
 
 const BUILD_HINT = 'build it first: (cd ' + join(repoRoot, 'engine') + ' && cargo build --release)';
+
+// A run that compiled no Rust has no binary to judge; one that did must find it.
+const DECISION = releaseHostMode({
+  exists: existsSync(RELEASE_HOST),
+  withRust: process.env.WITH_RUST === '1',
+});
+const SKIP = DECISION.mode === 'skip' ? DECISION.reason : false;
 
 // Fail with a clear instruction when the release binary is absent, so a fresh
 // checkout / CI does not silently pass or crash on a bare ENOENT.
@@ -61,11 +73,11 @@ function tmp(tag) {
   return mkdtempSync(join(tmpdir(), 'idm_rel_' + tag + '_'));
 }
 
-test('release host binary exists', () => {
+test('release host binary exists', { skip: SKIP }, () => {
   requireReleaseHost();
 });
 
-test('release host binary is not stale', () => {
+test('release host binary is not stale', { skip: SKIP }, () => {
   requireReleaseHost();
   const bin = statSync(RELEASE_HOST).mtimeMs;
   const src = statSync(HOST_SRC).mtimeMs;
@@ -84,7 +96,7 @@ test('release host binary is not stale', () => {
   );
 });
 
-test('release host fails closed without --allowed-dir', () => {
+test('release host fails closed without --allowed-dir', { skip: SKIP }, () => {
   requireReleaseHost();
   const dir = tmp('noallow');
   const out = join(dir, 'must_not_exist.bin');
@@ -101,7 +113,7 @@ test('release host fails closed without --allowed-dir', () => {
   assert.ok(!existsSync(out), 'nothing may be written without --allowed-dir');
 });
 
-test('release host answers ping when --allowed-dir is supplied', () => {
+test('release host answers ping when --allowed-dir is supplied', { skip: SKIP }, () => {
   requireReleaseHost();
   const dir = tmp('ok');
   const r = runHost(['--engine', RELEASE_ENGINE, '--allowed-dir', dir], frame({ action: 'ping' }));

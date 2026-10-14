@@ -274,10 +274,11 @@ Engine sám tato schémata rozumí: `idm "idmdwnlmfv9://https://x/y.zip"` stáhn
 
 ## 5) Testy
 
-Vše jedním příkazem (vyžaduje **Rust toolchain** a **Node 22+**):
+Vše jedním příkazem (vyžaduje **Node 22+**):
 
 ```bash
-npm test
+npm test            # bez Rustu: Node sady (extension, GUI, instalátor)
+WITH_RUST=1 npm test  # celá matice včetně cargo
 ```
 
 `npm test` spouští `scripts/test.sh`, který postupně: (1) `cargo build --release`
@@ -285,8 +286,13 @@ npm test
 (3) `node --test` na všechny `extension/test/*.test.mjs` **kromě** `chrome_e2e.test.mjs`
 (ten potřebuje funkční Chromium + display, spouští se ručně).
 
-**Požadavky:** Rust toolchain (`cargo`) a Node 22 nebo novější (`node --test`,
-`zlib.crc32`). CI: `.github/workflows/test.yml` volá `npm test`.
+Kroky (1) a (2) jsou **opt-in přes `WITH_RUST=1`** — bez něj se nic nekompiluje
+a `release_host.test.mjs` se přeskočí, protože žádná release binárka vzniknout
+neměla. S `WITH_RUST=1` ten guard naopak padá, když binárka chybí nebo je stará.
+
+**Požadavky:** Node 22 nebo novější (`node --test`, `zlib.crc32`); Rust
+toolchain (`cargo`) jen pro `WITH_RUST=1`. CI:
+`.github/workflows/test.yml` volá `WITH_RUST=1 npm test`.
 
 ### Rust
 
@@ -328,7 +334,7 @@ Pokrývá:
 - `capture_dom.test.mjs` — **funkční DOM** (jsdom): reálné `<video>`/`<a download>`/klik → opkódy `[22]`/`[41]`/`[39]` → `background.js` → skutečný `idm-host` → soubor s CRC32
 - `media_ui.test.mjs` — schéma pro `list_formats`/`normalizeFormats`/media download options (+ `category_dir`), manifest `action.default_popup`, popup skript (čte URL záložky, ptá se na formáty, posílá download)
 - `shell_integration.test.mjs` — `install-shell.sh` na throwaway `$HOME`: validní desktop soubory, registrace schématu v `mimeapps.list`, wrapper s `%u`, kontextové akce, `--uninstall`
-- `release_host.test.mjs` — regresní guard na **nasazenou release binárku** (`target/release/idm-host`, ne `CARGO_BIN_EXE_*`): existence, **čerstvost** (nesmí být starší než `src/bin/idm_host.rs`) a fail-closed bez `--allowed-dir`
+- `release_host.test.mjs` — regresní guard na **nasazenou release binárku** (`target/release/idm-host`, ne `CARGO_BIN_EXE_*`): existence, **čerstvost** (nesmí být starší než `src/bin/idm_host.rs`) a fail-closed bez `--allowed-dir` — bez `WITH_RUST=1` se přeskočí (nic se nekompilovalo)
 
 ## Bezpečnost
 
