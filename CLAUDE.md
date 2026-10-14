@@ -10,10 +10,15 @@ hotové binárky z GitHub release.
 Co je **ověřené uživatelem**: CLI engine — stáhne video ze stránky (yt-dlp
 cesta), resume, `--aria2`, trezor na hesla.
 
-Co **ověřené není**: chování extension v prohlížeči a nativní okno v běžném
-provozu. Pokrývají je testy (protokol, opcode, filtry záchytu, stavba okna
-pod xvfb), ale ruční průchod reálným Chrome se nedělal — `chrome_e2e.test.mjs`
-je v CI `continue-on-error`. Netvrdit o nich, že fungují.
+Co je **ověřené testem reálného prohlížeče**: celý řetěz záchytu v Chromiu
+i ve Firefoxu — důvěryhodný klik na `<a download>` → `content.js` →
+`background.js` → `connectNative` → `idm-host` → engine → soubor s přesným
+CRC32. Oba jsou **blokující** CI joby (`chrome-e2e`, `firefox-e2e`), ne
+`continue-on-error`.
+
+Co **ověřené není**: nativní okno v běžném provozu a UI rozšíření mimo ten
+jeden řetěz (popup, Options, context menu) — ty pokrývají jen jsdom testy.
+Ruční průchod prohlížečem u sebe se nedělal. Netvrdit o nich, že fungují.
 
 ## Kde co je
 
@@ -25,16 +30,25 @@ je v CI `continue-on-error`. Netvrdit o nich, že fungují.
 | `engine/src/secrets.rs` | šifrovaný trezor na hesla (`secrets.json`) |
 | `gui/idm_gui.py` | nativní okno (Tk, stdlib-only — žádná nativní závislost) |
 | `extension/` | MV3: `background.js`, `content.js`, `settings.js` (filtry záchytu) |
+| `extension/manifest.json` | **jeden manifest pro oba prohlížeče** — `service_worker` čte Chrome, `scripts` Firefox |
+| `extension/com.tonec.idm*.json` | manifesty hosta: Chrome (`allowed_origins`) a Firefox (`allowed_extensions`) |
+| `extension/test/marionette.mjs` | klient Marionette (pohání reálný Firefox, žádná závislost) |
 | `test/`, `gui/test/`, `extension/test/`, `engine/tests/` | čtyři sady testů |
 | `docs/superpowers/specs/` | design dokumenty |
 
 ## Testy
 
 ```bash
-npm test               # Node sady: extension + GUI + instalátor. Žádný Rust.
+npm test               # Node sady: extension + GUI + instalátor + oba prohlížeče
 WITH_RUST=1 npm test   # celá matice včetně cargo build --release a cargo test
 node --test gui/test/  # jen okno (nejčastější smyčka)
 ```
+
+**Sedm kroků, ne pět.** Krok 6 je reálné Chromium (Playwright), krok 7 reálný
+Firefox (Marionette). Oba mají gate (`chromeE2eMode`, `firefoxE2eMode`): když
+prohlížeč chybí nebo **nenastartuje**, krok se přeskočí s uvedeným důvodem;
+`RUN_CHROME_E2E=1` / `RUN_FIREFOX_E2E=1` z toho přeskočení udělají chybu, takže
+CI job nemůže projít tím, že netestuje nic.
 
 **Rust se ověřuje v CI, ne lokálně.** `npm test` proto Rust přeskakuje; kroky
 1 a 2 ve `scripts/test.sh` jedou jen při `WITH_RUST=1`, které nastavuje CI.
@@ -79,6 +93,22 @@ ověřování změn.
 - **Dva agenti ve worktree si můžou zavést stejnou věc** (dvakrát
   `_RecordingApi`); git to smerguje bez konfliktu a Python první definici
   zastíní. Po merge vždy projet celou sadu.
+- **Chromium v nepodporovaném kernelu umře SIGTRAPem (exit 133)** okamžitě,
+  bez jediné CHECK hlášky — a stejně tak Playwrightův vlastní build. Proto gate
+  binárku **smoke-spustí** na `about:blank`; existence souboru nic neznamená.
+  (Na kernelu 4.14/aarch64 tady Chromium nejede, Firefox ano.)
+- **`IFS=$'\t' read` kolabuje posloupnost tabulátorů**, protože tab je IFS
+  whitespace. Prázdné pole tím posune všechna další doleva — `skip` bez binárky
+  doručil svůj důvod do kolonky `xvfb`. Proto `formatDecision()` píše `-`,
+  nikdy prázdno.
+- **Engine soubor preallokuje**, takže cílové velikosti dosáhne dávno před
+  dopsáním obsahu. E2E musí čekat na **CRC**, ne na velikost.
+- **Import testovacího modulu ten test spustí** (`node:test` se rozjede sám),
+  takže `node -e "import(...)"` jako kontrola syntaxe nastartuje prohlížeč.
+  Na syntaxi je `node --check`.
+- **Firefox MV3 nebere `background.service_worker`** („currently disabled. Add
+  background.scripts") a native messaging povoluje podle **gecko id**, ne podle
+  `chrome-extension://` originu.
 - `settings.json`, `queue.json` i `secrets.json` se píšou **atomicky
   (tmp + rename) s 0600**. Zápis na místo nechává čtenáře vidět torzo.
 
@@ -119,6 +149,12 @@ kompilace.
   pořád je. Krok 2 specu to vědomě odložil.
 - **Site login pro grabber** a offline konverze odkazů (bod 4 roadmapy)
   zůstaly mimo rozsah.
+- **Firefox add-on není podepsaný.** E2E ho instaluje jako `temporary`, což
+  vydrží do zavření prohlížeče. Trvalá instalace chce podpis z AMO (nebo
+  Developer/ESR edici s `xpinstall.signatures.required=false`); `install.sh`
+  zaregistruje jen hosta, samotné rozšíření si uživatel musí nahrát sám.
+- **`--screenshot` je jednorázový snímek, ne stream.** Živé sledování okna by
+  chtělo x11vnc, které vědomě není součástí.
 - `idm --version` neexistuje (clap hlásí `unexpected argument`); okno bere
   verzi z `VERSION` v `idm_gui.py`.
 - Na originu leží větev `security-audit-fixes`, kterou tahle session
