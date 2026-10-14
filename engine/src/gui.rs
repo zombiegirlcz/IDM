@@ -132,6 +132,10 @@ struct Item {
     /// makes its future's type refer to itself and does not compile.
     #[serde(default)]
     retry_at: u64,
+    /// Free-form note from the Properties dialog. Metadata only: nothing in
+    /// the engine reads it, it just has to survive a restart.
+    #[serde(default)]
+    description: String,
     #[serde(default)]
     status: String,
     #[serde(default)]
@@ -378,6 +382,7 @@ async fn add_item(
         retries: opts.retries,
         attempts: 0,
         retry_at: 0,
+        description: String::new(),
         status: "pending".to_string(),
         downloaded: 0,
         total: 0,
@@ -768,6 +773,52 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 let mut items = st.items.lock().await;
                 if let Some(it) = items.iter_mut().find(|i| i.id == id) {
                     it.queue = queue;
+                    found = true;
+                }
+            }
+            if found {
+                save(&st).await;
+                respond(&mut sock, 200, json, br#"{"ok":true}"#).await;
+            } else {
+                respond(&mut sock, 404, json, br#"{"ok":false,"error":"no such item"}"#).await;
+            }
+        }
+        ("POST", "/api/update") => {
+            // Properties: edit the three fields the dialog shows. Only the keys
+            // present in the body change, so the dialog can send a single field.
+            let v: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
+            let id = v["id"].as_u64().unwrap_or(0);
+            let new_url = v.get("url").and_then(|x| x.as_str());
+            let new_out = v.get("output").and_then(|x| x.as_str());
+            let new_desc = v.get("description").and_then(|x| x.as_str());
+
+            // Retargeting a download that is in flight would leave the running
+            // worker writing the old file while the item claims the new one.
+            // The description is metadata and is always safe to change.
+            let running = st.ctrl.lock().await.contains_key(&id);
+            if running && (new_url.is_some() || new_out.is_some()) {
+                let msg = br#"{"ok":false,"error":"download is running; pause it first"}"#;
+                respond(&mut sock, 409, json, msg).await;
+                return;
+            }
+
+            let mut found = false;
+            {
+                let mut items = st.items.lock().await;
+                if let Some(it) = items.iter_mut().find(|i| i.id == id) {
+                    if let Some(u) = new_url {
+                        if !u.is_empty() {
+                            it.url = u.to_string();
+                        }
+                    }
+                    if let Some(o) = new_out {
+                        if !o.is_empty() {
+                            it.output = PathBuf::from(o);
+                        }
+                    }
+                    if let Some(d) = new_desc {
+                        it.description = d.to_string();
+                    }
                     found = true;
                 }
             }

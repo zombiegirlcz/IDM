@@ -72,6 +72,7 @@ COLUMNS = [
     ("speed", "Speed", 90),
     ("time", "Time Left", 80),
     ("queue", "Q", 40),
+    ("description", "Description", 180),
 ]
 
 # Toolbar buttons, in IDM order.
@@ -248,6 +249,22 @@ class Api:
             body["ignore_mtime"] = True
         r = self._req("POST", "/api/add", body)
         return int(r.get("id", 0))
+
+    def update(self, i: int, url: str | None = None, output: str | None = None,
+               description: str | None = None) -> dict:
+        """Edit an item's Properties fields.
+
+        Only the fields given are sent: an omitted key leaves the stored value
+        alone, so saving the dialog with an untouched URL cannot blank it.
+        """
+        body: dict = {"id": i}
+        if url is not None:
+            body["url"] = url
+        if output is not None:
+            body["output"] = output
+        if description is not None:
+            body["description"] = description
+        return self._req("POST", "/api/update", body)
 
     def set_queue(self, i: int, queue: str) -> dict:
         """Move a download into a queue ("" = the main queue)."""
@@ -2410,8 +2427,13 @@ def _dialog_scheduler(parent, api=None, queue_names=None, state_dir=""):
     return win, nb
 
 
-def _dialog_properties(parent, url, out):
-    """IDM 'Properties' dialog."""
+def _dialog_properties(parent, url, out, description="", on_ok=None):
+    """IDM 'Properties' dialog.
+
+    `on_ok` receives {"url", "output", "description"} when the user confirms.
+    Without it the dialog is read-only, which is what it used to be for every
+    caller: OK just closed the window and the edits were dropped.
+    """
     import tkinter as tk
     from tkinter import ttk
 
@@ -2428,13 +2450,35 @@ def _dialog_properties(parent, url, out):
     s.grid(row=1, column=1, padx=8, pady=6)
     ttk.Label(win, text="Description:").grid(row=2, column=0, sticky="w", padx=8, pady=6)
     d = ttk.Entry(win, width=44)
+    d.insert(0, description or "")
     d.grid(row=2, column=1, padx=8, pady=6)
     bar = ttk.Frame(win)
     bar.grid(row=3, column=0, columnspan=2, sticky="e", padx=8, pady=10)
     ttk.Button(bar, text="Open",
                command=lambda: open_path(s.get())).pack(side="left", padx=4)
-    ttk.Button(bar, text="OK", command=win.destroy).pack(side="left", padx=4)
+    def _ok():
+        if on_ok:
+            on_ok({"url": u.get(), "output": s.get(), "description": d.get()})
+        win.destroy()
+
+    ttk.Button(bar, text="OK", command=_ok).pack(side="left", padx=4)
     return win
+
+
+def row_values(it: dict) -> tuple:
+    """One value per entry in COLUMNS, for a single item from /api/items."""
+    dl = it.get("downloaded") or 0
+    total = it.get("total") or 0
+    status = it.get("status", "")
+    return (
+        basename(it.get("url", "")),
+        f"{fmt_size(dl)} / {fmt_size(total)}" if total else fmt_size(dl),
+        status,
+        it.get("speed") or "",
+        it.get("time_left") or "",
+        "*" if status in ("running", "pending") else "",
+        it.get("description") or "",
+    )
 
 
 def dont_show_complete_again(state_dir: str) -> dict:
@@ -2950,7 +2994,28 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
                 meta_path=str(it.get("output", "")) + ".idmmeta",
             )
         else:
-            _dialog_properties(root, it.get("url", ""), it.get("output", ""))
+            before = {
+                "url": it.get("url", ""),
+                "output": str(it.get("output", "")),
+                "description": it.get("description", "") or "",
+            }
+
+            def _save(edited, _i=i, _before=before):
+                # Send only what changed: an unchanged URL must not be resent,
+                # and a running download refuses url/output anyway.
+                changed = {k: v for k, v in edited.items() if v != _before[k]}
+                if not changed:
+                    return
+                try:
+                    api.update(_i, **changed)
+                except Exception as e:  # noqa: BLE001
+                    import tkinter.messagebox as mb
+                    mb.showerror("Properties", str(e), parent=root)
+                    return
+                refresh()
+
+            _dialog_properties(root, it.get("url", ""), it.get("output", ""),
+                               description=before["description"], on_ok=_save)
 
     listview.bind("<Double-1>", _on_open_properties)
 
@@ -3105,16 +3170,11 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         for it in items:
             try:
                 iid = str(it["id"])
-                name = basename(it.get("url", ""))
                 dl = it.get("downloaded") or 0
                 total = it.get("total") or 0
-                size = f"{fmt_size(dl)} / {fmt_size(total)}" if total else fmt_size(dl)
                 st = it.get("status", "")
-                speed = it.get("speed") or ""
-                time_left = it.get("time_left") or ""
-                q = "*" if st in ("running", "pending") else ""
                 # One value per column in COLUMNS; the id lives in the iid.
-                vals = (name, size, st, speed, time_left, q)
+                vals = row_values(it)
             except Exception:  # noqa: BLE001
                 continue
             seen.add(iid)
@@ -3524,6 +3584,92 @@ def selftest_add_body(state_dir, url):
     return 0
 
 
+def selftest_properties_body():
+    """Prove Api.update reaches /api/update with only the edited fields."""
+    import http.server
+
+    seen = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            n = int(self.headers.get("Content-Length") or 0)
+            seen.append((self.path, json.loads(self.rfile.read(n) or b"{}")))
+            out = b'{"ok":true}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+
+        def log_message(self, *a):  # silence the stub
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=lambda: [srv.handle_request(), srv.handle_request()],
+                     daemon=True).start()
+    api = Api("127.0.0.1:%d" % srv.server_address[1], timeout=5.0)
+    api.update(4, url="https://example.com/new.bin", output="/tmp/renamed.bin",
+               description="a note")
+    api.update(4, description="only this")
+    srv.server_close()
+
+    if len(seen) != 2:
+        print("PROPS: FAIL %d requests reached the engine" % len(seen), file=sys.stderr)
+        return 1
+    print("PROPS:" + json.dumps(
+        {"path": seen[0][0], "full": seen[0][1], "partial": seen[1][1]},
+        sort_keys=True), flush=True)
+    return 0
+
+
+def selftest_properties_ok():
+    """The Properties dialog must hand its (edited) fields to the caller."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    got = {}
+    win = _dialog_properties(root, "https://example.com/old.bin", "/tmp/old.bin",
+                             description="old note", on_ok=got.update)
+
+    entries = [w for w in win.winfo_children() if w.winfo_class() == "TEntry"]
+    if len(entries) != 3:
+        print("PROPS-OK: FAIL expected 3 entries, got %d" % len(entries), file=sys.stderr)
+        return 1
+    for entry, value in zip(entries, ["https://example.com/edited.bin",
+                                      "/tmp/edited.bin", "edited note"]):
+        entry.delete(0, "end")
+        entry.insert(0, value)
+
+    ok = None
+    for frame in win.winfo_children():
+        for w in getattr(frame, "winfo_children", lambda: [])():
+            if w.winfo_class() == "TButton" and str(w.cget("text")) == "OK":
+                ok = w
+    if ok is None:
+        print("PROPS-OK: FAIL no OK button", file=sys.stderr)
+        return 1
+    ok.invoke()
+    root.destroy()
+
+    print("PROPS-OK:" + json.dumps(got, sort_keys=True), flush=True)
+    return 0
+
+
+def selftest_row():
+    """Render one item exactly as the main list does."""
+    item = {
+        "id": 1,
+        "url": "https://example.com/file.bin",
+        "downloaded": 1024,
+        "total": 2048,
+        "status": "paused",
+        "description": "a stored note",
+    }
+    print("ROW:" + json.dumps(list(row_values(item))), flush=True)
+    return 0
+
+
 def selftest_dont_show_again(state_dir):
     """"Don't show this dialog again" must switch the setting off for good."""
     before = load_settings(state_dir)["downloads"]["show_complete_dialog"]
@@ -3847,6 +3993,9 @@ def main(argv=None):
     p.add_argument("--selftest-download-options", action="store_true")
     p.add_argument("--selftest-add-body", action="store_true")
     p.add_argument("--selftest-dont-show-again", action="store_true")
+    p.add_argument("--selftest-properties-body", action="store_true")
+    p.add_argument("--selftest-properties-ok", action="store_true")
+    p.add_argument("--selftest-row", action="store_true")
     p.add_argument("--selftest-scheduler", action="store_true")
     p.add_argument("--selftest-live-graph", action="store_true")
     p.add_argument("--meta", help="path to a .idmmeta for --selftest-live-graph")
@@ -3857,6 +4006,12 @@ def main(argv=None):
             print("--selftest-live-graph needs --meta", file=sys.stderr)
             return 2
         return selftest_live_graph(args.meta)
+    if args.selftest_row:
+        return selftest_row()
+    if args.selftest_properties_body:
+        return selftest_properties_body()
+    if args.selftest_properties_ok:
+        return selftest_properties_ok()
     if args.selftest_scheduler:
         return selftest_scheduler(args.state_dir)
     if args.selftest_dont_show_again:
