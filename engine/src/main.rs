@@ -1558,6 +1558,7 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
             state_dir,
             args.max_concurrent,
             engine,
+            args.yt_dlp.clone(),
             args.api_token.clone(),
         )
         .await;
