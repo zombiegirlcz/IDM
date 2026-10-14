@@ -607,6 +607,30 @@ def load_settings(state_dir: str) -> dict:
         return _deep_merge(DEFAULT_SETTINGS, {})
 
 
+def redact_options(options: dict) -> dict:
+    """A copy of the engine options with the passwords taken out.
+
+    For printing only -- the selftest hooks dump the whole dict to stdout, and
+    `auth` carries the user's server password. The user part is kept, so a
+    "which login did this host get" question stays answerable; an empty value
+    is left empty, because "no login for this host" is a thing worth testing.
+    """
+    out = dict(options or {})
+    auth = out.get("auth") or ""
+    if ":" in auth:
+        user, _, _pw = auth.partition(":")
+        out["auth"] = user + ":<redacted>"
+    proxy = out.get("proxy") or ""
+    if "@" in proxy:
+        head, _, rest = proxy.partition("//")
+        userinfo, _, host = rest.rpartition("@")
+        if userinfo:
+            user, sep, _pw = userinfo.partition(":")
+            userinfo = user + ":<redacted>" if sep else user
+            out["proxy"] = head + "//" + userinfo + "@" + host
+    return out
+
+
 def save_settings(state_dir: str, settings: dict) -> None:
     """Atomically write settings.json under STATE_DIR."""
     if not state_dir:
@@ -614,7 +638,13 @@ def save_settings(state_dir: str, settings: dict) -> None:
     os.makedirs(state_dir, exist_ok=True)
     path = settings_path(state_dir)
     tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
+    # 0600 on the temp file, before anything is in it: site_logins hold server
+    # passwords, and os.replace carries the mode over, so the finished file is
+    # never briefly world-readable. Windows has no modes; there the file
+    # inherits the per-user ACL of %LOCALAPPDATA%.
+    flags = os.O_CREAT | os.O_WRONLY | os.O_TRUNC
+    fd = os.open(tmp, flags, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(settings, f, indent=2, ensure_ascii=False)
     os.replace(tmp, path)
 
@@ -4269,7 +4299,8 @@ def selftest_options_data(state_dir):
 def selftest_download_options(state_dir, url):
     """Print the engine options the persisted settings produce for `url`."""
     opts = download_options(load_settings(state_dir), url)
-    print("OPTIONS:" + json.dumps(opts, sort_keys=True), flush=True)
+    print("OPTIONS:" + json.dumps(redact_options(opts), sort_keys=True),
+          flush=True)
     return 0
 
 
@@ -4309,7 +4340,8 @@ def selftest_add_body(state_dir, url):
     if not received:
         print("BODY: FAIL nothing reached /api/add", file=sys.stderr)
         return 1
-    print("BODY:" + json.dumps(received, sort_keys=True), flush=True)
+    print("BODY:" + json.dumps(redact_options(received), sort_keys=True),
+          flush=True)
     return 0
 
 
