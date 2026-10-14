@@ -55,17 +55,17 @@ test('max connections come from settings, and a per-server exception wins', () =
   assert.equal(optionsFor(settings, 'http://notslow.example.com/a.zip').connections, 16);
 });
 
-test('user agent, temp dir and proxy are passed through', () => {
+test('user agent and proxy are passed through', () => {
+  // temp_dir used to be asserted here. It never reached the engine at all --
+  // see gui/test/temp_dir_removed.test.mjs for why the setting is gone.
   const o = optionsFor(
     {
       downloads: { user_agent: 'IDM/6.43' },
-      save_to: { temp_dir: '/var/tmp/idm' },
       proxy: { use_system: false, http: 'http://proxy:8080', socks: '' },
     },
     'http://h/a.zip',
   );
   assert.equal(o.user_agent, 'IDM/6.43');
-  assert.equal(o.temp_dir, '/var/tmp/idm');
   assert.equal(o.proxy, 'http://proxy:8080');
 });
 
@@ -92,7 +92,7 @@ test('the options actually reach /api/add as a request body', () => {
     JSON.stringify({
       connection: { max_connections: 7, exceptions: [] },
       downloads: { user_agent: 'IDM/6.43' },
-      save_to: { default_dir: '/downloads', category_dirs: {}, temp_dir: '/var/tmp/idm' },
+      save_to: { default_dir: '/downloads', category_dirs: {} },
       proxy: { use_system: false, http: 'http://proxy:8080' },
     }),
     'utf8',
@@ -109,6 +109,5 @@ test('the options actually reach /api/add as a request body', () => {
   assert.equal(body.connections, 7);
   assert.equal(body.user_agent, 'IDM/6.43');
   assert.equal(body.out_dir, '/downloads');
-  assert.equal(body.temp_dir, '/var/tmp/idm');
   assert.equal(body.proxy, 'http://proxy:8080');
 });
