@@ -221,6 +221,14 @@ test('install-host.sh generates a wrapper + installed manifest pointing at it', 
   assert.ok(existsSync(link), 'manifest must be linked into the browser dir');
 });
 
+test('the manifest asks for the contextMenus permission', () => {
+  const m = JSON.parse(readFileSync(join(ext, 'manifest.json'), 'utf8'));
+  assert.ok(
+    (m.permissions || []).includes('contextMenus'),
+    `"Download with IDM" needs the contextMenus permission, got: ${JSON.stringify(m.permissions)}`,
+  );
+});
+
 test('the wrapper points the host at the GUI settings file', () => {
   const home = mkdtempSync(join(tmpdir(), 'idm_home_settings_'));
   const downloads = join(home, 'Downloads');

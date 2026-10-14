@@ -28,6 +28,11 @@ const WATCHDOG_MS = 1500;
 // Options dialog takes effect without restarting the browser, long enough that
 // a page full of links does not spawn a round trip per link.
 const SETTINGS_TTL_MS = 30000;
+// A selection can hold an entire link index; downloading all of it would mean
+// thousands of simultaneous requests to the host.
+const MAX_SELECTION_LINKS = 100;
+const MENU_LINK = 'idm-link';
+const MENU_SELECTION = 'idm-selection';
 
 /** @type {chrome.runtime.Port | null} */
 let nativePort = null;
@@ -151,6 +156,90 @@ function noteKey(sender, keyCode, down) {
 // A key held when a tab closes would otherwise stay held forever.
 if (chrome.tabs && chrome.tabs.onRemoved) {
   chrome.tabs.onRemoved.addListener((tabId) => heldKeys.delete(tabId));
+}
+
+// ---- context menu ----
+
+/**
+ * Download because the user asked for it by name.
+ *
+ * Deliberately does NOT consult shouldCapture: file_types and exclude_sites
+ * govern what gets picked up automatically, and applying them here would make
+ * "Download with IDM" silently do nothing on exactly the links a user reaches
+ * for the menu to get. Only max_connections is taken from the settings.
+ */
+async function downloadExplicit(url, pageUrl) {
+  log('explicit download', url, pageUrl || '');
+  const settings = await getCaptureSettings();
+  let req;
+  try {
+    req = buildDownload({ url, connections: settings.connection.max_connections });
+  } catch (e) {
+    log('rejected explicit download', String(e));
+    return;
+  }
+  try {
+    log('host result', await sendToHost(req));
+  } catch (e) {
+    log('host error', String(e));
+  }
+}
+
+function downloadableLinks(links) {
+  const out = [];
+  for (const href of Array.isArray(links) ? links : []) {
+    if (typeof href !== 'string' || !/^https?:/i.test(href)) continue;
+    if (out.includes(href)) continue;
+    out.push(href);
+    if (out.length >= MAX_SELECTION_LINKS) break;
+  }
+  return out;
+}
+
+// Chrome gives the background only `selectionText`, so the links inside the
+// selection have to come from the page itself.
+async function linksInSelection(tabId) {
+  try {
+    const r = await chrome.tabs.sendMessage(tabId, { type: 'links_in_selection' });
+    return r && Array.isArray(r.links) ? r.links : [];
+  } catch (e) {
+    log('cannot read the selection', String(e));
+    return [];
+  }
+}
+
+function createMenus() {
+  chrome.contextMenus.create({
+    id: MENU_LINK,
+    title: 'Download with IDM',
+    contexts: ['link'],
+  });
+  chrome.contextMenus.create({
+    id: MENU_SELECTION,
+    title: 'Download all links with IDM',
+    contexts: ['selection'],
+  });
+}
+
+if (chrome.runtime.onInstalled) {
+  chrome.runtime.onInstalled.addListener(() => createMenus());
+}
+
+if (chrome.contextMenus && chrome.contextMenus.onClicked) {
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    const pageUrl = (tab && tab.url) || info.pageUrl || '';
+    if (info.menuItemId === MENU_LINK && info.linkUrl) {
+      downloadExplicit(info.linkUrl, pageUrl);
+      return;
+    }
+    if (info.menuItemId === MENU_SELECTION && tab && typeof tab.id === 'number') {
+      linksInSelection(tab.id).then((links) => {
+        const urls = downloadableLinks(links);
+        log('selection links', urls.length);
+        for (const u of urls) downloadExplicit(u, pageUrl);
+      });
+    }
+  });
 }
 
 // ---- content.js message handling (opcodes from PROTOCOL.md) ----

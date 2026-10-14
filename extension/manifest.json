@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "Captures download URLs in the page and forwards them to the idm-host native messaging host.",
   "permissions": [
+    "contextMenus",
     "nativeMessaging",
     "downloads",
     "notifications",
