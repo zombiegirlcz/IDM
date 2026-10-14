@@ -174,6 +174,36 @@ struct Item {
     error: Option<String>,
 }
 
+impl Item {
+    /// A copy safe to hand out over the API: no server password, and no proxy
+    /// password inside the proxy URL's user-info.
+    ///
+    /// This is a clone rather than a `skip_serializing` attribute on the field,
+    /// because the very same Serialize impl writes `queue.json`, which does
+    /// need the credentials to survive a restart.
+    fn redacted(&self) -> Item {
+        let mut out = self.clone();
+        out.auth = String::new();
+        out.proxy = redact_url_password(&out.proxy);
+        out
+    }
+}
+
+/// `http://bob:hunter2@host:8080` -> `http://bob@host:8080`. Anything without
+/// user-info comes back untouched -- a proxy host is not a secret.
+fn redact_url_password(url: &str) -> String {
+    let (scheme, rest) = match url.split_once("//") {
+        Some((s, r)) => (s, r),
+        None => return url.to_string(),
+    };
+    let (userinfo, host) = match rest.rsplit_once('@') {
+        Some((u, h)) => (u, h),
+        None => return url.to_string(),
+    };
+    let user = userinfo.split_once(':').map(|(u, _)| u).unwrap_or(userinfo);
+    format!("{}//{}@{}", scheme, user, host)
+}
+
 fn default_conns() -> usize {
     4
 }
@@ -323,6 +353,17 @@ async fn save(st: &State) {
     let items = st.items.lock().await.clone();
     if let Ok(s) = serde_json::to_string_pretty(&items) {
         let _ = tokio::fs::write(&st.state_path, s).await;
+        // The queue holds `auth` (and a proxy URL that can carry a password),
+        // so it gets the same 0600 the api-token file has always had. Windows
+        // has no modes; there the file inherits the per-user ACL of its dir.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(
+                &st.state_path,
+                std::fs::Permissions::from_mode(0o600),
+            );
+        }
     }
 }
 
@@ -533,7 +574,12 @@ async fn run_item(st: Arc<State>, id: u64) {
         cmd.arg("--limit-rate").arg(limit_rate.to_string());
     }
     if !auth.is_empty() {
-        cmd.arg("--auth").arg(&auth);
+        // Through the environment, not argv: process arguments are readable by
+        // every process of this user (`ps`, /proc/<pid>/cmdline), while
+        // /proc/<pid>/environ is readable only by the owner. The engine reads
+        // the variable named here and keeps it from its own children.
+        cmd.env("IDM_AUTH", &auth);
+        cmd.arg("--auth-env").arg("IDM_AUTH");
     }
     if ignore_mtime {
         cmd.arg("--ignore-mtime");
@@ -818,7 +864,11 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
             respond(&mut sock, 200, "text/html; charset=utf-8", page.as_bytes()).await;
         }
         ("GET", "/api/items") => {
-            let items = st.items.lock().await.clone();
+            // Redacted: every holder of the API token -- the built-in web UI
+            // among them -- can read this, and none of them needs the
+            // passwords back.
+            let items: Vec<Item> =
+                st.items.lock().await.iter().map(Item::redacted).collect();
             let v = serde_json::json!({ "items": items });
             respond(&mut sock, 200, json, v.to_string().as_bytes()).await;
         }

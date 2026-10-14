@@ -93,6 +93,14 @@ struct Args {
     #[arg(long)]
     auth: Option<String>,
 
+    /// Name of an environment variable holding USER:PASSWORD, read instead of
+    /// --auth. Process arguments are world-readable through `ps` and
+    /// /proc/<pid>/cmdline; a variable is not, so this is how the GUI passes a
+    /// password. Takes precedence over --auth, and is unset from our own
+    /// environment once read so that yt-dlp and aria2c do not inherit it.
+    #[arg(long)]
+    auth_env: Option<String>,
+
     /// Resume even when the server reports a different modification time
     #[arg(long, default_value_t = false)]
     ignore_mtime: bool,
@@ -174,6 +182,32 @@ struct Net {
     limit_rate: u64,
     /// HTTP basic credentials as USER:PASSWORD, from --auth.
     auth: Option<String>,
+}
+
+/// The credentials to use: `--auth-env NAME` beats `--auth`. An unset or empty
+/// variable means no credentials at all -- never the name itself.
+///
+/// The variable stays in our own environment (/proc/<pid>/environ is readable
+/// only by the owner, unlike cmdline) rather than being removed here: mutating
+/// the environment of a process whose async runtime is already up is not
+/// sound. Children get it stripped at spawn time instead, through
+/// `strip_auth_env`.
+fn auth_from(args: &Args) -> Option<String> {
+    if let Some(name) = args.auth_env.as_deref() {
+        return match std::env::var(name) {
+            Ok(v) if !v.is_empty() => Some(v),
+            _ => None,
+        };
+    }
+    args.auth.clone()
+}
+
+/// Keep the credentials out of a child process (yt-dlp, aria2c): they need the
+/// URL, never the password.
+fn strip_auth_env(cmd: &mut tokio::process::Command, args: &Args) {
+    if let Some(name) = args.auth_env.as_deref() {
+        cmd.env_remove(name);
+    }
 }
 
 impl Net {
@@ -1283,6 +1317,7 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
 
     let aria2c = ensure_aria2c(args).await?;
     let mut cmd = tokio::process::Command::new(&aria2c);
+    strip_auth_env(&mut cmd, args);
     cmd.arg("-x").arg(args.connections.max(1).to_string());
     cmd.arg("-s").arg(args.connections.max(1).to_string());
     cmd.arg("-c");
@@ -1325,7 +1360,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
 
     // --list-formats: report what the backend offers and exit.
     if args.list_formats {
-        let meta = media::probe_json(&args.yt_dlp, url, cookie, referer, args.proxy.as_deref()).await?;
+        let meta = media::probe_json(&args.yt_dlp, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
         println!("{}", serde_json::to_string_pretty(&media::summarize(&meta))?);
         return Ok(());
     }
@@ -1336,7 +1371,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
             // No explicit --output: name the file after the media title (not the
             // URL slug) and honour --category-dir / --output-dir, exactly like
             // the direct path does with filename_from_url.
-            let meta = media::probe_json(&args.yt_dlp, url, cookie, referer, args.proxy.as_deref()).await?;
+            let meta = media::probe_json(&args.yt_dlp, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
             let name = media::output_name(&meta, args.format.as_deref());
             if let Some(base) = args.category_dir.as_deref() {
                 let n = name.file_name().map(|x| x.to_owned()).unwrap_or_default();
@@ -1369,6 +1404,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
         cookie,
         referer,
         args.proxy.as_deref(),
+        args.auth_env.as_deref(),
     )
     .await?;
 
@@ -1596,7 +1632,7 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
         cookie: args.cookie.clone(),
         referer: args.referer.clone(),
         limit_rate: args.limit_rate,
-        auth: args.auth.clone(),
+        auth: auth_from(&args),
     };
 
     // Media path: explicit --force-media/--list-formats, or a URL that looks
