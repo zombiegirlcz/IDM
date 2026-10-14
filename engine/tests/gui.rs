@@ -1151,3 +1151,82 @@ fn api_items_redacts_the_proxy_password() {
 
     let _ = srv.kill();
 }
+
+/// Stub yt-dlp for the queue: writes its payload under a different extension
+/// than `-o` asked for, exactly as the real one does when its merger picks a
+/// container.
+fn make_media_stub(dir: &PathBuf) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let stub = dir.join("yt-dlp");
+    std::fs::write(
+        &stub,
+        r#"#!/usr/bin/env bash
+if [[ "$1" == "-J" ]]; then
+  echo '{"id":"abc","title":"Queued Video","ext":"webm"}'
+  exit 0
+fi
+out=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "-o" ]]; then out="$2"; shift 2; else shift; fi
+done
+printf 'QUEUED-MEDIA-PAYLOAD' > "${out%.*}.webm"
+"#,
+    )
+    .unwrap();
+    let mut perm = std::fs::metadata(&stub).unwrap().permissions();
+    perm.set_mode(0o755);
+    std::fs::set_permissions(&stub, perm).unwrap();
+    stub
+}
+
+#[test]
+fn a_finished_media_download_reports_its_real_name_and_size() {
+    // What the window showed after queueing three YouTube links: three rows
+    // named "watch", "watch" and a slug, each with "-" for size, while the
+    // files on disk were .webm/.mp4 of a few hundred megabytes. The queue
+    // guessed the name from the URL at add time and never learned better,
+    // because the child's stdout is discarded.
+    const PAYLOAD_LEN: u64 = 20; // "QUEUED-MEDIA-PAYLOAD"
+    let out = unique_dir("mout");
+    let state = unique_dir("mstate");
+    let stub = make_media_stub(&state);
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut srv = spawn_server(
+        &addr,
+        &out,
+        &state,
+        &["--yt-dlp", stub.to_str().unwrap()],
+    );
+    wait_ready(&addr);
+
+    let body = serde_json::json!({"url": "https://youtu.be/abc"}).to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "POST /api/add returned {}: {}", st, resp);
+    let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .expect("add must return an id");
+
+    let it = wait_status(&addr, id, "done", 40);
+
+    let real = out.join("abc.webm");
+    assert!(real.exists(), "the stub writes {}", real.display());
+
+    assert_eq!(
+        it["output"].as_str(),
+        real.to_str(),
+        "the queue must name the file that exists, not the guess from the URL: {}",
+        it
+    );
+    assert_eq!(
+        it["total"].as_u64(),
+        Some(PAYLOAD_LEN),
+        "a finished download has a known size, so the Size column must not stay '-': {}",
+        it
+    );
+    assert_eq!(it["downloaded"].as_u64(), Some(PAYLOAD_LEN), "item: {}", it);
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}
