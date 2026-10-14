@@ -48,7 +48,11 @@ import urllib.parse
 import urllib.request
 
 DEFAULT_ADDR = "127.0.0.1:8080"
-VERSION = "1.0.0"
+# Kept in step with engine/Cargo.toml (and so with the git tags), because
+# "Check for updates" compares this against the newest published tag: at
+# "1.0.0" against tags of v0.1.x it could only ever say "up to date".
+# gui/test/version_sync.test.mjs fails if the two drift apart.
+VERSION = "0.1.4"
 
 # Category names exactly as IDM shows them in the left tree.
 CATEGORIES = [
