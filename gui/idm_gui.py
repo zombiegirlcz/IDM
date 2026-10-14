@@ -235,7 +235,8 @@ class Api:
         body = {"url": url, "connections": connections}
         if aria2:
             body["aria2"] = True
-        for key in ("out_dir", "temp_dir", "user_agent", "proxy", "auth"):
+        for key in ("out_dir", "temp_dir", "user_agent", "proxy", "auth",
+                    "queue"):
             value = (options or {}).get(key)
             if value:
                 body[key] = value
@@ -245,6 +246,10 @@ class Api:
             body["ignore_mtime"] = True
         r = self._req("POST", "/api/add", body)
         return int(r.get("id", 0))
+
+    def set_queue(self, i: int, queue: str) -> dict:
+        """Move a download into a queue ("" = the main queue)."""
+        return self._req("POST", "/api/set-queue", {"id": i, "queue": queue})
 
     def pause(self, i: int) -> dict:
         return self._req("POST", "/api/pause", {"id": i})
@@ -854,6 +859,104 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
         "auth": site_login_for(s, url),
         "ignore_mtime": bool(s["downloads"].get("ignore_mtime")),
     }
+
+
+# --- queues as a real thing -----------------------------------------------
+#
+# Queues were two hard-coded strings and _queue_all() resumed or paused
+# everything, so the Schedule tab had nothing to schedule. The schedule lives
+# here (settings.json) and a tick drives the existing pause/resume API; the
+# engine only has to record which queue an item is in.
+
+# A download that never got a queue belongs to the main one, as in IDM.
+DEFAULT_QUEUE = ""
+
+
+def queue_should_run(schedule: dict, now_hms) -> bool:
+    """Is `now_hms` inside this queue's start..stop window?
+
+    The window is half-open (start included, stop excluded) and may cross
+    midnight -- IDM's own default is 23:00 to 07:30, which a plain
+    start <= now < stop would never match. Equal start and stop means the
+    queue is never started by the schedule, rather than always.
+    """
+    start = parse_clock((schedule or {}).get("start_at", ""))
+    stop = parse_clock((schedule or {}).get("stop_at", ""))
+    if start is None or stop is None or start == stop:
+        return False
+    try:
+        now = tuple(now_hms)
+    except TypeError:
+        return False
+    if start < stop:
+        return start <= now < stop
+    # Crosses midnight: inside if after the start OR before the stop.
+    return now >= start or now < stop
+
+
+def items_in_queue(items: list, queue: str) -> list:
+    """The downloads assigned to one queue (an empty name = the main queue)."""
+    want = (queue or DEFAULT_QUEUE).strip()
+    return [it for it in (items or [])
+            if (it.get("queue") or DEFAULT_QUEUE).strip() == want]
+
+
+def queue_actions(items: list, queue: str, start: bool) -> dict:
+    """Which ids to resume and which to pause to start or stop a queue.
+
+    Starting skips what is finished or already in flight; stopping only
+    touches what is actually running. Items in other queues are never
+    touched -- that was the bug in _queue_all().
+    """
+    mine = items_in_queue(items, queue)
+    if start:
+        return {
+            "resume": [it["id"] for it in mine
+                       if it.get("status") not in ("done", "running", "pending")],
+            "pause": [],
+        }
+    return {
+        "resume": [],
+        "pause": [it["id"] for it in mine
+                  if it.get("status") in ("running", "pending")],
+    }
+
+
+def schedule_transitions(settings: dict, state: dict, now_hms) -> list:
+    """[(queue, should_run)] for the queues whose window just opened or closed.
+
+    `state` is the caller's memory of each queue's last known state and is
+    updated in place. Only transitions are reported: a tick that finds nothing
+    changed returns nothing, so the window does not re-resume a whole queue
+    every few seconds. A queue whose schedule is empty or unparseable is left
+    under manual control and never appears here.
+    """
+    changed = []
+    for q in (settings or {}).get("queues", []):
+        name = (q or {}).get("name")
+        if not name:
+            continue
+        if parse_clock(q.get("start_at", "")) is None \
+                or parse_clock(q.get("stop_at", "")) is None:
+            continue
+        want = queue_should_run(q, now_hms)
+        if state.get(name) != want:
+            # The very first tick only records; it must not fire a stop for a
+            # queue that was never started.
+            if name in state or want:
+                changed.append((name, want))
+            state[name] = want
+    return changed
+
+
+def queue_names(settings: dict) -> list:
+    """Every queue the user has: the built-in ones plus any scheduled extras."""
+    names = list(DEFAULT_QUEUE_NAMES)
+    for q in (settings or {}).get("queues", []):
+        name = (q or {}).get("name")
+        if name and name not in names:
+            names.append(name)
+    return names
 
 
 # --- the main list: filtering and sorting ---------------------------------
@@ -2651,19 +2754,25 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             status.set(f"error: {e}")
         refresh()
 
-    def _queue_all(name):
-        # Start Queue resumes every paused/failed download; Stop Queue pauses
-        # every pending/running one (IDM's queue semantics).
+    def _run_queue(queue, start):
+        """Start or stop one queue. Downloads in other queues are untouched."""
         try:
-            for it in api.items():
-                st = it.get("status")
-                if name == "Start Queue" and st in ("paused", "error", "pending"):
-                    api.resume(it["id"])
-                elif name == "Stop Queue" and st in ("running", "pending"):
-                    api.pause(it["id"])
-            status.set(name)
+            plan = queue_actions(api.items(), queue, start)
+            for i in plan["resume"]:
+                api.resume(i)
+            for i in plan["pause"]:
+                api.pause(i)
         except Exception as e:  # noqa: BLE001
             status.set(f"error: {e}")
+            return 0
+        return len(plan["resume"]) + len(plan["pause"])
+
+    def _queue_all(name):
+        # Start Queue / Stop Queue act on the queue selected in the tree, or on
+        # the main queue when the selection is not a queue.
+        queue = view["queue"]
+        n = _run_queue(queue, name == "Start Queue")
+        status.set(f"{name}: {n} file(s) in {queue or 'main queue'}")
         refresh()
 
     def _on_add():
@@ -2757,17 +2866,23 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     listview.bind("<Button-3>", _on_list_menu)
 
     def _queue_toggle(label):
-        # A download is "in a queue" while it is pending/running; Add to Queue
-        # resumes it, Delete from Queue pauses it (mirrors IDM's Q column).
+        """Move the selected download in or out of the current queue.
+
+        It used to just resume/pause, which is not the same thing: a queued
+        download waits for its queue to be started, rather than running now.
+        """
         i = selected_id()
         if i is None:
             return
         try:
             if label == "Add to Queue":
-                api.resume(i)
-            else:
+                api.set_queue(i, view["queue"])
+                # Queued, not running: the schedule or Start Queue starts it.
                 api.pause(i)
-            status.set(f"{label}: {i}")
+                status.set(f"queued in {view['queue'] or 'main queue'}: {i}")
+            else:
+                api.set_queue(i, "")
+                status.set(f"removed from queue: {i}")
         except Exception as e:  # noqa: BLE001
             status.set(f"error: {e}")
         refresh()
@@ -2870,7 +2985,7 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     # and the column the user sorted by. Kept so re-filtering does not need
     # another API round trip.
     view = {"category": "All Downloads", "query": "", "sort": None,
-            "reverse": False, "items": []}
+            "reverse": False, "items": [], "queue": DEFAULT_QUEUE}
 
     def apply_items(items):
         """Render a queue snapshot. Must run on the Tk thread."""
@@ -2934,10 +3049,13 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
 
     def _on_tree_select(_e=None):
         name = _selected_category()
-        if name:
-            view["category"] = name
-            apply_items(view["items"])
-            status.set(f"category: {name}")
+        if not name:
+            return
+        view["category"] = name
+        if name in queue_names(load_settings(state_dir)):
+            view["queue"] = name
+        apply_items(view["items"])
+        status.set(f"category: {name}")
 
     tree.bind("<<TreeviewSelect>>", _on_tree_select)
 
@@ -2963,7 +3081,8 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     view_menu = tk.Menu(menubar, tearoff=0)
     view_menu.add_command(label="Scheduler...",
                           command=lambda: _dialog_scheduler(
-                              root, api=api, state_dir=state_dir))
+                              root, api=api, state_dir=state_dir,
+                              queue_names=queue_names(load_settings(state_dir))))
     view_menu.add_command(label="Options...", command=lambda: _open_options())
     view_menu.add_command(label="Grabber...",
                           command=lambda: _dialog_grabber(
@@ -3023,6 +3142,28 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
 
     root.after(1500, _poll_clipboard)
     w["add_url_now"] = _add_url_now
+
+    # --- scheduler tick (Scheduler -> Schedule) -------------------------
+    # The schedule itself lives in settings.json; this is what makes it fire.
+    # Only transitions act, so a queue is not re-resumed every tick.
+    sched_state = {}
+
+    def _tick_schedule():
+        try:
+            now = time.localtime()
+            for queue, should_run in schedule_transitions(
+                    load_settings(state_dir), sched_state,
+                    (now.tm_hour, now.tm_min, now.tm_sec)):
+                n = _run_queue(queue, should_run)
+                verb = "started" if should_run else "stopped"
+                status.set(f"scheduler {verb} {queue}: {n} file(s)")
+                refresh()
+        except Exception:  # noqa: BLE001
+            pass
+        root.after(15000, _tick_schedule)
+
+    root.after(2000, _tick_schedule)
+    w["tick_schedule"] = _tick_schedule
 
     # --- drag & drop onto the window (best effort) ----------------------
     # IDM accepts hyperlinks dragged from a browser. That needs an optional

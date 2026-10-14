@@ -579,3 +579,69 @@ fn api_add_stores_rate_auth_and_mtime_options() {
     let _ = srv.kill();
     let _ = srv.wait();
 }
+
+/// Queues had no representation at all: the Item carried no field saying which
+/// queue a download was in, so the GUI's "Start Queue" could only resume
+/// everything. The engine records the membership; the GUI decides what a queue
+/// means and when it runs.
+#[test]
+fn api_records_and_moves_queue_membership() {
+    let data = make_data(100_000);
+    let origin = start_origin(data.clone(), 0, 0);
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
+    wait_ready(&addr);
+
+    // A download added into a named queue keeps that name.
+    let body = serde_json::json!({
+        "url": format!("{}/file.bin", origin),
+        "connections": 2,
+        "queue": "Night queue",
+    })
+    .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "POST /api/add returned {}: {}", st, resp);
+    let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .expect("add must return an id");
+
+    let it = find_item(&json(&addr, "/api/items"), id);
+    assert_eq!(it["queue"].as_str(), Some("Night queue"), "item: {}", it);
+
+    // It can be moved to another queue, and back out to the main one.
+    let (st, resp) = http_req(
+        &addr,
+        "POST",
+        "/api/set-queue",
+        Some(&serde_json::json!({"id": id, "queue": "Main download queue"}).to_string()),
+    );
+    assert_eq!(st, 200, "set-queue returned {}: {}", st, resp);
+    let it = find_item(&json(&addr, "/api/items"), id);
+    assert_eq!(it["queue"].as_str(), Some("Main download queue"), "item: {}", it);
+
+    let (st, _r) = http_req(
+        &addr,
+        "POST",
+        "/api/set-queue",
+        Some(&serde_json::json!({"id": id, "queue": ""}).to_string()),
+    );
+    assert_eq!(st, 200);
+    let it = find_item(&json(&addr, "/api/items"), id);
+    assert_eq!(it["queue"].as_str(), Some(""), "item: {}", it);
+
+    // Moving a download that does not exist must say so rather than succeed.
+    let (st, _r) = http_req(
+        &addr,
+        "POST",
+        "/api/set-queue",
+        Some(&serde_json::json!({"id": 99999, "queue": "X"}).to_string()),
+    );
+    assert_eq!(st, 404, "set-queue on an unknown id must be a 404");
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}

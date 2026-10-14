@@ -115,6 +115,10 @@ struct Item {
     /// Resume even when the server reports a different Last-Modified.
     #[serde(default)]
     ignore_mtime: bool,
+    /// Which queue this download belongs to. Empty = the main queue. The GUI
+    /// starts and stops queues; the engine only records the membership.
+    #[serde(default)]
+    queue: String,
     #[serde(default)]
     status: String,
     #[serde(default)]
@@ -320,6 +324,7 @@ struct AddOptions {
     limit_rate: u64,
     auth: String,
     ignore_mtime: bool,
+    queue: String,
 }
 
 async fn add_item(
@@ -352,6 +357,7 @@ async fn add_item(
         limit_rate: opts.limit_rate,
         auth: opts.auth,
         ignore_mtime: opts.ignore_mtime,
+        queue: opts.queue,
         status: "pending".to_string(),
         downloaded: 0,
         total: 0,
@@ -654,10 +660,32 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 limit_rate: v["limit_rate"].as_u64().unwrap_or(0),
                 auth: v["auth"].as_str().unwrap_or("").to_string(),
                 ignore_mtime: v["ignore_mtime"].as_bool().unwrap_or(false),
+                queue: v["queue"].as_str().unwrap_or("").to_string(),
             };
             let id = add_item(&st, url, conns, use_aria2, opts).await;
             let out = serde_json::json!({ "ok": true, "id": id });
             respond(&mut sock, 200, json, out.to_string().as_bytes()).await;
+        }
+        ("POST", "/api/set-queue") => {
+            // Move a download between queues. The GUI decides what a queue
+            // means; here it is just a label stored with the item.
+            let v: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
+            let id = v["id"].as_u64().unwrap_or(0);
+            let queue = v["queue"].as_str().unwrap_or("").to_string();
+            let mut found = false;
+            {
+                let mut items = st.items.lock().await;
+                if let Some(it) = items.iter_mut().find(|i| i.id == id) {
+                    it.queue = queue;
+                    found = true;
+                }
+            }
+            if found {
+                save(&st).await;
+                respond(&mut sock, 200, json, br#"{"ok":true}"#).await;
+            } else {
+                respond(&mut sock, 404, json, br#"{"ok":false,"error":"no such item"}"#).await;
+            }
         }
         ("POST", "/api/pause") => {
             let v: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
