@@ -149,7 +149,8 @@ test('no --screenshot means no capture step at all', () => {
 // plan for real — start the server, build the window on it, photograph it,
 // tear everything down — which is the whole point of the feature.
 
-import { execFileSync as run } from 'node:child_process';
+import { execFileSync as run, spawn } from 'node:child_process';
+import { createServer } from 'node:http';
 import { existsSync, readFileSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
@@ -196,6 +197,8 @@ test('--screenshot writes a real picture of the window', { skip: !HAVE_FFMPEG &&
     assert.ok(existsSync(expected), 'the screenshot file must exist');
     const bytes = readFileSync(expected);
     assert.ok(bytes.length > 0, 'the screenshot must not be empty');
+    assert.ok(colours(expected) >= MIN_COLOURS,
+      `the screenshot shows an empty display, not the window (${colours(expected)} colours)`);
     if (HAVE_FFMPEG) {
       assert.deepEqual([...bytes.subarray(0, 8)],
         [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'not a PNG');
@@ -213,3 +216,120 @@ test('the Xvfb it started does not outlive it', () => {
   const sock = `/tmp/.X11-unix/X${r.display.slice(1)}`;
   assert.ok(!existsSync(sock), `${sock} is still around, Xvfb was not reaped`);
 });
+
+
+/**
+ * Distinct colours in an image, or null when PIL is unavailable.
+ *
+ * A capture of a bare Xvfb is two colours — the black root window and the X
+ * cursor — so "is there actually a window in this picture" is answerable
+ * without comparing against a reference image.
+ */
+function colours(file) {
+  try {
+    const out = run('python3', ['-I', '-c',
+      'import sys\nfrom PIL import Image\n'
+      + 'im = Image.open(sys.argv[1]).convert("RGB")\n'
+      + 'print(len(im.getcolors(maxcolors=500000) or []))', file], { encoding: 'utf8' });
+    return parseInt(out.trim(), 10);
+  } catch {
+    return null;
+  }
+}
+const MIN_COLOURS = 8;
+const HAVE_PIL = colours === null ? false : true;
+
+test('the interactive run photographs the window, not an empty display',
+  { skip: !HAVE_FFMPEG ? 'no ffmpeg to capture PNG with' : false }, async () => {
+    // The screenshot in the interactive path used to be taken the instant
+    // build_window() returned — before Tk had mapped or drawn anything — so
+    // it reliably produced a black rectangle with a cursor in it. The
+    // --selftest-display path never showed this because it calls update()
+    // itself. Point this test at the real path.
+    const dir = mkdtempSync(join(tmpdir(), 'idm-shot-live-'));
+    const shot = join(dir, 'live.png');
+    const env = { ...process.env };
+    delete env.DISPLAY;
+    delete env.XAUTHORITY;
+    // Port 9 (discard) is the repo's "nobody is listening" port; the window
+    // comes up regardless, which is all this is about.
+    const proc = spawn('python3', [guiPy, '--own-display', '--screenshot', shot,
+      '--addr', '127.0.0.1:9'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    try {
+      const deadline = Date.now() + 90_000;
+      while (Date.now() < deadline) {
+        if (existsSync(shot) && readFileSync(shot).length > 0) break;
+        if (proc.exitCode !== null) break;
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      assert.ok(existsSync(shot), 'no screenshot was written at all');
+      const n = colours(shot);
+      if (n === null) return; // PIL missing: the file exists, that is all we can say
+      assert.ok(n >= MIN_COLOURS,
+        `only ${n} colours: the capture happened before the window was drawn`);
+    } finally {
+      proc.kill('SIGTERM');
+      await new Promise((r) => setTimeout(r, 500));
+      if (proc.exitCode === null) proc.kill('SIGKILL');
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+
+test('the screenshot waits for the queue, not just for the window',
+  { skip: !HAVE_FFMPEG ? 'no ffmpeg to capture PNG with' : false }, async () => {
+    // Photographing the moment the widgets exist catches the window BEFORE its
+    // first poll, so --screenshot produced a picture of an empty list even
+    // when the engine had a full queue. The fix is an ordering one, so that is
+    // what this pins: by the time the file exists, the queue has been asked
+    // for at least once.
+    let asked = 0;
+    const stub = createServer((req, res) => {
+      if (req.url.startsWith('/api/items')) {
+        asked += 1;
+        // Hold the first answer long enough that a screenshot taken before it
+        // cannot be mistaken for one taken after.
+        const delay = asked === 1 ? 1500 : 0;
+        return setTimeout(() => {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ items: [
+            { id: 1, url: 'http://example.com/a.bin', output: '/tmp/a.bin',
+              status: 'done', total: 1024, downloaded: 1024 },
+          ] }));
+        }, delay);
+      }
+      res.writeHead(404);
+      res.end();
+    });
+    await new Promise((r) => stub.listen(0, '127.0.0.1', r));
+    const addr = `127.0.0.1:${stub.address().port}`;
+
+    const dir = mkdtempSync(join(tmpdir(), 'idm-shot-queue-'));
+    const shot = join(dir, 'queue.png');
+    const env = { ...process.env };
+    delete env.DISPLAY;
+    delete env.XAUTHORITY;
+    const proc = spawn('python3', [guiPy, '--own-display', '--screenshot', shot,
+      '--addr', addr, '--state-dir', dir], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    try {
+      let askedWhenShotAppeared = null;
+      const deadline = Date.now() + 90_000;
+      while (Date.now() < deadline) {
+        if (existsSync(shot) && readFileSync(shot).length > 0) {
+          askedWhenShotAppeared = asked;
+          break;
+        }
+        if (proc.exitCode !== null) break;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      assert.ok(existsSync(shot), 'no screenshot was written at all');
+      assert.ok(askedWhenShotAppeared >= 1,
+        'the screenshot was taken before the queue was ever fetched');
+    } finally {
+      proc.kill('SIGTERM');
+      await new Promise((r) => setTimeout(r, 500));
+      if (proc.exitCode === null) proc.kill('SIGKILL');
+      stub.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });

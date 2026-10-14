@@ -5600,6 +5600,25 @@ def stop_display(proc) -> None:
             pass
 
 
+def draw_window(root, timeout: float = 5.0) -> bool:
+    """Make sure the window is mapped and painted. True when it is viewable.
+
+    build_window() only CREATES the widgets; Tk maps and draws them when the
+    event loop first runs. Photographing in between gives a black rectangle
+    with a cursor in it — which is exactly what --screenshot used to produce
+    on the interactive path, where nothing had pumped the loop yet.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        root.update_idletasks()
+        root.update()
+        if root.winfo_viewable():
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+
+
 def take_screenshot(plan: dict) -> str | None:
     """Photograph the display. Returns the path written, or None."""
     shot = plan.get("shot")
@@ -5621,9 +5640,7 @@ def selftest_display(plan: dict):
            "window": "no", "shot": None}
     root, _refresh, _w = build_window(api)
     try:
-        root.update_idletasks()
-        root.update()
-        out["window"] = "ok"
+        out["window"] = "ok" if draw_window(root) else "not-viewable"
         out["shot"] = take_screenshot(plan)
     finally:
         root.destroy()
@@ -5816,15 +5833,6 @@ def _main_with_display(args, cmdline, p, dplan):
         )
         return 1
 
-    # With the window up, honour --screenshot. This is the interactive path's
-    # version of what selftest_display does non-interactively; a failed capture
-    # must not take the window down with it.
-    if dplan.get("shot"):
-        try:
-            print("[*] screenshot: %s" % take_screenshot(dplan), flush=True)
-        except Exception as e:  # noqa: BLE001
-            print("[!] screenshot selhal: %s" % e, file=sys.stderr)
-
     # A window exists, so it is safe to make sure an engine is running.
     proc = None
     if not api.alive():
@@ -5843,6 +5851,25 @@ def _main_with_display(args, cmdline, p, dplan):
 
     apply_items = _w["apply_items"]
     status_var = _w["status_var"]
+
+    # --screenshot comes LAST, once there is something worth photographing.
+    # Taken right after build_window() it caught the window before its first
+    # poll, so the picture showed an empty list even when the engine had a
+    # full queue; and taken before the loop had run at all it was a black
+    # rectangle. One synchronous fetch, one forced redraw, then the capture.
+    if dplan.get("shot"):
+        try:
+            try:
+                apply_items(api.items())
+            except Exception as e:  # noqa: BLE001
+                status_var.set("cannot reach idm --serve")
+                print("[!] fronta se nenacetla pred snimkem: %s" % e, file=sys.stderr)
+            if not draw_window(root):
+                print("[!] okno se nestihlo vykreslit, snimek muze byt prazdny",
+                      file=sys.stderr)
+            print("[*] screenshot: %s" % take_screenshot(dplan), flush=True)
+        except Exception as e:  # noqa: BLE001
+            print("[!] screenshot selhal: %s" % e, file=sys.stderr)
 
     def tick():
         """Poll the queue without blocking the UI.
