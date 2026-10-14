@@ -156,15 +156,20 @@ fn no_media_skips_the_backend() {
 fn aria2_and_the_media_backend_combine_instead_of_competing() {
     let dir = unique_dir("combo");
     let (stub, log) = make_stub(&dir);
+    // A stub aria2c that writes nothing: if the engine took the plain aria2
+    // branch it would "succeed" with no output file, which the assertions
+    // below catch. Here it should only ever be *named* to yt-dlp.
+    let aria2c = dir.join("aria2c");
+    fs::write(&aria2c, "#!/usr/bin/env bash\nexit 0\n").unwrap();
+    fs::set_permissions(&aria2c, fs::Permissions::from_mode(0o755)).unwrap();
     let out_file = dir.join("video.mp4");
     let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
         .arg("--yt-dlp")
         .arg(&stub)
         .arg("--aria2")
-        // A path that does not exist: if the engine took the plain aria2
-        // branch it would fail here instead of going through yt-dlp.
         .arg("--aria2-path")
-        .arg(dir.join("definitely-not-aria2c"))
+        .arg(&aria2c)
         .arg("--force-media")
         .arg("-n")
         .arg("8")
@@ -184,6 +189,11 @@ fn aria2_and_the_media_backend_combine_instead_of_competing() {
         argv
     );
     assert!(argv.contains("aria2c"), "and that downloader must be aria2c: {}", argv);
+    assert!(
+        argv.contains(&aria2c.display().to_string()),
+        "yt-dlp must be given the resolved aria2c path: {}",
+        argv
+    );
     // The whole point is parallel connections; -n has to reach aria2c.
     assert!(
         argv.contains("--downloader-args") && argv.contains("-x 8") || argv.contains("-x8"),
@@ -200,6 +210,7 @@ fn the_connection_count_becomes_concurrent_fragments() {
     let (stub, log) = make_stub(&dir);
     let out_file = dir.join("video.mp4");
     let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
         .arg("--yt-dlp")
         .arg(&stub)
         .arg("--force-media")
@@ -226,6 +237,7 @@ fn a_plain_file_with_aria2_does_not_go_near_yt_dlp() {
     let dir = unique_dir("plain");
     let (stub, log) = make_stub(&dir);
     let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
         .arg("--yt-dlp")
         .arg(&stub)
         .arg("--aria2")
