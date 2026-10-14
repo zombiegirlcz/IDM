@@ -1647,10 +1647,14 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
     }
 
     if use_media {
-        // For a media download the file is named after the media title, so we
-        // only pass a path when the user asked for one explicitly.
-        let explicit = args.output.is_some();
-        return run_media(&args, &net, &url, if explicit { Some(out) } else { None }).await;
+        // Name a media download after its title only when the user gave no
+        // destination at all. An explicit --output, --category-dir or
+        // --output-dir pins the path (the host's category_dir test relies on
+        // the URL-derived name landing in e.g. Video/movie.mp4).
+        let pinned = args.output.is_some()
+            || args.category_dir.is_some()
+            || args.output_dir.is_some();
+        return run_media(&args, &net, &url, if pinned { Some(out) } else { None }).await;
     }
 
     if args.dynamic {
