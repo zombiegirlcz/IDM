@@ -1409,6 +1409,14 @@ def _same_site(a: str, b: str) -> bool:
 # --------------------------------------------------------------------------- #
 GRABBER_CUSTOM = "custom"
 
+
+def _as_int(value, fallback=0):
+    """An int from a widget's string, falling back instead of raising."""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return fallback
+
 GRABBER_TEMPLATES = {
     "Images": ["bmp", "gif", "ico", "jpeg", "jpg", "png", "svg", "tif",
                "tiff", "webp"],
@@ -1455,7 +1463,8 @@ def grabber_crawl_exts(template: str, custom_text: str) -> list:
 
 def crawl_site(start_url: str, max_pages: int = 50,
                file_exts=None, same_site_only: bool = True,
-               timeout: float = 8.0, should_stop=None) -> list:
+               timeout: float = 8.0, should_stop=None,
+               max_depth=None, external_depth=None) -> list:
     """Explore a site breadth-first and return file URLs (the IDM Grabber).
 
     Only HTML pages are followed; anything whose path ends in one of
@@ -1465,6 +1474,15 @@ def crawl_site(start_url: str, max_pages: int = 50,
     `should_stop` is checked before each page: when it returns true the crawl
     returns what it has so far. Without it "Stop Exploring" is unimplementable,
     because the crawl would hold the Tk thread for its whole run.
+
+    Link depth is counted separately for the two kinds of page, because the
+    interesting limits differ: `max_depth` is how many links away from the
+    start page the crawl may go on the start site (0 = the start page only),
+    while `external_depth` is how many links deep it may go once it has left
+    that site (0 = never open a page elsewhere). `None` means "no limit",
+    which is what the crawl did before either knob existed. A file linked from
+    a page that was visited is always collected -- the depth limits say which
+    pages get opened, not which files count.
     """
     import re
     from urllib.parse import urljoin, urlparse
@@ -1475,12 +1493,12 @@ def crawl_site(start_url: str, max_pages: int = 50,
         return []
     seen_pages = set()
     found = set()
-    queue = [start]
+    queue = [(start, 0, 0)]   # (url, links from the start page, hops off-site)
     href_re = re.compile(r'''(?:href|src)\s*=\s*["']([^"']+)["']''', re.I)
     while queue and len(seen_pages) < max_pages:
         if should_stop is not None and should_stop():
             break
-        url = queue.pop(0)
+        url, own, ext_hops = queue.pop(0)
         if url in seen_pages:
             continue
         seen_pages.add(url)
@@ -1499,15 +1517,23 @@ def crawl_site(start_url: str, max_pages: int = 50,
             link = urljoin(url, raw.strip())
             if not link.lower().startswith(("http://", "https://", "ftp://")):
                 continue
-            if same_site_only and not _same_site(link, start):
+            on_site = _same_site(link, start)
+            if same_site_only and not on_site:
                 continue
+            # A link stays at the same own-site depth once the crawl is away
+            # from the start site; the off-site hops are what grow there.
+            link_own = own + 1 if on_site else own
+            link_ext = 0 if on_site else ext_hops + 1
+            too_deep = ((max_depth is not None and link_own > max_depth)
+                        or (external_depth is not None
+                            and link_ext > external_depth))
             path = urlparse(link).path.lower()
             ext = path.rsplit(".", 1)[-1] if "." in path else ""
             if ext in exts:
                 found.add(link)
             elif ext in ("", "html", "htm", "php", "asp", "aspx", "jsp"):
-                if link not in seen_pages:
-                    queue.append(link)
+                if link not in seen_pages and not too_deep:
+                    queue.append((link, link_own, link_ext))
             else:
                 if not exts or ext in exts:
                     found.add(link)
@@ -1578,6 +1604,16 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
     max_pages = ttk.Spinbox(s3, from_=1, to=1000, width=6)
     max_pages.set(50)
     max_pages.grid(row=1, column=1, sticky="w", padx=6)
+    ttk.Label(s3, text="Link depth on this site (0 = start page only):").grid(
+        row=2, column=0, sticky="w", padx=6, pady=4)
+    depth = ttk.Spinbox(s3, from_=0, to=50, width=6)
+    depth.set(3)
+    depth.grid(row=2, column=1, sticky="w", padx=6)
+    ttk.Label(s3, text="Link depth on other sites (0 = do not leave):").grid(
+        row=3, column=0, sticky="w", padx=6, pady=4)
+    external_depth = ttk.Spinbox(s3, from_=0, to=50, width=6)
+    external_depth.set(0)
+    external_depth.grid(row=3, column=1, sticky="w", padx=6)
 
     s4 = ttk.Frame(wiz)
     wiz.add(s4, text="4. Filters")
@@ -1668,6 +1704,8 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
         pages = int(max_pages.get() or 50)
         file_exts = grabber_crawl_exts(template.get(), exts.get())
         on_site = bool(same_site.get())
+        own_depth = _as_int(depth.get(), 3)
+        out_depth = _as_int(external_depth.get(), 0)
 
         def done(found, error):
             crawl["busy"] = False
@@ -1686,6 +1724,8 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
             try:
                 found = crawl_site(url, max_pages=pages, file_exts=file_exts,
                                    same_site_only=on_site,
+                                   max_depth=own_depth,
+                                   external_depth=out_depth,
                                    should_stop=lambda: crawl["stop"])
                 err = None
             except Exception as e:  # noqa: BLE001
@@ -1732,7 +1772,8 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir=""):
     wiz.select(0)
     win._idm_grabber = {"state": state, "start": start, "render": render,
                         "template": template, "exts": exts, "explore": explore,
-                        "crawl": crawl}
+                        "crawl": crawl, "same_site": same_site,
+                        "depth": depth, "external_depth": external_depth}
     return win
 
 
@@ -3914,11 +3955,12 @@ def selftest_properties_ok():
     return 0
 
 
-def selftest_grabber_explore(url, template="All files"):
+def selftest_grabber_explore(url, template="All files", depth=None,
+                             external_depth=None, same_site_only=True):
     """Explore a real site through the Grabber dialog and print what it found.
 
     This drives the widgets, not crawl_site() directly: the point is that the
-    template combobox is the thing the crawl obeys.
+    template combobox and the depth boxes are what the crawl obeys.
     """
     import tkinter as tk
 
@@ -3932,6 +3974,11 @@ def selftest_grabber_explore(url, template="All files"):
     g["start"].insert(0, url)
     g["template"].set(template)
     g["template"].event_generate("<<ComboboxSelected>>")
+    g["same_site"].set(bool(same_site_only))
+    if depth is not None:
+        g["depth"].set(depth)
+    if external_depth is not None:
+        g["external_depth"].set(external_depth)
     g["explore"]()
 
     # A real event loop, not a poll of update(): the crawl thread hands its
@@ -4307,13 +4354,20 @@ def main(argv=None):
     p.add_argument("--selftest-grabber-explore", action="store_true")
     p.add_argument("--grabber-template", default="All files",
                    help="template for --selftest-grabber-explore")
+    p.add_argument("--grabber-depth", type=int, default=None)
+    p.add_argument("--grabber-external-depth", type=int, default=None)
+    p.add_argument("--grabber-all-sites", action="store_true",
+                   help="untick 'explore the current site only'")
     args = p.parse_args(rest)
 
     if args.selftest_grabber_explore:
         if not args.url:
             print("--selftest-grabber-explore needs --url", file=sys.stderr)
             return 2
-        return selftest_grabber_explore(args.url, args.grabber_template)
+        return selftest_grabber_explore(
+            args.url, args.grabber_template, depth=args.grabber_depth,
+            external_depth=args.grabber_external_depth,
+            same_site_only=not args.grabber_all_sites)
 
     if args.selftest_live_graph:
         if not args.meta:
