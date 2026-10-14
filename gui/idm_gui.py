@@ -861,6 +861,94 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
     }
 
 
+# --- IDM-style command line -----------------------------------------------
+#
+# The real IDM can be driven from a shell: a URL plus a target directory and
+# file name, and flags for queueing it, starting the queue, staying quiet and
+# what to do when the download is done. main() knew only its own switches, so
+# none of this worked.
+
+# switch -> the field it fills. A value-taking switch consumes the next
+# argument; the rest are plain flags.
+_CMDLINE_VALUES = {"d": "url", "p": "path", "f": "filename"}
+_CMDLINE_FLAGS = {
+    "a": "queue_only",       # add to the queue without starting it
+    "s": "start_queue",      # start the queue
+    "q": "exit_when_done",   # quit once the download succeeds
+    "h": "hang_up",          # hang up the connection when done
+    "n": "silent",           # do not ask anything, take the defaults
+}
+
+
+def _is_cmdline_switch(arg: str) -> bool:
+    """Does `arg` name one of IDM's switches?
+
+    Checked by name rather than by a leading slash: /downloads is a path on
+    Linux, not a switch.
+    """
+    arg = str(arg)
+    if not arg.startswith("/") or len(arg) < 2:
+        return False
+    name = arg[1:].partition("=")[0].lower()
+    return name in _CMDLINE_VALUES or name in _CMDLINE_FLAGS
+
+
+def parse_idm_argv(argv: list) -> dict:
+    """IDM's command-line parameters from a raw argv list.
+
+    Accepts "/d URL", "/d=URL" and a bare URL (what a file association or a
+    drop onto the executable passes). `recognised` says whether anything
+    IDM-shaped was found at all -- with nothing, the GUI just opens.
+
+    A switch whose value is missing is left empty rather than swallowing the
+    next switch, so "/p /d URL" still downloads the URL. "Is the next argument
+    a switch?" is decided by whether it names a KNOWN switch, not by a leading
+    slash -- on Linux an absolute path like /downloads starts with one too.
+    """
+    out = {"url": "", "path": "", "filename": "", "recognised": False,
+           "rest": []}
+    out.update({field: False for field in _CMDLINE_FLAGS.values()})
+
+    args = list(argv or [])
+    i = 0
+    while i < len(args):
+        arg = str(args[i])
+        i += 1
+        if arg.startswith("/") and len(arg) > 1:
+            body = arg[1:]
+            name, _, inline = body.partition("=")
+            name = name.lower()
+            if name in _CMDLINE_VALUES:
+                field = _CMDLINE_VALUES[name]
+                if inline:
+                    out[field] = inline
+                    out["recognised"] = True
+                elif i < len(args) and not _is_cmdline_switch(args[i]):
+                    out[field] = str(args[i])
+                    i += 1
+                    out["recognised"] = True
+                # else: missing value -> leave it empty, keep parsing
+                continue
+            if name in _CMDLINE_FLAGS:
+                out[_CMDLINE_FLAGS[name]] = True
+                out["recognised"] = True
+                continue
+            # An unknown /switch is not ours; pass it on.
+            out["rest"].append(arg)
+            continue
+        # Anything else belongs to our own argparse, not to IDM.
+        out["rest"].append(arg)
+
+    # A bare URL is the file-association / drop-onto-the-executable case, which
+    # passes exactly one argument. Accepting it in any longer argv would steal
+    # the value of our own switches (e.g. `--url URL` for the selftests).
+    if not out["recognised"] and len(args) == 1 and looks_like_url(str(args[0])):
+        out["url"] = str(args[0])
+        out["recognised"] = True
+        out["rest"] = []
+    return out
+
+
 # --- queues as a real thing -----------------------------------------------
 #
 # Queues were two hard-coded strings and _queue_all() resumed or paused
@@ -3703,6 +3791,13 @@ def selftest_dump(engine):
 
 
 def main(argv=None):
+    # IDM's own parameters (/d URL, /p, /f, /a, /s, /q, /h, /n) are pulled out
+    # first: argparse would reject "/d" outright, and a file association or a
+    # drop onto the executable passes a bare URL.
+    raw = list(sys.argv[1:] if argv is None else argv)
+    cmdline = parse_idm_argv(raw)
+    rest = cmdline["rest"] if cmdline["recognised"] else raw
+
     p = argparse.ArgumentParser(description="Native window for the IDM-like downloader")
     p.add_argument("--addr", default=os.environ.get("IDM_ADDR", DEFAULT_ADDR))
     p.add_argument("--engine", default=os.environ.get("IDM_ENGINE_BIN", "idm"))
@@ -3726,7 +3821,7 @@ def main(argv=None):
     p.add_argument("--selftest-scheduler", action="store_true")
     p.add_argument("--selftest-live-graph", action="store_true")
     p.add_argument("--meta", help="path to a .idmmeta for --selftest-live-graph")
-    args = p.parse_args(argv)
+    args = p.parse_args(rest)
 
     if args.selftest_live_graph:
         if not args.meta:
@@ -3833,6 +3928,47 @@ def main(argv=None):
             threading.Thread(target=work, daemon=True).start()
         finally:
             root.after(1000, tick)
+
+    # --- act on the command line, now that the window and engine are up ---
+    if cmdline["url"]:
+        opts = download_options(load_settings(args.state_dir), cmdline["url"],
+                                fallback_dir=args.out_dir)
+        if cmdline["path"]:
+            opts["out_dir"] = cmdline["path"]
+        if cmdline["queue_only"]:
+            # /a puts it in a queue instead of starting it.
+            opts["queue"] = queue_names(load_settings(args.state_dir))[0]
+        try:
+            new_id = api.add(cmdline["url"], connections=opts["connections"],
+                             options=opts)
+            if cmdline["queue_only"] and new_id:
+                api.pause(new_id)
+            status_var.set(("queued: " if cmdline["queue_only"] else "added: ")
+                           + basename(cmdline["url"]))
+            if cmdline["filename"]:
+                # /f renames the target; the engine derives the name from the
+                # URL, so say plainly that this part is not wired yet rather
+                # than silently ignoring it.
+                print("[!] /f (rename to %r) is not supported yet; the file "
+                      "keeps its URL-derived name." % cmdline["filename"],
+                      file=sys.stderr)
+        except Exception as e:  # noqa: BLE001
+            print(f"[x] /d failed: {e}", file=sys.stderr)
+    if cmdline["start_queue"]:
+        try:
+            plan = queue_actions(api.items(),
+                                 queue_names(load_settings(args.state_dir))[0],
+                                 True)
+            for i in plan["resume"]:
+                api.resume(i)
+            status_var.set(f"queue started: {len(plan['resume'])} file(s)")
+        except Exception as e:  # noqa: BLE001
+            print(f"[x] /s failed: {e}", file=sys.stderr)
+    for flag, note in (("exit_when_done", "/q (exit when done)"),
+                       ("hang_up", "/h (hang up when done)")):
+        if cmdline[flag]:
+            print(f"[!] {note} is accepted but not implemented yet.",
+                  file=sys.stderr)
 
     tick()
     try:
