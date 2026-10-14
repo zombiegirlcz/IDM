@@ -75,6 +75,28 @@
     }
   }
 
+  // --- links inside the current selection ---
+  //
+  // The context menu's "Download all links with IDM" needs these: Chrome gives
+  // the background only `selectionText`, never the DOM behind it. Read-only —
+  // it collects hrefs and starts nothing by itself.
+  function linksInSelection() {
+    var out = [];
+    var sel = window.getSelection ? window.getSelection() : null;
+    if (!sel || sel.rangeCount === 0) return out;
+    var anchors = document.querySelectorAll('a[href]');
+    for (var i = 0; i < anchors.length; i++) {
+      var a = anchors[i];
+      for (var r = 0; r < sel.rangeCount; r++) {
+        if (sel.getRangeAt(r).intersectsNode(a)) {
+          if (out.indexOf(a.href) === -1) out.push(a.href);
+          break;
+        }
+      }
+    }
+    return out;
+  }
+
   // Losing focus (Alt+Tab, a new tab from a Ctrl+click) means the keyup for a
   // held modifier is delivered somewhere else and never reaches us, so release
   // them all here. The background uses this state for force_keys/prevent_keys.
@@ -257,6 +279,19 @@
   window.addEventListener('focus', onFocus);
   window.addEventListener('blur', onBlur);
 
+  // The background asks for the selection when the user picks the context menu
+  // item. This is the only request content.js answers; everything else it does
+  // is one-way (opcodes posted on the port).
+  if (chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener(function (msg, sender, reply) {
+      if (msg && msg.type === 'links_in_selection') {
+        reply({ ok: true, links: linksInSelection() });
+        return true;
+      }
+      return false;
+    });
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', scanMedia);
   } else {
@@ -265,6 +300,7 @@
 
   // Expose for tests/debug. Pure predicates only — never anything that could
   // make the page itself start a download.
+  window.__idm_links_in_selection__ = linksInSelection;
   window.__idm_serialize__ = serialize;
   window.__idm_is_download_link__ = isDownloadLink;
 })();

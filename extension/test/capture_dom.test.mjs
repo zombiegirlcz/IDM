@@ -186,6 +186,27 @@ test('content.js releases the modifier keys when the window loses focus', () => 
   );
 });
 
+test('content.js reports the links inside the selection', () => {
+  const { dom } = runContent(
+    '<!doctype html><html><body><p id="s">' +
+      '<a href="https://ex.com/a.zip">a</a> <a href="https://ex.com/b.zip">b</a>' +
+      '</p><a href="https://ex.com/outside.zip">c</a></body></html>',
+  );
+  const w = dom.window;
+
+  const range = w.document.createRange();
+  range.selectNodeContents(w.document.querySelector('#s'));
+  w.getSelection().removeAllRanges();
+  w.getSelection().addRange(range);
+
+  assert.ok(
+    typeof w.__idm_links_in_selection__ === 'function',
+    'content.js must expose the selection scan it answers the background with',
+  );
+  const links = w.__idm_links_in_selection__();
+  assert.deepEqual([...links].sort(), ['https://ex.com/a.zip', 'https://ex.com/b.zip']);
+});
+
 test('full chain: DOM -> content.js opcode -> background.js -> real idm-host -> CRC', async () => {
   const data = makeData(1_200_000);
   const expectedCrc = crc32(data);
