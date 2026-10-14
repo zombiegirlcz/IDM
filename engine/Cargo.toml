@@ -21,10 +21,37 @@ serde_json = "1"
 crc32fast = "1"
 anyhow = "1"
 chrono = "0.4"
+# Password vault (secrets.json). ChaCha20-Poly1305 rather than AES-GCM: no
+# hardware assumption, and it is a pure-Rust addition next to the TLS stack
+# reqwest already links.
+chacha20poly1305 = "0.10"
+rand_core = { version = "0.6", features = ["getrandom"] }
+
+[features]
+# OS keyring for the vault key. Opt-in rather than default: the backends need
+# a system library (Secret Service / libdbus on Linux, the native stores
+# elsewhere), and a default-on feature would mean a plain `cargo build` fails
+# on a machine that lacks it -- the exact "it does not even build" problem the
+# design wanted to avoid. Without it the key goes to secrets.key at 0600 and
+# the GUI's status line says so rather than claiming keyring protection.
+#   cargo build --release --features keyring
+default = []
+keyring = ["dep:keyring"]
 
 # Used only to signal a whole process group (engine + its aria2c child) on pause.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+# One keyring backend per platform; each needs its own feature, and naming them
+# per target keeps a Linux build from pulling the macOS store and back.
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", optional = true, features = ["sync-secret-service"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", optional = true, features = ["apple-native"] }
+
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", optional = true, features = ["windows-native"] }
 
 [dev-dependencies]
 crc32fast = "1"

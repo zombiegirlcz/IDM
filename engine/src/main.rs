@@ -18,6 +18,7 @@ use tokio::sync::{Mutex, Semaphore};
 
 mod gui;
 mod media;
+mod secrets;
 
 #[derive(Parser, Debug)]
 #[command(name = "idm", about = "Multi-connection downloader with resume (IDM-like POC)")]
@@ -144,6 +145,23 @@ struct Args {
     /// Directory for the persisted queue (used by --serve)
     #[arg(long)]
     state_dir: Option<PathBuf>,
+
+    /// Store the password read from STDIN in the vault and print its
+    /// reference. Through stdin, never argv: arguments are world-readable.
+    #[arg(long)]
+    secrets_set: bool,
+
+    /// Print the password behind a `secret:<id>` reference to stdout.
+    #[arg(long, value_name = "REF")]
+    secrets_get: Option<String>,
+
+    /// Forget the password behind a `secret:<id>` reference.
+    #[arg(long, value_name = "REF")]
+    secrets_del: Option<String>,
+
+    /// Print where the vault key lives, for the GUI's status line.
+    #[arg(long)]
+    secrets_status: bool,
 
     /// Max simultaneous downloads in --serve mode
     #[arg(long, default_value_t = 2)]
@@ -1577,7 +1595,47 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// The vault commands, before anything else: they need no network, no URL and
+/// no output directory, and `idm --secrets-get REF` with no URL must not be
+/// taken for a download.
+fn run_vault(args: &Args) -> Option<anyhow::Result<()>> {
+    let dir = args
+        .state_dir
+        .clone()
+        .unwrap_or_else(|| PathBuf::from(".idm-gui"));
+    let vault = secrets::Vault::new(&dir);
+    if args.secrets_set {
+        return Some((|| {
+            use std::io::Read;
+            let mut value = String::new();
+            std::io::stdin().read_to_string(&mut value)?;
+            // A trailing newline from `echo` is not part of the password.
+            let reference = vault.set(value.trim_end_matches(['\n', '\r']))?;
+            println!("{}", reference);
+            Ok(())
+        })());
+    }
+    if let Some(r) = args.secrets_get.as_deref() {
+        return Some(vault.get(r).map(|v| println!("{}", v)));
+    }
+    if let Some(r) = args.secrets_del.as_deref() {
+        return Some(vault.del(r));
+    }
+    if args.secrets_status {
+        return Some(if vault.exists() {
+            vault.key_source().map(|s| println!("{}", s.describe()))
+        } else {
+            println!("no stored passwords yet");
+            Ok(())
+        });
+    }
+    None
+}
+
 async fn run(mut args: Args) -> anyhow::Result<()> {
+    if let Some(r) = run_vault(&args) {
+        return r;
+    }
     if let Some(addr) = args.serve.clone() {
         let out_dir = args
             .output_dir
