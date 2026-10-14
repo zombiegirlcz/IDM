@@ -38,6 +38,27 @@ desktop_dir() {
   echo "$d"
 }
 
+# Add $bin to a shell rc file, idempotently. Matching the exact export line
+# (not a loose substring) keeps repeated installs from stacking entries.
+add_path_to_rc() {
+  local rc="$1" bin="$2"
+  [[ -n "$rc" ]] || return 0
+  touch "$rc" 2>/dev/null || return 0
+  grep -qsF "export PATH=\"$bin:" "$rc" && return 0
+  {
+    printf '\n# IDM (added by install.sh; removed by --uninstall)\n'
+    printf 'export PATH="%s:$PATH"\n' "$bin"
+  } >> "$rc"
+}
+
+remove_path_from_rc() {
+  local rc="$1" bin="$2"
+  [[ -f "$rc" ]] || return 0
+  local tmp="$rc.idm.tmp"
+  grep -vF -e "export PATH=\"$bin:" -e "# IDM (added by install.sh" "$rc" > "$tmp" 2>/dev/null || true
+  mv "$tmp" "$rc" 2>/dev/null || rm -f "$tmp"
+}
+
 # --- uninstall ---
 if [[ "${1:-}" == "--uninstall" ]]; then
   log "odinstalace"
@@ -48,6 +69,10 @@ if [[ "${1:-}" == "--uninstall" ]]; then
   rm -f "$DATA_HOME/applications/idm-desktop.desktop" \
         "$DATA_HOME/applications/idm-download.desktop" \
         "$DATA_HOME/applications/idm-scheme.desktop"
+  # Drop the PATH entry from every rc file we might have touched.
+  for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.profile"; do
+    remove_path_from_rc "$rc" "$PREFIX/bin"
+  done
   rm -rf "$PREFIX"
   log "hotovo — odstraněno"
   exit 0
@@ -226,6 +251,23 @@ exec "\${IDM_PYTHON:-python3}" "$PREFIX/gui/idm_gui.py" \\
     --autostart
 EOF
 chmod +x "$LAUNCHER"
+
+# --- 5) put $PREFIX/bin on PATH (zsh + bash) ---
+# So `idm`, `idm-host` and `idm-gui` work from any shell, like a real install.
+# Write to whichever rc files exist; if there is none (a bare container), fall
+# back to ~/.bashrc so the next login still gets the tools.
+PATH_BIN="$PREFIX/bin"
+PATH_ADDED=0
+for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+  if [[ -f "$rc" ]]; then
+    add_path_to_rc "$rc" "$PATH_BIN"
+    PATH_ADDED=1
+  fi
+done
+if [[ "$PATH_ADDED" -eq 0 ]]; then
+  add_path_to_rc "$HOME/.bashrc" "$PATH_BIN"
+fi
+log "PATH: $PATH_BIN přidán do ~/.zshrc / ~/.bashrc"
 
 DESKTOP="$(desktop_dir)"
 mkdir -p "$DESKTOP"

@@ -183,14 +183,10 @@ fn out_path_for(url: &str, output: Option<&Path>) -> PathBuf {
     if let Some(o) = output {
         return o.to_path_buf();
     }
-    let u = url.trim_end_matches('/');
-    let name = u.rsplit('/').next().unwrap_or("download.bin");
-    let name = name.split('?').next().unwrap_or(name);
-    if name.is_empty() {
-        PathBuf::from("download.bin")
-    } else {
-        PathBuf::from(name)
-    }
+    // One shared helper so the engine and the GUI never disagree on the name
+    // and neither can produce an empty string (which would make a later
+    // `dir.join(name)` resolve to `dir` itself).
+    PathBuf::from(media::filename_from_url(url))
 }
 
 /// IDM-style category folder for a URL, chosen by its extension.
@@ -203,6 +199,11 @@ fn category_subdir(url: &str) -> &'static str {
         .split('?')
         .next()
         .unwrap_or("");
+    category_subdir_for_name(name)
+}
+
+/// IDM-style category folder chosen from an already-resolved file name.
+fn category_subdir_for_name(name: &str) -> &'static str {
     let ext = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
     match ext.as_str() {
         "mp4" | "mkv" | "avi" | "mov" | "webm" | "flv" | "m4v" => "Video",
@@ -297,6 +298,20 @@ struct Probe {
     ranges: bool,
     etag: Option<String>,
     last_modified: Option<String>,
+}
+
+/// Content-Type of a URL from a HEAD request (lowercased, parameters stripped),
+/// or None when it cannot be determined. Used to tell a web page (text/html)
+/// from a file so a video page is not saved as an HTML document.
+async fn probe_content_type(client: &reqwest::Client, url: &str, net: &Net) -> Option<String> {
+    let r = net.apply(client.head(url)).send().await.ok()?;
+    if !r.status().is_success() {
+        return None;
+    }
+    r.headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.split(';').next().unwrap_or(v).trim().to_ascii_lowercase())
 }
 
 async fn probe(client: &reqwest::Client, url: &str, net: &Net) -> anyhow::Result<Probe> {
@@ -1290,8 +1305,19 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
     let out = match out_override {
         Some(o) => o,
         None => {
+            // No explicit --output: name the file after the media title (not the
+            // URL slug) and honour --category-dir / --output-dir, exactly like
+            // the direct path does with filename_from_url.
             let meta = media::probe_json(&args.yt_dlp, url, cookie, referer, args.proxy.as_deref()).await?;
-            media::output_name(&meta, args.format.as_deref())
+            let name = media::output_name(&meta, args.format.as_deref());
+            if let Some(base) = args.category_dir.as_deref() {
+                let n = name.file_name().map(|x| x.to_owned()).unwrap_or_default();
+                base.join(category_subdir_for_name(&n.to_string_lossy())).join(n)
+            } else if let Some(base) = args.output_dir.as_deref() {
+                base.join(name)
+            } else {
+                name
+            }
         }
     };
 
@@ -1590,12 +1616,6 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
         return run_aria2(&args, &url, out).await;
     }
 
-    let use_media =
-        !args.no_media && (args.force_media || args.list_formats || media::is_media_url(&url));
-    if use_media {
-        return run_media(&args, &net, &url, Some(out)).await;
-    }
-
     let mut builder = reqwest::Client::builder();
     if let Some(p) = &args.proxy {
         builder = builder.proxy(
@@ -1607,6 +1627,32 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
             .build()
             .map_err(|e| anyhow::anyhow!("client: {}", e))?,
     );
+
+    let mut use_media =
+        !args.no_media && (args.force_media || args.list_formats || media::is_media_url(&url));
+
+    // A URL whose last path segment has no file extension names a *page*, not
+    // a file. If the server answers `text/html` and yt-dlp is available, this
+    // is a video/web page -> hand it to the media backend (what IDM does).
+    // Without yt-dlp we fall through and save whatever the server returns.
+    if !use_media && !args.no_media && media::yt_dlp_available(&args.yt_dlp)
+        && !media::has_file_extension(&url)
+    {
+        if let Some(ct) = probe_content_type(&client, &url, &net).await {
+            if ct.contains("html") {
+                println!("[*] HTML page detected -> media backend (yt-dlp)");
+                use_media = true;
+            }
+        }
+    }
+
+    if use_media {
+        // For a media download the file is named after the media title, so we
+        // only pass a path when the user asked for one explicitly.
+        let explicit = args.output.is_some();
+        return run_media(&args, &net, &url, if explicit { Some(out) } else { None }).await;
+    }
+
     if args.dynamic {
         return run_direct_dynamic(&args, &net, client, &url, out).await;
     }
