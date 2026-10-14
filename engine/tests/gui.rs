@@ -997,3 +997,65 @@ JSON
     let _ = srv.kill();
     let _ = srv.wait();
 }
+
+/// IDM's `/f NAME` asks for the saved file to be called NAME. The engine
+/// derives the name from the URL, so /api/add needs to be told; and because the
+/// value can come from a desktop file association, a name containing a path
+/// must not be able to write outside the download directory.
+#[test]
+fn api_add_honours_a_requested_filename() {
+    let data = make_data(80_000);
+    let origin = start_origin(data.clone(), 0, 0);
+    let out = unique_dir("out");
+    let state = unique_dir("state");
+    let port = free_port();
+    let addr = format!("127.0.0.1:{}", port);
+
+    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
+    wait_ready(&addr);
+
+    let body = serde_json::json!({
+        "url": format!("{}/ugly-slug.bin", origin),
+        "connections": 2,
+        "filename": "Nice Name.bin",
+    })
+    .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "add failed: {}", resp);
+    let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .unwrap();
+    wait_status(&addr, id, "done", 40);
+
+    let file = out.join("Nice Name.bin");
+    let got = std::fs::read(&file).unwrap_or_else(|e| panic!("{} missing: {}", file.display(), e));
+    assert_eq!(crc32(&got), crc32(&data), "crc mismatch for the renamed file");
+    assert!(
+        !out.join("ugly-slug.bin").exists(),
+        "the URL-derived name must not be used as well"
+    );
+
+    // A traversal attempt keeps only the file component.
+    let escape = serde_json::json!({
+        "url": format!("{}/x.bin", origin),
+        "connections": 1,
+        "filename": "../../escaped.bin",
+    })
+    .to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&escape));
+    assert_eq!(st, 200, "add failed: {}", resp);
+    let id2 = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .unwrap();
+    let it = find_item(&json(&addr, "/api/items"), id2);
+    let output = it["output"].as_str().unwrap_or("");
+    assert!(
+        output.starts_with(out.to_string_lossy().as_ref()),
+        "a filename with .. must stay inside the output dir, got {}",
+        output
+    );
+    assert!(output.ends_with("escaped.bin"), "got {}", output);
+
+    let _ = srv.kill();
+    let _ = srv.wait();
+}

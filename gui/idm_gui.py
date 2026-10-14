@@ -241,7 +241,7 @@ class Api:
         if aria2:
             body["aria2"] = True
         for key in ("out_dir", "temp_dir", "user_agent", "proxy", "auth",
-                    "queue", "format", "cookie", "referer"):
+                    "queue", "format", "cookie", "referer", "filename"):
             value = (options or {}).get(key)
             if value:
                 body[key] = value
@@ -396,6 +396,11 @@ DEFAULT_SETTINGS = {
         "user_agent": "",
         "virus_checker": "",
         "virus_params": "[File]",
+        # Run when the command line asked to hang up after finishing (/h).
+        # There is no dial-up link to drop any more, so the useful reading is
+        # "whatever this machine calls going offline" -- and with nothing set,
+        # /h says so instead of pretending it did something.
+        "hangup_command": "",
     },
     "proxy": {
         "use_system": True,
@@ -2511,6 +2516,42 @@ def _dialog_properties(parent, url, out, description="", on_ok=None):
     return win
 
 
+LIVE_STATUSES = ("running", "pending")
+
+
+def queue_drained(items: list) -> bool:
+    """Is nothing left in flight?
+
+    A failed download counts as finished: /q waiting for every item to reach
+    "done" would hang forever on the first error.
+    """
+    return not any((it or {}).get("status") in LIVE_STATUSES for it in items or [])
+
+
+def completion_action(cmdline: dict, items: list, settings: dict) -> dict:
+    """What IDM's /q and /h should do, given the current queue.
+
+    Returns {"quit": bool, "run": command, "note": why nothing runs}. Separated
+    from the window so the decision is testable without Tk; the caller does the
+    quitting and the spawning.
+    """
+    out = {"quit": False, "run": "", "note": ""}
+    if not (cmdline.get("exit_when_done") or cmdline.get("hang_up")):
+        return out
+    if not queue_drained(items):
+        return out
+    if cmdline.get("exit_when_done"):
+        out["quit"] = True
+    if cmdline.get("hang_up"):
+        command = ((settings or {}).get("downloads") or {}).get("hangup_command") or ""
+        if command:
+            out["run"] = command
+        else:
+            out["note"] = ("/h asked to hang up, but downloads.hangup_command "
+                           "is not set in the Options dialog")
+    return out
+
+
 def format_labels(formats: list) -> list:
     """Turn /api/formats rows into dialog entries.
 
@@ -4319,6 +4360,9 @@ def main(argv=None):
                 else:
                     status_var.set("Ready")
                     apply_items(items)
+                    # /q and /h fire from here: only the poll knows the queue
+                    # has drained.
+                    check_finished(items)
             except Exception:  # noqa: BLE001
                 pass
 
@@ -4336,6 +4380,9 @@ def main(argv=None):
         if cmdline["queue_only"]:
             # /a puts it in a queue instead of starting it.
             opts["queue"] = queue_names(load_settings(args.state_dir))[0]
+        if cmdline["filename"]:
+            # /f names the saved file; the engine keeps only the file component.
+            opts["filename"] = cmdline["filename"]
         try:
             new_id = api.add(cmdline["url"], connections=opts["connections"],
                              options=opts)
@@ -4343,13 +4390,6 @@ def main(argv=None):
                 api.pause(new_id)
             status_var.set(("queued: " if cmdline["queue_only"] else "added: ")
                            + basename(cmdline["url"]))
-            if cmdline["filename"]:
-                # /f renames the target; the engine derives the name from the
-                # URL, so say plainly that this part is not wired yet rather
-                # than silently ignoring it.
-                print("[!] /f (rename to %r) is not supported yet; the file "
-                      "keeps its URL-derived name." % cmdline["filename"],
-                      file=sys.stderr)
         except Exception as e:  # noqa: BLE001
             print(f"[x] /d failed: {e}", file=sys.stderr)
     if cmdline["start_queue"]:
@@ -4362,11 +4402,28 @@ def main(argv=None):
             status_var.set(f"queue started: {len(plan['resume'])} file(s)")
         except Exception as e:  # noqa: BLE001
             print(f"[x] /s failed: {e}", file=sys.stderr)
-    for flag, note in (("exit_when_done", "/q (exit when done)"),
-                       ("hang_up", "/h (hang up when done)")):
-        if cmdline[flag]:
-            print(f"[!] {note} is accepted but not implemented yet.",
-                  file=sys.stderr)
+    # /q and /h act once the queue has drained, which only the polling loop
+    # can know; `finish_watch` is checked from tick().
+    finish_watch = {"armed": bool(cmdline["exit_when_done"] or cmdline["hang_up"]),
+                    "done": False}
+
+    def check_finished(items):
+        if not finish_watch["armed"] or finish_watch["done"]:
+            return
+        act = completion_action(cmdline, items, load_settings(args.state_dir))
+        if not (act["quit"] or act["run"] or act["note"]):
+            return
+        finish_watch["done"] = True
+        if act["note"]:
+            print("[!] " + act["note"], file=sys.stderr)
+        if act["run"]:
+            try:
+                subprocess.Popen(act["run"], shell=True)
+                status_var.set("hanging up: " + act["run"])
+            except Exception as e:  # noqa: BLE001
+                print(f"[x] /h failed: {e}", file=sys.stderr)
+        if act["quit"]:
+            root.after(200, root.destroy)
 
     tick()
     try:
