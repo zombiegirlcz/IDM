@@ -9,21 +9,22 @@
 //     background.js -> connectNative -> idm-host -> engine
 //   * the file lands on disk and its CRC32 matches the served bytes
 //
-// Requires a display for the extension to load reliably; run under Xvfb:
-//   xvfb-run -a node --test extension/test/chrome_e2e.test.mjs
+// Requires a display for the extension to load reliably. `npm test` runs it as
+// gated step 6 (see chromeE2eMode), which supplies xvfb-run when needed.
 //
 // Runs with: node --test extension/test/chrome_e2e.test.mjs
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
-import { createServer } from 'node:http';
 import { chromium } from 'playwright-core';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
-import zlib from 'node:zlib';
+import {
+  makeData, crc32, startServer, writeWrapper, nativeHostDirs,
+} from './e2e_fixtures.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ext = join(here, '..');
@@ -31,65 +32,6 @@ const repoRoot = join(ext, '..');
 
 const EXPECTED_ID = 'gnhajaopemmibmjhkaafdebogmkkcljc';
 const CHROMIUM = process.env.CHROMIUM_BIN || '/bin/chromium';
-
-function makeData(len) {
-  const buf = Buffer.allocUnsafe(len);
-  for (let i = 0; i < len; i++) {
-    buf[i] = (Math.imul(i >>> 0, 2654435761) >>> 13) & 0xff;
-  }
-  return buf;
-}
-function crc32(buf) {
-  return (zlib.crc32(buf) >>> 0).toString(16).padStart(8, '0');
-}
-
-function startServer(data) {
-  return new Promise((resolve) => {
-    const server = createServer((req, res) => {
-      const u = new URL(req.url, 'http://x');
-      if (u.pathname === '/') {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        return res.end(
-          `<!doctype html><html><body>` +
-            `<video src="/movie.mp4"></video>` +
-            `<a id="d" download="out.bin" href="/file.bin">dl</a>` +
-            `</body></html>`,
-        );
-      }
-      if (u.pathname === '/movie.mp4') {
-        res.writeHead(200, { 'Content-Length': 4, 'Content-Type': 'video/mp4' });
-        return res.end(Buffer.from([0, 0, 0, 0]));
-      }
-      if (u.pathname === '/file.bin') {
-        const total = data.length;
-        const range = req.headers.range;
-        if (req.method === 'HEAD') {
-          res.writeHead(200, { 'Content-Length': total, 'Accept-Ranges': 'bytes', ETag: '"e"' });
-          return res.end();
-        }
-        if (range) {
-          const m = /bytes=(\d+)-(\d*)/.exec(range);
-          const a = parseInt(m[1], 10);
-          const b = m[2] ? parseInt(m[2], 10) : total - 1;
-          const slice = data.subarray(a, b + 1);
-          res.writeHead(206, {
-            'Content-Length': slice.length,
-            'Content-Range': `bytes ${a}-${b}/${total}`,
-            'Accept-Ranges': 'bytes',
-          });
-          return res.end(slice);
-        }
-        res.writeHead(200, { 'Content-Length': total, 'Accept-Ranges': 'bytes', ETag: '"e"' });
-        return res.end(data);
-      }
-      res.writeHead(404);
-      res.end();
-    });
-    server.listen(0, '127.0.0.1', () => {
-      resolve({ server, url: `http://127.0.0.1:${server.address().port}` });
-    });
-  });
-}
 
 test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC', { timeout: 180000 }, async () => {
   assert.ok(existsSync(CHROMIUM), `chromium not found at ${CHROMIUM}`);
@@ -128,25 +70,8 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
   // left alone.
   const fakeHome = join(userDataDir, 'home');
   const fakeConfig = join(fakeHome, '.config');
-  const nmDirs = [
-    // XDG config dir per browser flavour (what install-host.sh writes to).
-    ...['chromium', 'google-chrome', 'chrome'].map((b) =>
-      join(fakeConfig, b, 'NativeMessagingHosts')),
-    // Some builds resolve the manifest dir from the user data dir instead.
-    join(userDataDir, 'NativeMessagingHosts'),
-  ];
-  // idm-host is fail-closed: with no --allowed-dir it exits immediately. The
-  // real installer therefore registers a wrapper that supplies it (see
-  // extension/install-host.sh); the manifest must point at the same shape of
-  // wrapper here, or Chrome just reports "Native host has exited".
-  const wrapper = join(fakeHome, 'idm-host-wrapper.sh');
-  mkdirSync(fakeHome, { recursive: true });
-  writeFileSync(
-    wrapper,
-    `#!/usr/bin/env bash\nexec "${hostBin}" --engine "${engineBin}" `
-      + `--allowed-dir "${dlDir}" "$@"\n`,
-    { mode: 0o755 },
-  );
+  const nmDirs = nativeHostDirs('chromium', { home: fakeHome, userDataDir });
+  const wrapper = writeWrapper({ home: fakeHome, hostBin, engineBin, allowedDir: dlDir });
   for (const nmDir of nmDirs) {
     mkdirSync(nmDir, { recursive: true });
     writeFileSync(

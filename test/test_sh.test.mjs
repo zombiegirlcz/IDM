@@ -22,13 +22,16 @@ function runScript(env) {
   const dir = mkdtempSync(join(tmpdir(), 'idm_testsh_'));
   const log = join(dir, 'cargo.log');
   writeFileSync(join(dir, 'cargo'), `#!/usr/bin/env bash\necho "$@" >> ${log}\n`);
-  // `node` does nothing — except when asked to decide about the Chromium E2E,
-  // where the script needs an actual decision line to read. Stubbing that as a
-  // skip keeps this test about the Rust opt-in instead of about browsers.
+  // `node` does nothing — except when asked to decide about a real-browser
+  // E2E, where the script needs an actual decision line to read. Stubbing both
+  // as skips keeps this test about the Rust opt-in instead of about browsers.
   writeFileSync(
     join(dir, 'node'),
     '#!/usr/bin/env bash\n'
-      + 'case "$*" in *chrome_e2e_decide*) printf "skip\\t\\t\\tstubbed\\n";; esac\n'
+      + 'case "$*" in\n'
+      + '  *chrome_e2e_decide*) printf "skip\\t\\t\\tstubbed\\n";;\n'
+      + '  *firefox_e2e_decide*) printf "skip\\t\\tstubbed\\n";;\n'
+      + 'esac\n'
       + 'exit 0\n',
   );
   chmodSync(join(dir, 'cargo'), 0o755);
@@ -72,8 +75,10 @@ test('a decider that says nothing fails the run', () => {
   assert.notEqual(r.status, 0, 'an empty decision must not pass: ' + r.stdout);
 });
 
-test('the Chromium E2E is a gated step, not an exclusion', () => {
+test('both real-browser E2Es are gated steps, not exclusions', () => {
   const sh = readFileSync(join(repoRoot, 'scripts/test.sh'), 'utf8');
-  assert.match(sh, /chrome_e2e_decide\.mjs/, 'step 6 must ask the gate');
-  assert.match(sh, /chrome_e2e\.test\.mjs/, 'and then actually run the harness');
+  for (const b of ['chrome', 'firefox']) {
+    assert.match(sh, new RegExp(`${b}_e2e_decide\\.mjs`), `${b} must ask its gate`);
+    assert.match(sh, new RegExp(`${b}_e2e\\.test\\.mjs`), `${b} must run its harness`);
+  }
 });

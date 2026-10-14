@@ -12,8 +12,8 @@
 #      release_host guard fails on a missing OR stale release binary. Building
 #      first keeps that guard meaningful instead of a false "STALE".
 #   2. `cargo test` — engine + host suites (debug build via CARGO_BIN_EXE_*).
-#   3. `node --test` — extension suites, EXCLUDING chrome_e2e.test.mjs, which
-#      drives a real Chromium and gets its own gated step (6) below.
+#   3. `node --test` — extension suites, EXCLUDING the two real-browser
+#      harnesses (chrome_e2e, firefox_e2e), which get gated steps 6 and 7.
 set -euo pipefail
 
 WITH_RUST="${WITH_RUST:-}"
@@ -22,7 +22,7 @@ export WITH_RUST
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-echo "== [1/6] cargo build --release =="
+echo "== [1/7] cargo build --release =="
 if [[ "$WITH_RUST" == "1" ]]; then
   (cd engine && cargo build --release)
 else
@@ -30,7 +30,7 @@ else
 fi
 
 echo
-echo "== [2/6] cargo test =="
+echo "== [2/7] cargo test =="
 if [[ "$WITH_RUST" == "1" ]]; then
   (cd engine && cargo test)
 else
@@ -38,11 +38,12 @@ else
 fi
 
 echo
-echo "== [3/6] node --test (extension, excluding chrome_e2e) =="
-# Every *.test.mjs except the real-Chromium harness, which needs a working
-# Chromium + display and therefore gets the gated step 6.
+echo "== [3/7] node --test (extension, excluding the browser E2Es) =="
+# Every *.test.mjs except the two real-browser harnesses, which need a working
+# browser and therefore get the gated steps 6 and 7.
 mapfile -t TEST_FILES < <(
-  find extension/test -name '*.test.mjs' ! -name 'chrome_e2e.test.mjs' | sort
+  find extension/test -name '*.test.mjs' \
+    ! -name 'chrome_e2e.test.mjs' ! -name 'firefox_e2e.test.mjs' | sort
 )
 if [[ ${#TEST_FILES[@]} -eq 0 ]]; then
   echo "error: no extension test files found under extension/test" >&2
@@ -52,7 +53,7 @@ printf '  - %s\n' "${TEST_FILES[@]}"
 node --test "${TEST_FILES[@]}"
 
 echo
-echo "== [4/6] node --test (native GUI) =="
+echo "== [4/7] node --test (native GUI) =="
 # The native window tests: API client against a real idm --serve, plus building
 # the Tk window under xvfb-run. Skipped gracefully if python3/xvfb are absent.
 if command -v python3 >/dev/null 2>&1; then
@@ -66,7 +67,7 @@ else
 fi
 
 echo
-echo "== [5/6] node --test (installer) =="
+echo "== [5/7] node --test (installer) =="
 if command -v desktop-file-validate >/dev/null 2>&1; then
   mapfile -t INSTALL_FILES < <(find test -name '*.test.mjs' | sort)
   if [[ ${#INSTALL_FILES[@]} -gt 0 ]]; then
@@ -78,7 +79,7 @@ else
 fi
 
 echo
-echo "== [6/6] node --test (real Chromium E2E) =="
+echo "== [6/7] node --test (real Chromium E2E) =="
 # The one test that drives a genuine browser. It cannot run everywhere, so the
 # decision is chromeE2eMode()'s (extension/chrome_e2e_gate.mjs): by default a
 # missing or non-starting Chromium is a skip with a stated reason, and
@@ -88,8 +89,8 @@ IFS=$'\t' read -r E2E_MODE E2E_CHROMIUM E2E_XVFB E2E_REASON \
   < <(node extension/chrome_e2e_decide.mjs)
 case "$E2E_MODE" in
   run)
-    echo "  using $E2E_CHROMIUM${E2E_XVFB:+ (under xvfb-run)}"
-    if [[ -n "$E2E_XVFB" ]]; then
+    echo "  using $E2E_CHROMIUM$([[ "$E2E_XVFB" == 1 ]] && echo ' (under xvfb-run)')"
+    if [[ "$E2E_XVFB" == 1 ]]; then
       CHROMIUM_BIN="$E2E_CHROMIUM" xvfb-run -a \
         node --test extension/test/chrome_e2e.test.mjs
     else
@@ -98,6 +99,21 @@ case "$E2E_MODE" in
     ;;
   skip) echo "  (skipped: $E2E_REASON)" ;;
   *)    echo "error: $E2E_REASON" >&2; exit 1 ;;
+esac
+
+echo
+echo "== [7/7] node --test (real Firefox E2E) =="
+# The Firefox twin of step 6, over Marionette instead of Playwright. Firefox is
+# headless without any X server, so this one needs no xvfb-run — see
+# firefoxE2eMode() for why it is a separate gate rather than the same one.
+IFS=$'\t' read -r FF_MODE FF_BIN FF_REASON < <(node extension/firefox_e2e_decide.mjs)
+case "$FF_MODE" in
+  run)
+    echo "  using $FF_BIN"
+    FIREFOX_BIN="$FF_BIN" node --test extension/test/firefox_e2e.test.mjs
+    ;;
+  skip) echo "  (skipped: $FF_REASON)" ;;
+  *)    echo "error: $FF_REASON" >&2; exit 1 ;;
 esac
 
 echo
