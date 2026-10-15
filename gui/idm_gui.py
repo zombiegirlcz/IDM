@@ -126,6 +126,22 @@ THEMES = {
 }
 
 
+# The measurements that make the window look designed rather than default.
+# Tk's defaults are dense and bevelled; both are what "a dry grey window" is
+# made of. Keeping them here means a test can hold them to account and there
+# is one place to change the density of the whole program.
+METRICS = {
+    "row_height": 28,        # Tk's default is 20 and reads as a spreadsheet
+    "heading_height": 30,
+    "toolbar_pad": 10,
+    "button_pad_x": 12,
+    "button_pad_y": 7,
+    "relief": "flat",        # no raised/sunken borders anywhere
+    "border": 0,
+    "gap": 6,
+}
+
+
 def theme_palette(name: str) -> dict:
     """The colours for a theme. An unknown name is light, never a crash."""
     return dict(THEMES.get(str(name or "").lower(), THEMES["light"]))
@@ -511,7 +527,9 @@ GLYPHS = {
                   ("rect", 12, 7, 15, 9)],
     "clock":     [("ring", 8, 8, 7, 5), ("rect", 7, 4, 9, 9),
                   ("rect", 7, 7, 12, 9)],
-    "folder":    [("rect", 2, 5, 14, 13), ("rect", 2, 3, 7, 5)],
+    # The gap between tab and body is what makes this read as a folder
+    # rather than a coloured square once it is 14 pixels wide.
+    "folder":    [("rect", 1, 6, 15, 14), ("rect", 1, 2, 7, 5)],
     "sun":       [("disc", 8, 8, 4), ("rect", 7, 0, 9, 3), ("rect", 7, 13, 9, 16),
                   ("rect", 0, 7, 3, 9), ("rect", 13, 7, 16, 9),
                   ("rect", 2, 2, 5, 5), ("rect", 11, 11, 14, 14),
@@ -3858,9 +3876,24 @@ def apply_theme(root, name: str) -> dict:
     style.configure("TLabel", background=p["bg"], foreground=p["fg"])
     style.configure("TLabelframe.Label", background=p["bg"], foreground=p["fg"])
     style.configure("TButton", background=p["surface"], foreground=p["fg"],
-                    bordercolor=p["grid"], focuscolor=p["accent"])
+                    bordercolor=p["grid"], focuscolor=p["accent"],
+                    relief=METRICS["relief"], borderwidth=METRICS["border"],
+                    padding=(METRICS["button_pad_x"], METRICS["button_pad_y"]),
+                    anchor="center")
     style.map("TButton",
               background=[("active", p["heading_bg"]), ("pressed", p["grid"])])
+    # One button carries the accent: the action the window exists for. Without
+    # it the toolbar is nine identical rectangles and nothing leads the eye.
+    style.configure("Accent.TButton", background=p["accent"],
+                    foreground=p["selection_fg"] if name == "dark" else "#ffffff",
+                    relief=METRICS["relief"], borderwidth=0,
+                    padding=(METRICS["button_pad_x"], METRICS["button_pad_y"]))
+    style.map("Accent.TButton",
+              background=[("active", p["selection_bg"]), ("pressed", p["grid"])])
+    # A toolbar that is a band of its own, separated from the list by a rule
+    # rather than by nothing.
+    style.configure("Toolbar.TFrame", background=p["bg"])
+    style.configure("Rule.TFrame", background=p["grid"])
     style.configure("TCheckbutton", background=p["bg"], foreground=p["fg"])
     style.configure("TRadiobutton", background=p["bg"], foreground=p["fg"])
     for entry in ("TEntry", "TCombobox", "TSpinbox"):
@@ -3874,10 +3907,13 @@ def apply_theme(root, name: str) -> dict:
                     bordercolor=p["grid"])
     style.configure("Treeview", background=p["surface"],
                     fieldbackground=p["surface"], foreground=p["fg"],
-                    bordercolor=p["grid"], rowheight=22)
+                    bordercolor=p["grid"], rowheight=METRICS["row_height"],
+                    relief=METRICS["relief"], borderwidth=METRICS["border"])
+    # A raised heading is the single loudest "default Tk" cue in the window.
     style.configure("Treeview.Heading", background=p["heading_bg"],
                     foreground=p["heading_fg"], bordercolor=p["grid"],
-                    relief="raised")
+                    relief=METRICS["relief"], borderwidth=0,
+                    padding=(8, (METRICS["heading_height"] - 16) // 2))
     style.map("Treeview.Heading", background=[("active", p["grid"])])
     style.map("Treeview",
               background=[("selected", p["selection_bg"])],
@@ -4362,7 +4398,9 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     w["palette"] = palette
 
     # --- toolbar (above the list, like IDM) ---
-    toolbar = ttk.Frame(root, padding=(6, 6, 6, 2))
+    toolbar = ttk.Frame(root, style="Toolbar.TFrame",
+                        padding=(METRICS["toolbar_pad"], METRICS["toolbar_pad"],
+                                 METRICS["toolbar_pad"], METRICS["gap"]))
     toolbar.pack(fill="x", side="top")
     w["toolbar"] = toolbar
     w["buttons"] = []
@@ -4375,14 +4413,18 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             b = ttk.Button(toolbar, text=name, image=img, compound="left")
         else:
             b = ttk.Button(toolbar, text=name)
-        b.pack(side="left", padx=2)
+        if name == "Add URL":
+            b.configure(style="Accent.TButton")
+        b.pack(side="left", padx=(0, METRICS["gap"]))
         w["buttons"].append((name, b))
     w["buttons_with_icons"] = sum(
         1 for _n, btn in w["buttons"] if _button_has_icon(btn)
     )
 
     # --- search row (IDM has it above the list) ---
-    search_row = ttk.Frame(root, padding=(6, 2))
+    search_row = ttk.Frame(root, padding=(METRICS["toolbar_pad"], 0,
+                                          METRICS["toolbar_pad"],
+                                          METRICS["gap"]))
     search_row.pack(fill="x", side="top")
     ttk.Label(search_row, text="Search:").pack(side="left")
     w["search"] = ttk.Entry(search_row)
@@ -4453,7 +4495,7 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         w["grabber_nodes"] = {}
         for c in list_categories(settings):
             spec = CATEGORY_ICONS.get(c)
-            img = _icon(spec[0], spec[1], 14, master=root) if spec else None
+            img = _icon(spec[0], spec[1], 16, master=root) if spec else None
             if img is not None:
                 w["icons"].append(img)
                 w.setdefault("category_icons", []).append(img)
