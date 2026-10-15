@@ -21,6 +21,12 @@ Co **ověřené není**: nativní okno v běžném provozu a UI rozšíření mi
 jeden řetěz (popup, Options, context menu) — ty pokrývají jen jsdom testy.
 Ruční průchod prohlížečem u sebe se nedělal. Netvrdit o nich, že fungují.
 
+To platí i pro všechno z cyklů **vzhled** a **aktualizace**: světlý/tmavý
+motiv, zebra, svislé mřížky, posuvné lišty, 3D ikony, nové sloupce ani
+instalační okno **nikdo neviděl na obrazovce**. Kryjí je selftesty pod xvfb
+a CI, ne oko. Stejně tak `idm update` proti skutečnému GitHub releasu — testy
+jedou proti lokálnímu serveru.
+
 ## Kde co je
 
 | Cesta | Co to je |
@@ -207,8 +213,6 @@ kompilace.
 - **Jméno řádku u médií je `-o` + přípona od yt-dlp**, ne titulek videa.
   Dvě různá YouTube videa tak můžou vyjít jako `watch.webm` a `watch.f616.mp4`.
   `media::output_name()` umí titulek, ale fronta ho nepoužívá.
-- `idm --version` neexistuje (clap hlásí `unexpected argument`); okno bere
-  verzi z `VERSION` v `idm_gui.py`.
 - Na originu leží větev `security-audit-fixes`, kterou tahle session
   nevytvořila ani se jí nedotkla.
 
@@ -227,10 +231,16 @@ dřív, než se cokoliv pohne** → staging `$IDM_DIR/.update` → přejmenován
 - **Okno instaluje z cache, ne ze sítě.** Synchronní dotaz na GitHub při
   startu by zdržel každé spuštění kvůli novince, která tam skoro nikdy není.
   `should_offer_update()` je přísná schválně: cokoliv nejistého = neinstalovat.
-- **`ttk.Treeview` neumí mřížky mezi buňkami.** Nemá pro ně prvek; obarvit jde
-  jen celý řádek. Proto zebra (`tag_rows`), a pruhy se **přepisují při každém
-  průchodu** — řádek, který se posune, změní paritu. Skutečná mříž = nahradit
-  Treeview tabulkou v `Canvas`.
+- **`ttk.Treeview` neumí *vodorovné* mřížky.** Nemá prvek pro okraje buněk;
+  obarvit jde jen celý řádek. Proto zebra (`tag_rows`), a pruhy se
+  **přepisují při každém průchodu** — řádek, který se posune, změní paritu.
+  Vodorovné linky = nahradit Treeview tabulkou v `Canvas`.
+- **Svislé mřížky jdou** jako 1px `tk.Frame` položené přes seznam
+  (`column_edges`, `grid_separators`). **Tk nemá událost „kolonka změnila
+  šířku"**: `<Configure>` nepokrývá tažení za hranici kolonky ani to, že si Tk
+  šířky přerozdělí samo — a dělá to **asynchronně** po nastavení šířky. Proto
+  se šířky **vzorkují na timeru** a kreslí se jen při změně. Měření v testu
+  musí nechat Tk dosednout (`_settle`), jinak čte šířky, které se ještě hýbou.
 - **Motiv jede přes `clam`.** Ostatní ttk motivy barevné volby ignorují,
   nejvíc nativní motiv na Windows. `apply_theme()` musí běžet **před** stavbou
   widgetů: styly jsou globální, ale widget vzniklý dřív si drží původní vzhled.
