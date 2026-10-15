@@ -67,19 +67,39 @@ git, žádný Rust, žádný kompilátor**, stejně jako když si instaluješ sk
 Instaluje se **do uživatelského prostoru** (nikdy systémově), takže nepotřebuje
 root a nic nerozbije:
 
-- postaví engine + host a dá je do `~/.local/share/idm/bin`
-- zaregistruje native-messaging hosta do prohlížečů
-- zaregistruje desktop integraci (launcher, schémata `idmdwnlmfv9:`/`idmreg:`, kontextové menu)
-- vytvoří **ikonu na ploše** „IDM — správce stahování" (dvojklik otevře nativní okno)
+Všechno skončí v **jedné složce**, `$IDM_DIR` (výchozí `~/.idm`):
 
-Proměnné: `IDM_DOWNLOADS_DIR`, `IDM_INSTALL_PREFIX`, `IDM_SOURCE_DIR` (lokální
-checkout místo klonu), `IDM_SKIP_BUILD=1` (binárky už jsou postavené).
+```
+~/.idm/
+  bin/        idm  idm-host  ensure-aria2.sh
+  gui/        idm_gui.py
+  assets/     idm.png  idm.ico
+  extension/  instalační skripty + manifesty hostů
+  native/     vygenerované wrappery
+  state/      settings.json  queue.json  secrets.json
+  VERSION
+```
+
+Mimo ni jsou jen dvě věci, a obě z nutnosti: symlink `~/.local/bin/idm`
+a manifesty hostů v konfiguračních adresářích prohlížečů — jinde je prohlížeč
+nehledá.
+
+Do `~/.zshrc` a `~/.bashrc` přibude jeden ohraničený blok: `export IDM_DIR`
+a pojistka, která přidá `~/.local/bin` na `PATH`, jen když tam ještě není.
+
+Dál instalátor zaregistruje native-messaging hosta do prohlížečů, desktop
+integraci (schémata `idmdwnlmfv9:`/`idmreg:`, kontextové menu) a vytvoří
+**ikonu na ploše** „IDM — správce stahování" s vlastní ikonou z `assets/idm.png`.
+
+Proměnné: `IDM_DIR`, `IDM_DOWNLOADS_DIR`, `IDM_LOCAL_SOURCE` (build z lokálního
+checkoutu), `IDM_SKIP_GUI_DEPS=1`.
 
 Odinstalace:
 
 ```bash
-# znovu spusť stažený instalátor s --uninstall, nebo lokálně:
-bash install.sh --uninstall
+idm uninstall            # stav (fronta, hesla) zůstane
+idm uninstall --purge    # včetně stavu
+idm uninstall --dry-run  # jen vypíše, co by smazal
 ```
 
 ## 0b) Instalace na Windows (PowerShell)
@@ -98,17 +118,21 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 Co udělá (vše user-scoped, **bez admina**):
 
 - stáhne **hotové binárky** z GitHub release (žádný Rust, žádný git, žádný kompilátor)
-- nainstaluje binárky do `%LOCALAPPDATA%\idm\bin`
+- nainstaluje do `%USERPROFILE%\.idm` (stejný layout jako na Linuxu), uloží `IDM_DIR` a přidá `%IDM_DIR%\bin` na uživatelský `PATH`
 - zaregistruje native-messaging hosta do **HKCU** pro Chrome / Edge / Brave / Chromium
 - uloží `IDM_ALLOWED_DIR` (host je fail-closed a Windows prohlížeče ho spouštějí bez argumentů)
-- vytvoří **ikonu na ploše** a v **menu Start** (`IDM.lnk`) — otevře nativní okno
+- vytvoří **ikonu na ploše** a v **menu Start** (`IDM.lnk`) s ikonou `assets\idm.ico` — otevře nativní okno
 
-Parametry: `-DownloadsDir`, `-Prefix`, `-SourceDir` (lokální checkout), `-SkipBuild`, `-Ref`.
+Parametry: `-DownloadsDir`, `-Prefix`, `-Version`, `-ArchiveUrl`.
+
+> Zástupce míří přímo na `pythonw.exe`, ne na `idm.exe --gui`: `idm.exe` je
+> konzolová binárka, takže by zástupce při každém spuštění blikl oknem
+> příkazové řádky. `idm --gui` z terminálu funguje na obou systémech.
 
 Odinstalace:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\idm\install.ps1" -Uninstall
+powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.idm\install.ps1" -Uninstall
 ```
 
 > Poznámka: host umí `--allowed-dir` i z proměnné `IDM_ALLOWED_DIR` (na Windows není
@@ -149,9 +173,9 @@ cd extension
 
 Skript:
 
-1. vygeneruje wrapper `~/.local/share/idm-native/idm-host-wrapper.sh`, který
+1. vygeneruje wrapper `~/.idm/native/idm-host-wrapper.sh`, který
    spouští `idm-host --engine <idm> --allowed-dir <downloads>`,
-2. vygeneruje **instalovaný** manifest `~/.local/share/idm-native/com.tonec.idm.json`,
+2. vygeneruje **instalovaný** manifest `~/.idm/native/com.tonec.idm.json`,
    jehož `"path"` míří na wrapper (a `allowed_origins` převezme ze šablony),
 3. symlinkne tento instalovaný manifest do `NativeMessagingHosts` adresářů
    přítomných Chromium prohlížečů (`google-chrome`, `chromium`, `microsoft-edge`,
@@ -162,9 +186,9 @@ Download adresář lze změnit: `IDM_DOWNLOADS_DIR=/cesta ./install-host.sh`.
 Ověření, že symlink vznikl a wrapper má `--allowed-dir`:
 
 ```bash
-cat ~/.local/share/idm-native/idm-host-wrapper.sh   # obsahuje --allowed-dir
+cat ~/.idm/native/idm-host-wrapper.sh   # obsahuje --allowed-dir
 ls -l ~/.config/google-chrome/NativeMessagingHosts/com.tonec.idm.json
-# očekáváno: symlink -> ~/.local/share/idm-native/com.tonec.idm.json
+# očekáváno: symlink -> ~/.idm/native/com.tonec.idm.json
 ```
 
 Odinstalace: `./install-host.sh --uninstall`
@@ -180,7 +204,7 @@ ID je deterministické — je odvozené z pole `key` v `extension/manifest.json`
 (sha256 veřejného klíče → prvních 16 bajtů → písmena a–p). Stejné ID **musí**
 být v manifestu hosta v `allowed_origins`, jinak Chrome hosta odmítne.
 (Šablona `extension/com.tonec.idm.json` i vygenerovaný
-`~/.local/share/idm-native/com.tonec.idm.json` mají stejné ID.)
+`~/.idm/native/com.tonec.idm.json` mají stejné ID.)
 
 Ověření shody ID:
 
@@ -233,7 +257,7 @@ Engine umí i okno správce (jako IDM), bez jakýchkoli nových závislostí:
 cd engine
 cargo build --release
 ./target/release/idm --serve 127.0.0.1:8080 \
-    --output-dir ~/Downloads --state-dir ~/.local/share/idm-gui
+    --output-dir ~/Downloads --state-dir ~/.idm/state
 # -> [*] IDM GUI on http://127.0.0.1:8080
 ```
 
