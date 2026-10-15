@@ -101,6 +101,19 @@ ověřování změn.
   whitespace. Prázdné pole tím posune všechna další doleva — `skip` bez binárky
   doručil svůj důvod do kolonky `xvfb`. Proto `formatDecision()` píše `-`,
   nikdy prázdno.
+- **`free_port()` platí i pro port serveru, nejen pro origin.** Testy v jednom
+  binárce běží paralelně, takže dva dostanou stejné číslo; poražený `idm
+  --serve` skončí na „address in use", ale `connect` projde, protože tam
+  poslouchá vítěz — a test pak řídí cizí server, dokud ho jeho majitel
+  nezabije (`ConnectionReset`). Port je náš, jen dokud žije **náš** potomek:
+  `start_server()` v `engine/tests/gui.rs`.
+- **To samé platí o číslu X displeje.** `probe_displays()` vidí jen sockety,
+  které existují ve chvíli, kdy se dívá. Zotavení je v `open_display()`:
+  odmítnuté číslo jde do busy a plán se posune dál.
+- **Fronta se o skutečném jménu souboru dozví z `--report`**, ne ze stdout
+  (ten je zahozený). yt-dlp si vybírá kontejner sám, takže `-o clip.mp4` často
+  vyrobí `clip.webm`; report smí položku přejmenovat **jen v rámci jejího
+  adresáře** (`accept_reported_file`).
 - **Engine soubor preallokuje**, takže cílové velikosti dosáhne dávno před
   dopsáním obsahu. E2E musí čekat na **CRC**, ne na velikost.
 - **Import testovacího modulu ten test spustí** (`node:test` se rozjede sám),
@@ -154,7 +167,11 @@ kompilace.
   Developer/ESR edici s `xpinstall.signatures.required=false`); `install.sh`
   zaregistruje jen hosta, samotné rozšíření si uživatel musí nahrát sám.
 - **`--screenshot` je jednorázový snímek, ne stream.** Živé sledování okna by
-  chtělo x11vnc, které vědomě není součástí.
+  chtělo x11vnc, které vědomě není součástí. Snímek se bere až po prvním
+  načtení fronty, aby okno nebylo prázdné.
+- **Jméno řádku u médií je `-o` + přípona od yt-dlp**, ne titulek videa.
+  Dvě různá YouTube videa tak můžou vyjít jako `watch.webm` a `watch.f616.mp4`.
+  `media::output_name()` umí titulek, ale fronta ho nepoužívá.
 - `idm --version` neexistuje (clap hlásí `unexpected argument`); okno bere
   verzi z `VERSION` v `idm_gui.py`.
 - Na originu leží větev `security-audit-fixes`, kterou tahle session
