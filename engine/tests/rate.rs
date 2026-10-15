@@ -36,6 +36,13 @@ fn free_port() -> u16 {
 
 /// A deliberately slow origin: `total` bytes, handed out in `chunk` pieces
 /// with `gap` between them, so the download lasts long enough to be measured.
+///
+/// It really does speak Range. Advertising Accept-Ranges and then ignoring the
+/// header -- which this origin did at first -- makes the engine segment the
+/// file into four connections and hand each of them the SAME bytes from offset
+/// zero, so the download fails with "engine exited with exit status: 1" and
+/// the test blames the feature under test. CLAUDE.md already records that trap
+/// from another suite; here it is again.
 fn slow_origin(total: usize, chunk: usize, gap: Duration) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = format!("http://{}", listener.local_addr().unwrap());
@@ -43,18 +50,45 @@ fn slow_origin(total: usize, chunk: usize, gap: Duration) -> String {
         for mut s in listener.incoming().flatten() {
             thread::spawn(move || {
                 let mut buf = [0u8; 2048];
-                let _ = s.read(&mut buf);
-                let head = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Length: {total}\r\nAccept-Ranges: bytes\r\nConnection: close\r\n\r\n"
+                let n = s.read(&mut buf).unwrap_or(0);
+                let req = String::from_utf8_lossy(&buf[..n]).to_lowercase();
+
+                // bytes=START-[END]
+                let range = req.lines().find_map(|l| {
+                    let v = l.strip_prefix("range:")?.trim().strip_prefix("bytes=")?;
+                    let (a, b) = v.split_once('-')?;
+                    let start: usize = a.trim().parse().ok()?;
+                    let end = b.trim();
+                    let end = if end.is_empty() {
+                        total - 1
+                    } else {
+                        end.parse::<usize>().ok()?.min(total - 1)
+                    };
+                    (start <= end).then_some((start, end))
+                });
+
+                let (start, end, status) = match range {
+                    Some((a, b)) => (a, b, "206 Partial Content"),
+                    None => (0, total.saturating_sub(1), "200 OK"),
+                };
+                let len = end - start + 1;
+                let mut head = format!(
+                    "HTTP/1.1 {status}\r\nContent-Length: {len}\r\n                     Accept-Ranges: bytes\r\nConnection: close\r\n"
                 );
+                if status.starts_with("206") {
+                    head.push_str(&format!("Content-Range: bytes {start}-{end}/{total}\r\n"));
+                }
+                head.push_str("\r\n");
                 if s.write_all(head.as_bytes()).is_err() {
                     return;
                 }
-                let body = vec![b'x'; chunk];
+                // Deterministic content, so a segment landing at the wrong
+                // offset shows up as a CRC mismatch rather than passing.
+                let body: Vec<u8> = (start..=end).map(|i| (i % 251) as u8).collect();
                 let mut sent = 0;
-                while sent < total {
-                    let n = chunk.min(total - sent);
-                    if s.write_all(&body[..n]).is_err() {
+                while sent < len {
+                    let n = chunk.min(len - sent);
+                    if s.write_all(&body[sent..sent + n]).is_err() {
                         return;
                     }
                     let _ = s.flush();
