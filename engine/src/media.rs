@@ -6,6 +6,7 @@
 
 use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
+use crate::console::HideConsole;
 
 /// Hosts where a plain HTTP download is the wrong tool.
 const MEDIA_HOSTS: &[&str] = &[
@@ -192,6 +193,7 @@ pub async fn probe_json(
     auth_env: Option<&str>,
 ) -> anyhow::Result<serde_json::Value> {
     let mut cmd = tokio::process::Command::new(yt_dlp);
+    cmd.hide_console();
     scrub_auth_env(&mut cmd, auth_env);
     cmd.arg("-J").arg("--no-playlist").arg("--no-warnings");
     apply_auth(&mut cmd, cookie, referer);
@@ -321,6 +323,7 @@ pub async fn download(
     speed: Speed,
 ) -> anyhow::Result<PathBuf> {
     let mut cmd = tokio::process::Command::new(yt_dlp);
+    cmd.hide_console();
     scrub_auth_env(&mut cmd, auth_env);
     cmd.arg("--no-playlist").arg("--no-warnings");
     apply_speed(&mut cmd, &speed);

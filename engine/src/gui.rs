@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use crate::console::HideConsole;
 
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -801,6 +802,7 @@ async fn run_item(st: Arc<State>, id: u64) {
     set_status(&st, id, "running", None).await;
 
     let mut cmd = Command::new(&st.engine);
+    cmd.hide_console();
     cmd.arg("-n")
         .arg(conns.to_string())
         .arg("-o")
@@ -1333,6 +1335,7 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 return;
             }
             let mut cmd = Command::new(&st.engine);
+            cmd.hide_console();
             cmd.arg("--list-formats").arg("--yt-dlp").arg(&st.yt_dlp);
             if let Some(c) = v["cookie"].as_str().filter(|s| !s.is_empty()) {
                 cmd.arg("--cookie").arg(c);
