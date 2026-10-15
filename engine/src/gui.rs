@@ -239,6 +239,46 @@ struct State {
     token: String,
     /// Our own origin, e.g. `http://127.0.0.1:8080`.
     origin: String,
+    /// Live transfer rate per item. Deliberately NOT part of `Item`: a speed
+    /// is a reading, not state, and persisting it into queue.json would make a
+    /// restart display a rate nothing is producing.
+    rates: Mutex<HashMap<u64, Rate>>,
+}
+
+/// A smoothed transfer rate, sampled from the sidecar the queue already polls
+/// for progress. The raw difference across one 300 ms look jumps around far
+/// too much to read, so each sample is blended into the previous one.
+struct Rate {
+    at: std::time::Instant,
+    bytes: u64,
+    bps: f64,
+}
+
+/// Blend a fresh sample into the running figure. Pure, so the arithmetic can
+/// be tested without waiting for real seconds to pass.
+fn blend_rate(prev_bps: f64, delta_bytes: u64, delta: std::time::Duration) -> f64 {
+    let secs = delta.as_secs_f64();
+    if secs <= 0.0 {
+        return prev_bps;
+    }
+    let instant = delta_bytes as f64 / secs;
+    if prev_bps <= 0.0 {
+        instant
+    } else {
+        // Two parts history to one part news: steady enough to read, quick
+        // enough to notice a stall.
+        prev_bps * 0.7 + instant * 0.3
+    }
+}
+
+/// Seconds left at the current rate. `None` while there is nothing to divide
+/// by -- an unknown size or a standing start -- because a made-up ETA is worse
+/// than an empty cell.
+fn eta_secs(total: u64, downloaded: u64, bps: f64) -> Option<u64> {
+    if total == 0 || bps < 1.0 || downloaded >= total {
+        return None;
+    }
+    Some(((total - downloaded) as f64 / bps).ceil() as u64)
 }
 
 /// Request headers we care about, lowercased names -> raw values.
@@ -929,6 +969,26 @@ async fn run_item(st: Arc<State>, id: u64) {
                             i.downloaded = dl;
                         }
                     }
+                    // Same look, one more reading: the difference since the
+                    // previous sample IS the speed, so /api/items can answer
+                    // "how fast" and "how long" without a second source.
+                    {
+                        let now = std::time::Instant::now();
+                        let mut r = st.rates.lock().await;
+                        let next = match r.get(&id) {
+                            Some(prev) => Rate {
+                                at: now,
+                                bytes: dl,
+                                bps: blend_rate(
+                                    prev.bps,
+                                    dl.saturating_sub(prev.bytes),
+                                    now.duration_since(prev.at),
+                                ),
+                            },
+                            None => Rate { at: now, bytes: dl, bps: 0.0 },
+                        };
+                        r.insert(id, next);
+                    }
                     save(&st).await;
                 }
             }
@@ -1099,6 +1159,30 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
             // passwords back.
             let items: Vec<Item> =
                 st.items.lock().await.iter().map(Item::redacted).collect();
+            // speed_bps and time_left_s are added here rather than carried on
+            // Item, so they reach the window without ever reaching queue.json.
+            let rates = st.rates.lock().await;
+            let items: Vec<serde_json::Value> = items
+                .iter()
+                .map(|i| {
+                    let mut v = serde_json::to_value(i).unwrap_or_default();
+                    let running = i.status == "running";
+                    let bps = if running {
+                        rates.get(&i.id).map(|r| r.bps).unwrap_or(0.0)
+                    } else {
+                        0.0
+                    };
+                    let left = if running {
+                        eta_secs(i.total, i.downloaded, bps).unwrap_or(0)
+                    } else {
+                        0
+                    };
+                    v["speed_bps"] = serde_json::json!(bps.round() as u64);
+                    v["time_left_s"] = serde_json::json!(left);
+                    v
+                })
+                .collect();
+            drop(rates);
             let v = serde_json::json!({ "items": items });
             respond(&mut sock, 200, json, v.to_string().as_bytes()).await;
         }
@@ -1396,6 +1480,7 @@ pub async fn serve(
         sem: Arc::new(Semaphore::new(max_concurrent.max(1))),
         token,
         origin: format!("http://{}", addr),
+        rates: Mutex::new(HashMap::new()),
     });
 
     // Failed downloads with retries left come back through here.
@@ -1425,6 +1510,40 @@ pub async fn serve(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn a_first_sample_is_the_rate_itself() {
+        // Nothing to blend with yet, so the instant reading stands.
+        assert_eq!(blend_rate(0.0, 1_000_000, Duration::from_secs(1)), 1_000_000.0);
+    }
+
+    #[test]
+    fn a_sample_is_blended_not_replaced() {
+        // A single slow 300 ms window must not make the figure collapse.
+        let r = blend_rate(1_000_000.0, 0, Duration::from_millis(300));
+        assert!(r > 600_000.0 && r < 1_000_000.0, "got {r}");
+    }
+
+    #[test]
+    fn a_zero_length_window_changes_nothing() {
+        // Two looks in the same instant would otherwise divide by zero.
+        assert_eq!(blend_rate(500.0, 10, Duration::from_secs(0)), 500.0);
+    }
+
+    #[test]
+    fn eta_is_what_is_left_over_the_rate() {
+        assert_eq!(eta_secs(1000, 400, 100.0), Some(6));
+    }
+
+    #[test]
+    fn eta_refuses_to_invent_a_number() {
+        // An unknown size, a standing start, and an item already at 100% --
+        // an empty cell is better than a made-up one in all three.
+        assert_eq!(eta_secs(0, 400, 100.0), None);
+        assert_eq!(eta_secs(1000, 400, 0.0), None);
+        assert_eq!(eta_secs(1000, 1000, 100.0), None);
+    }
 
     #[test]
     fn a_report_may_rename_within_the_same_directory() {
