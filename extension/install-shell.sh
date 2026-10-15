@@ -23,7 +23,7 @@ DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 APPS_DIR="$DATA_HOME/applications"
-NATIVE_DIR="$DATA_HOME/idm-native"
+NATIVE_DIR="${IDM_NATIVE_DIR:-$DATA_HOME/idm-native}"
 NAUTILUS_DIR="$DATA_HOME/nautilus/scripts"
 THUNAR_DIR="$CONFIG_HOME/Thunar"
 
@@ -35,7 +35,7 @@ NAUTILUS_SCRIPT="$NAUTILUS_DIR/Stahnout s IDM"
 THUNAR_UCA="$THUNAR_DIR/uca.xml"
 
 ENGINE_BIN="${IDM_ENGINE_BIN:-$REPO_DIR/engine/target/release/idm}"
-STATE_DIR_DEFAULT="$DATA_HOME/idm-gui"
+STATE_DIR_DEFAULT="${IDM_STATE_DIR:-$DATA_HOME/idm-gui}"
 
 UNINSTALL=0
 if [[ "${1:-}" == "--uninstall" ]]; then
