@@ -3812,7 +3812,7 @@ def themed_toplevel(parent, palette=None):
     construction -- which is all of them -- are covered too.
     """
     import tkinter as tk
-    win = themed_toplevel(parent)
+    win = tk.Toplevel(parent)
     pal = palette or theme_palette(current_theme(parent))
 
     def _paint(_e=None):
