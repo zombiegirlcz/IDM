@@ -4083,7 +4083,11 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     left = ttk.Frame(body)
     ttk.Label(left, text="Categories").pack(anchor="w")
     tree = ttk.Treeview(left, show="tree", selectmode="browse")
-    tree.pack(fill="both", expand=True)
+    tree_scroll = ttk.Scrollbar(left, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=tree_scroll.set)
+    tree_scroll.pack(side="right", fill="y")
+    tree.pack(side="left", fill="both", expand=True)
+    w["tree_scroll"] = tree_scroll
 
     def rebuild_tree():
         """Fill the category tree from the persisted settings."""
@@ -4134,7 +4138,14 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         listview.heading(key, text=title,
                          command=lambda k=key: _sort_by(k))
         listview.column(key, width=width, anchor="w")
-    listview.pack(fill="both", expand=True)
+    # The list scrolls. It always did by wheel, but with nothing on screen to
+    # say so and no way to drag -- a queue longer than the window looked like
+    # the whole queue.
+    list_scroll = ttk.Scrollbar(right, orient="vertical", command=listview.yview)
+    listview.configure(yscrollcommand=list_scroll.set)
+    list_scroll.pack(side="right", fill="y")
+    listview.pack(side="left", fill="both", expand=True)
+    w["list_scroll"] = list_scroll
     w["list"] = listview
     # The striping tags have to exist before the first refresh fills rows.
     tag_rows(listview, palette)
@@ -5743,7 +5754,12 @@ def selftest_gridlines_resize():
     root.update_idletasks()
     root.update()
     after = [s["x"] for s in _gridline_geometry(w)]
+    # Read the width back AFTER the redraw, not the one that was asked for:
+    # Treeview stretches its columns to fill the widget, so a requested 321
+    # legitimately lands as 360. The rules must follow where the column REALLY
+    # is, which is what this reports.
     out = {"before": before, "after": after,
+           "requested_width": new_width,
            "first_width": w["list"].column(first, "width")}
     root.destroy()
     print("GRIDLINES-RESIZE:" + json.dumps(out), flush=True)
@@ -5766,6 +5782,60 @@ def selftest_gridlines_theme():
            "dark_grid": theme_palette("dark")["grid"]}
     root.destroy()
     print("GRIDLINES-THEME:" + json.dumps(out), flush=True)
+    return 0
+
+
+def _scrollbar_report(tree, bar) -> dict:
+    """Is this scrollbar actually connected, in both directions?
+
+    A bar that exists but is wired one way (or not at all) looks the same in
+    the source and does nothing useful on screen, so both links are probed:
+    the bar's command must reach the widget's yview, and the widget must be
+    pushing its position back into the bar.
+    """
+    out = {"exists": bar is not None}
+    if bar is None:
+        return out
+    before = bar.get()
+    tree.yview_moveto(0.5)
+    tree.update_idletasks()
+    out["view_drives_bar"] = bar.get() != before
+    # Drive it from the other end: ask the bar's own command to scroll.
+    tree.yview_moveto(0.0)
+    tree.update_idletasks()
+    top = tree.yview()
+    bar.tk.call(bar.cget("command"), "moveto", "0.6")
+    tree.update_idletasks()
+    out["bar_drives_view"] = tree.yview() != top
+    out["fractions"] = list(tree.yview())
+    out["scrolled_away_from_top"] = tree.yview()[0] > 0.0
+    return out
+
+
+def selftest_scrollbars():
+    """Both lists must be scrollable, and say so."""
+    api = Api("127.0.0.1:1", timeout=0.2)
+    root, _refresh, w = build_window(api, out_dir=".")
+    root.geometry("900x300")
+    root.update_idletasks()
+    root.update()
+
+    # Far more rows than fit, so there is something to scroll to.
+    listview = w["list"]
+    blank = tuple("" for _ in COLUMNS)
+    for i in range(120):
+        listview.insert("", "end", iid="x%d" % i, values=blank)
+    for i in range(60):
+        w["tree"].insert("", "end", iid="c%d" % i, text="Category %d" % i)
+    root.update_idletasks()
+    root.update()
+
+    out = {
+        "list": _scrollbar_report(listview, w.get("list_scroll")),
+        "tree": _scrollbar_report(w["tree"], w.get("tree_scroll")),
+    }
+    root.destroy()
+    print("SCROLLBARS:" + json.dumps(out), flush=True)
     return 0
 
 
@@ -6374,6 +6444,7 @@ def main(argv=None):
     p.add_argument("--selftest-properties-body", action="store_true")
     p.add_argument("--selftest-properties-ok", action="store_true")
     p.add_argument("--selftest-row", action="store_true")
+    p.add_argument("--selftest-scrollbars", action="store_true")
     p.add_argument("--selftest-gridlines", action="store_true")
     p.add_argument("--selftest-gridlines-resize", action="store_true")
     p.add_argument("--selftest-gridlines-theme", action="store_true")
@@ -6454,6 +6525,8 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
         return selftest_drop_paste()
     if args.selftest_row:
         return selftest_row()
+    if args.selftest_scrollbars:
+        return selftest_scrollbars()
     if args.selftest_gridlines:
         return selftest_gridlines()
     if args.selftest_gridlines_resize:
