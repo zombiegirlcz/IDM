@@ -3782,6 +3782,18 @@ def tk_widget_palette(cls_name: str, palette: dict) -> dict:
     if role in ("button", "menu"):
         opts["activebackground"] = p["selection_bg"]
         opts["activeforeground"] = p["selection_fg"]
+    # Flatness is per-widget on classic Tk and has nothing to do with colour:
+    # a correctly coloured dark dialog still came out with a light bevel
+    # around every button. The focus ring goes too -- it is drawn in a
+    # platform colour nothing here can set.
+    opts["relief"] = METRICS["relief"]
+    opts["highlightthickness"] = 0
+    if role == "field":
+        # An entry with no edge at all vanishes into a dark surface, so it
+        # keeps one -- drawn from the palette rather than by the platform.
+        opts["highlightthickness"] = 1
+        opts["highlightbackground"] = p["grid"]
+        opts["highlightcolor"] = p["accent"]
     return opts
 
 
