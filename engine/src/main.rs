@@ -56,9 +56,18 @@ struct Args {
     #[arg(long, default_value = "Mozilla/5.0 (compatible; idm-engine/0.1)")]
     user_agent: String,
 
-    /// Path to the yt-dlp binary used for media/stream downloads
-    #[arg(long, default_value = "yt-dlp")]
-    yt_dlp: PathBuf,
+    /// Path to the yt-dlp binary (used with --yt-dlp)
+    ///
+    /// This used to be spelled --yt-dlp, which read like a switch next to
+    /// --aria2 and silently swallowed the URL that followed it. The pair now
+    /// mirrors aria2: --yt-dlp chooses the backend, --yt-dlp-path says where
+    /// the binary is.
+    #[arg(long = "yt-dlp-path", default_value = "yt-dlp")]
+    yt_dlp_path: PathBuf,
+
+    /// Use yt-dlp for this URL, even if it does not look like media
+    #[arg(long = "yt-dlp", default_value_t = false)]
+    yt_dlp: bool,
 
     /// Delegate the download to aria2c instead of the built-in Range engine
     #[arg(long, default_value_t = false)]
@@ -1414,7 +1423,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
 
     // --list-formats: report what the backend offers and exit.
     if args.list_formats {
-        let meta = media::probe_json(&args.yt_dlp, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
+        let meta = media::probe_json(&args.yt_dlp_path, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
         println!("{}", serde_json::to_string_pretty(&media::summarize(&meta))?);
         return Ok(());
     }
@@ -1425,7 +1434,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
             // No explicit --output: name the file after the media title (not the
             // URL slug) and honour --category-dir / --output-dir, exactly like
             // the direct path does with filename_from_url.
-            let meta = media::probe_json(&args.yt_dlp, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
+            let meta = media::probe_json(&args.yt_dlp_path, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
             let name = media::output_name(&meta, args.format.as_deref());
             if let Some(base) = args.category_dir.as_deref() {
                 let n = name.file_name().map(|x| x.to_owned()).unwrap_or_default();
@@ -1439,7 +1448,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
     };
 
     println!("[*] url          : {}", url);
-    println!("[*] backend      : yt-dlp ({})", args.yt_dlp.display());
+    println!("[*] backend      : yt-dlp ({})", args.yt_dlp_path.display());
     println!("[*] format       : {}", args.format.as_deref().unwrap_or("best"));
     println!("[*] output       : {}", out.display());
 
@@ -1449,7 +1458,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
         }
     }
     let out = media::download(
-        &args.yt_dlp,
+        &args.yt_dlp_path,
         url,
         &out,
         args.format.as_deref(),
@@ -1589,7 +1598,12 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
     let list = args.queue.as_ref().unwrap();
     let out_dir = args.output_dir.clone().unwrap_or_else(|| PathBuf::from("."));
     tokio::fs::create_dir_all(&out_dir).await.ok();
-    let text = tokio::fs::read_to_string(list).await?;
+    let text = tokio::fs::read_to_string(list).await.map_err(|e| {
+        // Without this the whole message is "Systém nemůže nalézt uvedený
+        // soubor. (os error 2)" -- true, and no help at all in working out
+        // that --queue was pointed at a file that does not exist.
+        anyhow::anyhow!("cannot read the queue file {}: {}", list.display(), e)
+    })?;
     let exe = std::env::current_exe()?;
     let urls: Vec<String> = text
         .lines()
@@ -1624,7 +1638,7 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
         if args.no_media {
             cmd.arg("--no-media");
         }
-        if args.force_media {
+        if args.force_media || args.yt_dlp {
             cmd.arg("--force-media");
         }
         if let Some(f) = &args.format {
@@ -1647,7 +1661,7 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
             cmd.arg("--dynamic");
             cmd.arg("--min-split").arg(args.min_split.to_string());
         }
-        cmd.arg("--yt-dlp").arg(&args.yt_dlp);
+        cmd.arg("--yt-dlp-path").arg(&args.yt_dlp_path);
         // `--` so a queue line starting with `-` can never become a flag.
         cmd.arg("--").arg(url);
         eprintln!("[queue {}/{}] {}", i + 1, urls.len(), url);
@@ -1727,7 +1741,7 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
             state_dir,
             args.max_concurrent,
             engine,
-            args.yt_dlp.clone(),
+            args.yt_dlp_path.clone(),
             args.api_token.clone(),
         )
         .await;
@@ -1824,13 +1838,17 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
     );
 
     let mut use_media =
-        !args.no_media && (args.force_media || args.list_formats || media::is_media_url(&url));
+        !args.no_media
+            && (args.force_media
+                || args.yt_dlp
+                || args.list_formats
+                || media::is_media_url(&url));
 
     // A URL whose last path segment has no file extension names a *page*, not
     // a file. If the server answers `text/html` and yt-dlp is available, this
     // is a video/web page -> hand it to the media backend (what IDM does).
     // Without yt-dlp we fall through and save whatever the server returns.
-    if !use_media && !args.no_media && media::yt_dlp_available(&args.yt_dlp)
+    if !use_media && !args.no_media && media::yt_dlp_available(&args.yt_dlp_path)
         && !media::has_file_extension(&url)
     {
         if let Some(ct) = probe_content_type(&client, &url, &net).await {
