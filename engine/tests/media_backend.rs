@@ -344,6 +344,8 @@ fn report_is_written_for_a_plain_http_download_too() {
     let out = Command::new(IDM)
         .arg("--report")
         .arg(&report)
+        .arg("-n")
+        .arg("1")
         .arg("-o")
         .arg(&asked)
         .arg(format!("{}/plain.bin", origin))
@@ -374,8 +376,11 @@ fn tiny_origin(data: Vec<u8>) -> String {
             let n = s.read(&mut buf).unwrap_or(0);
             let req = String::from_utf8_lossy(&buf[..n]).to_string();
             let head = req.starts_with("HEAD");
+            // Deliberately no Accept-Ranges: this origin exists to prove the
+            // report is written, not to re-implement Range. Without it the
+            // engine makes one plain GET, which is all the test needs.
             let hdr = format!(
-                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\n\r\n",
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
                 data.len()
             );
             let _ = s.write_all(hdr.as_bytes());
