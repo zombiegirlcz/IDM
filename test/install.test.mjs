@@ -345,3 +345,78 @@ test('the browser/shell integration keeps its files inside IDM_DIR', () => {
   assert.ok(wrapper.includes(join(d, 'state')),
     `the host wrapper must point at IDM_DIR/state, got: ${wrapper}`);
 });
+
+test('the local-source path installs the same layout as a release', () => {
+  // This is the ONLY way to install work that is not in a release yet, and
+  // until now nothing exercised it -- it was asserted as a string match in the
+  // script and never run. A stub `cargo` stands in for the toolchain, so the
+  // test checks the installer's wiring, not the compiler.
+  const home = freshHome();
+  const src = mkdtempSync(join(tmpdir(), 'idm_src_'));
+  const bin = mkdtempSync(join(tmpdir(), 'idm_stubbin_'));
+
+  // A checkout, as far as install.sh is concerned.
+  mkdirSync(join(src, 'engine', 'target', 'release'), { recursive: true });
+  mkdirSync(join(src, 'gui'), { recursive: true });
+  mkdirSync(join(src, 'assets'), { recursive: true });
+  mkdirSync(join(src, 'extension'), { recursive: true });
+  mkdirSync(join(src, 'scripts'), { recursive: true });
+  writeFileSync(join(src, 'gui', 'idm_gui.py'), '# gui from source\n');
+  for (const a of ['idm.png', 'idm.ico']) {
+    copyFileSync(join(repoRoot, 'assets', a), join(src, 'assets', a));
+  }
+  for (const f of ['install-host.sh', 'install-shell.sh', 'com.tonec.idm.json',
+                   'com.tonec.idm.firefox.json']) {
+    copyFileSync(join(repoRoot, 'extension', f), join(src, 'extension', f));
+  }
+  writeFileSync(join(src, 'scripts', 'ensure-aria2.sh'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  copyFileSync(installer, join(src, 'install.sh'));
+
+  // The stub cargo "builds" by dropping the two binaries where the real one
+  // would. Anything else it is asked to do succeeds silently.
+  writeFileSync(join(bin, 'cargo'),
+    '#!/usr/bin/env bash\n'
+    + `out="${join(src, 'engine', 'target', 'release')}"\n`
+    + 'mkdir -p "$out"\n'
+    + 'printf "#!/bin/sh\\necho idm\\n" > "$out/idm"\n'
+    + 'printf "#!/bin/sh\\necho idm-host\\n" > "$out/idm-host"\n'
+    + 'chmod +x "$out/idm" "$out/idm-host"\n'
+    + 'exit 0\n',
+    { mode: 0o755 });
+
+  const env = baseEnv(home);
+  execFileSync('bash', [installer], {
+    env: { ...env, IDM_LOCAL_SOURCE: src, PATH: `${bin}:${env.PATH}` },
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  const d = idmDir(home);
+  for (const p of ['bin/idm', 'bin/idm-host', 'gui/idm_gui.py', 'assets/idm.png',
+                   'extension/install-host.sh', 'VERSION']) {
+    assert.ok(existsSync(join(d, p)), `missing ${p} after a local-source install`);
+  }
+  // The GUI must come from the checkout, not from a downloaded archive.
+  assert.match(readFileSync(join(d, 'gui', 'idm_gui.py'), 'utf8'), /from source/);
+  // VERSION has to say where this came from: a build from a working tree is
+  // not a release, and `idm update` must not think it is behind.
+  assert.match(readFileSync(join(d, 'VERSION'), 'utf8'), /^local:/,
+    'a source build must not record itself as a release tag');
+  assert.ok(lstatSync(join(home, '.local', 'bin', 'idm')).isSymbolicLink());
+});
+
+test('the local-source path says so when cargo is missing', () => {
+  const home = freshHome();
+  const src = mkdtempSync(join(tmpdir(), 'idm_src_nocargo_'));
+  const emptyBin = mkdtempSync(join(tmpdir(), 'idm_nobin_'));
+  // A PATH with the basics but no cargo.
+  assert.throws(
+    () => execFileSync('bash', [installer], {
+      env: { ...baseEnv(home), IDM_LOCAL_SOURCE: src, PATH: `${emptyBin}:/usr/bin:/bin` },
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }),
+    /cargo/,
+    'a missing toolchain must be named, not guessed at',
+  );
+});
