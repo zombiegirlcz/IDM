@@ -211,3 +211,50 @@ kompilace.
   verzi z `VERSION` v `idm_gui.py`.
 - Na originu leží větev `security-audit-fixes`, kterou tahle session
   nevytvořila ani se jí nedotkla.
+
+## Aktualizace a vzhled okna
+
+`idm update` je samoaktualizace: release API → archiv → **`.sha256` se ověří
+dřív, než se cokoliv pohne** → staging `$IDM_DIR/.update` → přejmenování
+`bin/ gui/ assets/`, staré stromy zůstanou jako `.old` pro `idm update
+--rollback`. `state/`, `extension/`, manifesty hostů ani symlink se nedotýká.
+
+- **Rychlost není stav.** `speed_bps` a `time_left_s` **nejsou na `Item`** —
+  přidávají se až v `/api/items`. Kdyby se persistovaly do `queue.json`,
+  ukázal by restart rychlost, kterou nic nevyrábí. Vzorkuje se při tom samém
+  čtení `.idmmeta`, které fronta dělá každých 300 ms (`blend_rate`,
+  `eta_secs`). **aria2 a yt-dlp rychlost nehlásí** — mají vlastní kanály.
+- **Okno instaluje z cache, ne ze sítě.** Synchronní dotaz na GitHub při
+  startu by zdržel každé spuštění kvůli novince, která tam skoro nikdy není.
+  `should_offer_update()` je přísná schválně: cokoliv nejistého = neinstalovat.
+- **`ttk.Treeview` neumí mřížky mezi buňkami.** Nemá pro ně prvek; obarvit jde
+  jen celý řádek. Proto zebra (`tag_rows`), a pruhy se **přepisují při každém
+  průchodu** — řádek, který se posune, změní paritu. Skutečná mříž = nahradit
+  Treeview tabulkou v `Canvas`.
+- **Motiv jede přes `clam`.** Ostatní ttk motivy barevné volby ignorují,
+  nejvíc nativní motiv na Windows. `apply_theme()` musí běžet **před** stavbou
+  widgetů: styly jsou globální, ale widget vzniklý dřív si drží původní vzhled.
+- **Ikony: geometrie glyfů je v nominálních pixelech.** Při kreslení na 4×
+  se zvětšuje **maska**, ne souřadnice — jinak se 3px tah vrátí ze zmenšení
+  jako čtvrtina pixelu (ikony vyšly prázdné). A odlesk se **skládá**
+  (`alpha_composite`), nepastuje: `paste()` propíše alfu průhledného zdroje
+  skrz masku a tenké glyfy zprůhlední.
+
+## Pasti v testech, které stály čas
+
+- **`cargo test` se zastaví po prvním padajícím test *targetu*.** Jeden flake
+  schová všechny sady abecedně za ním — nová `tests/update.rs` se tak vůbec
+  nespustila. Proto `--no-fail-fast` (hlídá `test/test_sh.test.mjs`).
+- **Úspěšný `connect` neříká, čí server odpověděl.** Když paralelní test
+  vyhrál bind, náš potomek umírá na „address in use" a vítěz nám odpovídá;
+  test si pak osvojí cizí server. Po připojení se musí ověřit, že **náš**
+  potomek pořád žije.
+- **Test může projít, aniž by cokoliv ověřil.** `tampering_with_the_ciphertext`
+  překlápěl `A`↔`B` v druhém znaku od konce base64; při délce ≡ 2 (mod 3) tam
+  leží bit, který se zahazuje, takže „poškozený" trezor se odemkl správně.
+  Bezpečnostní test musí tvrdit, že **zásah opravdu něco změnil**.
+- **Origin v testu nesmí lhát o `Accept-Ranges`.** Když ho inzeruje a Range
+  ignoruje, engine segmentuje a všem čtyřem spojením dá stejné bajty od nuly.
+  Když test Range netestuje, ať origin jede single-stream.
+- **Backticky v commit zprávě uvnitř `"..."` shell vykoná.** Zprávy psát
+  přes `git commit -F soubor`.
