@@ -13,6 +13,7 @@
 
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
+use crate::console::HideConsole;
 
 pub const AFTER_HELP: &str = "\
 Verbs (must be the first argument):
@@ -78,6 +79,7 @@ fn run_gui(extra: &[String]) -> i32 {
     // Without tkinter the window used to die into a log nobody reads. Say it
     // here, where the user can see it.
     let has_tk = std::process::Command::new(&python)
+        .hide_console()
         .args(["-c", "import tkinter"])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -93,6 +95,7 @@ fn run_gui(extra: &[String]) -> i32 {
     }
 
     let mut cmd = std::process::Command::new(&python);
+    cmd.hide_console();
     cmd.arg(&script)
         .arg("--engine")
         .arg(dir.join("bin").join(exe("idm")))
@@ -376,6 +379,7 @@ fn run_integration_uninstall(dir: &Path) {
             continue;
         }
         let _ = std::process::Command::new("bash")
+            .hide_console()
             .arg(&p)
             .arg("--uninstall")
             .env("IDM_ENGINE_BIN", dir.join("bin").join(exe("idm")))

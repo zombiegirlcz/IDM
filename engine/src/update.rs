@@ -19,6 +19,7 @@ use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use crate::console::HideConsole;
 
 const REPO: &str = "zombiegirlcz/IDM";
 /// The three trees a release replaces, in the order they are swapped.
@@ -316,6 +317,7 @@ async fn verify_checksum(url: &str, archive: &Path) -> anyhow::Result<()> {
 /// since 1803) the .zip, so there is no archive crate to keep up to date.
 fn extract(archive: &Path, into: &Path) -> anyhow::Result<()> {
     let status = std::process::Command::new("tar")
+        .hide_console()
         .arg("-xf")
         .arg(archive)
         .arg("-C")

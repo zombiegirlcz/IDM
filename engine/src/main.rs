@@ -15,7 +15,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::fs::OpenOptions as TokioOpenOptions;
 use tokio::sync::{Mutex, Semaphore};
+use crate::console::HideConsole;
 
+mod console;
 mod gui;
 mod media;
 mod secrets;
@@ -1249,6 +1251,7 @@ async fn run_direct_dynamic(
 async fn ensure_aria2c(args: &Args) -> anyhow::Result<PathBuf> {
     // Already present?
     if tokio::process::Command::new(&args.aria2_path)
+        .hide_console()
         .arg("--version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -1297,6 +1300,7 @@ async fn ensure_aria2c(args: &Args) -> anyhow::Result<PathBuf> {
     let is_ps1 = installer.extension().map(|e| e == "ps1").unwrap_or(false);
     let status = if is_ps1 {
         tokio::process::Command::new("powershell")
+            .hide_console()
             .arg("-NoProfile")
             .arg("-ExecutionPolicy")
             .arg("Bypass")
@@ -1306,6 +1310,7 @@ async fn ensure_aria2c(args: &Args) -> anyhow::Result<PathBuf> {
             .await?
     } else {
         tokio::process::Command::new("bash")
+            .hide_console()
             .arg(&installer)
             .status()
             .await?
@@ -1349,6 +1354,7 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
 
     let aria2c = ensure_aria2c(args).await?;
     let mut cmd = tokio::process::Command::new(&aria2c);
+    cmd.hide_console();
     strip_auth_env(&mut cmd, args);
     cmd.arg("-x").arg(args.connections.max(1).to_string());
     cmd.arg("-s").arg(args.connections.max(1).to_string());
@@ -1600,6 +1606,7 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
     for (i, url) in urls.iter().enumerate() {
         let out = out_dir.join(out_path_for(url, None));
         let mut cmd = tokio::process::Command::new(&exe);
+        cmd.hide_console();
         cmd.arg("-n").arg(args.connections.to_string());
         cmd.arg("-o").arg(&out);
         if let Some(p) = &args.proxy {
