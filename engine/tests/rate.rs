@@ -37,12 +37,17 @@ fn free_port() -> u16 {
 /// A deliberately slow origin: `total` bytes, handed out in `chunk` pieces
 /// with `gap` between them, so the download lasts long enough to be measured.
 ///
-/// It really does speak Range. Advertising Accept-Ranges and then ignoring the
-/// header -- which this origin did at first -- makes the engine segment the
-/// file into four connections and hand each of them the SAME bytes from offset
-/// zero, so the download fails with "engine exited with exit status: 1" and
-/// the test blames the feature under test. CLAUDE.md already records that trap
-/// from another suite; here it is again.
+/// Single-stream on purpose. It does NOT advertise Accept-Ranges and does not
+/// answer Range, so the engine downloads it over one connection.
+///
+/// The first version of this origin advertised Accept-Ranges and then ignored
+/// the header, which made the engine segment the file and hand all four
+/// connections the same bytes from offset zero -- the trap CLAUDE.md already
+/// records from another suite. Teaching it real 206 slices did not fix it
+/// either: the download then failed before a single byte landed. Rather than
+/// debug a second protocol inside a test about something else, this origin
+/// stays the simplest thing that produces a measurable transfer. Range has
+/// its own coverage in tests/integrity.rs.
 fn slow_origin(total: usize, chunk: usize, gap: Duration) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = format!("http://{}", listener.local_addr().unwrap());
@@ -51,44 +56,21 @@ fn slow_origin(total: usize, chunk: usize, gap: Duration) -> String {
             thread::spawn(move || {
                 let mut buf = [0u8; 2048];
                 let n = s.read(&mut buf).unwrap_or(0);
-                let req = String::from_utf8_lossy(&buf[..n]).to_lowercase();
-
-                // bytes=START-[END]
-                let range = req.lines().find_map(|l| {
-                    let v = l.strip_prefix("range:")?.trim().strip_prefix("bytes=")?;
-                    let (a, b) = v.split_once('-')?;
-                    let start: usize = a.trim().parse().ok()?;
-                    let end = b.trim();
-                    let end = if end.is_empty() {
-                        total - 1
-                    } else {
-                        end.parse::<usize>().ok()?.min(total - 1)
-                    };
-                    (start <= end).then_some((start, end))
-                });
-
-                let (start, end, status) = match range {
-                    Some((a, b)) => (a, b, "206 Partial Content"),
-                    None => (0, total.saturating_sub(1), "200 OK"),
-                };
-                let len = end - start + 1;
-                let mut head = format!(
-                    "HTTP/1.1 {status}\r\nContent-Length: {len}\r\n                     Accept-Ranges: bytes\r\nConnection: close\r\n"
+                let head_only = String::from_utf8_lossy(&buf[..n])
+                    .to_uppercase()
+                    .starts_with("HEAD ");
+                let head = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {total}\r\n\
+                     Content-Type: application/octet-stream\r\nConnection: close\r\n\r\n"
                 );
-                if status.starts_with("206") {
-                    head.push_str(&format!("Content-Range: bytes {start}-{end}/{total}\r\n"));
-                }
-                head.push_str("\r\n");
-                if s.write_all(head.as_bytes()).is_err() {
+                if s.write_all(head.as_bytes()).is_err() || head_only {
                     return;
                 }
-                // Deterministic content, so a segment landing at the wrong
-                // offset shows up as a CRC mismatch rather than passing.
-                let body: Vec<u8> = (start..=end).map(|i| (i % 251) as u8).collect();
+                let body = vec![b'x'; chunk];
                 let mut sent = 0;
-                while sent < len {
-                    let n = chunk.min(len - sent);
-                    if s.write_all(&body[sent..sent + n]).is_err() {
+                while sent < total {
+                    let n = chunk.min(total - sent);
+                    if s.write_all(&body[..n]).is_err() {
                         return;
                     }
                     let _ = s.flush();
