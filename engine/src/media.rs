@@ -153,6 +153,14 @@ fn apply_auth(cmd: &mut tokio::process::Command, cookie: Option<&str>, referer: 
 /// pieces, and one at a time is why a 450 MB video can take an hour and a
 /// half; `connections` is the number the user already set, so it is the
 /// natural answer for both knobs here.
+/// What to ask yt-dlp for when the user did not say.
+///
+/// Prefer mp4 video with m4a audio, then any mp4, then whatever exists: the
+/// last step matters, because a format-only selector would fail outright on
+/// sites that have no mp4 at all.
+pub const DEFAULT_FORMAT: &str =
+    "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b";
+
 pub struct Speed {
     /// Parallel fragments for yt-dlp's own downloader.
     pub connections: usize,
@@ -330,8 +338,15 @@ pub async fn download(
     if let Some(p) = proxy {
         cmd.arg("--proxy").arg(p);
     }
-    if let Some(f) = format {
-        cmd.arg("-f").arg(f);
+    // yt-dlp's own default is "best", which on YouTube means VP9/Opus in a
+    // webm container -- a file plenty of players and editors will not touch.
+    // A general-purpose downloader should hand back an mp4 unless it was
+    // asked for something else, so mp4 is preferred and the fallbacks keep
+    // the download working when no mp4 exists.
+    cmd.arg("-f").arg(format.unwrap_or(DEFAULT_FORMAT));
+    // Where a merge is needed anyway, merge into mp4.
+    if format.is_none() {
+        cmd.arg("--merge-output-format").arg("mp4");
     }
     if limit_rate > 0 {
         cmd.arg("--limit-rate").arg(limit_rate.to_string());
