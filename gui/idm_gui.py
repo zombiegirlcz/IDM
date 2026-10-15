@@ -542,8 +542,14 @@ GLYPHS = {
 }
 
 
-def _glyph_mask(shape: str, size: int) -> list:
+def _tk_glyph_mask(shape: str, size: int) -> list:
     """Which pixels of a size x size icon belong to `shape`.
+
+    Named apart from _glyph_mask above on purpose: that one builds a PIL mask
+    for the shaded icons and this one returns plain rows of booleans for the
+    stdlib renderer. Defining both under one name silently shadowed the first
+    -- exactly the collision CLAUDE.md warns about -- and the 3D icon tests
+    went down with "'list' object has no attribute 'resize'".
 
     The primitives are specified in a 16x16 grid and scaled here, so the
     geometry stays in nominal pixels -- the lesson from the 3D icons, where
@@ -610,7 +616,7 @@ def tk_glyph(color, shape="folder", size=16, master=None, bg=""):
     """
     import tkinter as tk
     img = tk.PhotoImage(width=size, height=size, master=master)
-    mask = _glyph_mask(shape, size)
+    mask = _tk_glyph_mask(shape, size)
     for y in range(size):
         row = mask[y]
         x = 0
@@ -3894,6 +3900,7 @@ def apply_theme(root, name: str) -> dict:
     # rather than by nothing.
     style.configure("Toolbar.TFrame", background=p["bg"])
     style.configure("Rule.TFrame", background=p["grid"])
+    style.configure("Banner.TLabel", background=p["bg"], foreground=p["accent"])
     style.configure("TCheckbutton", background=p["bg"], foreground=p["fg"])
     style.configure("TRadiobutton", background=p["bg"], foreground=p["fg"])
     for entry in ("TEntry", "TCombobox", "TSpinbox"):
@@ -4335,6 +4342,24 @@ def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None,
     return win, canvas, bars
 
 
+def show_banner(w: dict, text: str) -> bool:
+    """Put `text` in the window's banner. True when it was shown.
+
+    Deliberately not a messagebox: a modal at startup blocks the program
+    before the window is drawn, which is how --screenshot came back empty.
+    """
+    var = w.get("banner_var")
+    frame = w.get("banner")
+    if var is None or frame is None:
+        return False
+    var.set(text)
+    try:
+        frame.pack(fill="x", side="top", before=w["toolbar"])
+    except Exception:  # noqa: BLE001
+        frame.pack(fill="x", side="top")
+    return True
+
+
 def assets_dir() -> str:
     """Where idm.png lives: next to the gui/ directory in an install.
 
@@ -4420,6 +4445,18 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     w["buttons_with_icons"] = sum(
         1 for _n, btn in w["buttons"] if _button_has_icon(btn)
     )
+
+    # --- a banner for things the user must not have to go looking for ------
+    # It takes no space until it has something to say; a status bar line is
+    # too quiet for "nothing you do will download anything".
+    banner = ttk.Frame(root, padding=(METRICS["toolbar_pad"], 6))
+    banner_var = tk.StringVar(value="")
+    w["banner"] = banner
+    w["banner_var"] = banner_var
+    ttk.Label(banner, textvariable=banner_var, style="Banner.TLabel",
+              wraplength=900, justify="left").pack(side="left", fill="x", expand=True)
+    ttk.Button(banner, text="OK", width=4,
+               command=lambda: banner.pack_forget()).pack(side="right")
 
     # --- search row (IDM has it above the list) ---
     search_row = ttk.Frame(root, padding=(METRICS["toolbar_pad"], 0,
@@ -7215,13 +7252,12 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
 
     if engine_error:
         # Silence was the actual complaint: the window opened, the clipboard
-        # prompt appeared, and nothing downloaded. Say it on screen.
+        # prompt appeared, and nothing downloaded. Say it on screen -- but in
+        # a banner, never a modal. A messagebox here waits for a click that
+        # nothing in a --screenshot or autostart run will ever make, and the
+        # program stops dead before it has drawn anything.
         _w["status_var"].set(f"engine: {engine_error}")
-        try:
-            import tkinter.messagebox as mb
-            mb.showerror("IDM - engine se nespustil", engine_error)
-        except Exception:  # noqa: BLE001
-            pass
+        show_banner(_w, engine_error)
 
     apply_items = _w["apply_items"]
     status_var = _w["status_var"]
