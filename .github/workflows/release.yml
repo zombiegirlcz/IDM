@@ -76,6 +76,8 @@ jobs:
           cp install.ps1 dist/
           cp scripts/ensure-aria2.ps1 dist/ 2>/dev/null || true
           cp scripts/ensure-aria2.sh dist/ 2>/dev/null || true
+          cp scripts/ensure-ytdlp.ps1 dist/ 2>/dev/null || true
+          cp scripts/ensure-ytdlp.sh dist/ 2>/dev/null || true
           # The desktop shortcut needs a real icon file; a theme name or a
           # shell32 index is what made it render blank.
           mkdir -p dist/assets && cp assets/idm.ico assets/idm.png dist/assets/
@@ -91,6 +93,8 @@ jobs:
           cp gui/idm_gui.py dist/
           cp scripts/ensure-aria2.sh dist/ 2>/dev/null || true
           cp scripts/ensure-aria2.ps1 dist/ 2>/dev/null || true
+          cp scripts/ensure-ytdlp.sh dist/ 2>/dev/null || true
+          cp scripts/ensure-ytdlp.ps1 dist/ 2>/dev/null || true
           cp install.sh dist/
           mkdir -p dist/assets && cp assets/idm.ico assets/idm.png dist/assets/
           # Shipping the integration scripts lets an offline install register

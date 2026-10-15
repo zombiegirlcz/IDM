@@ -390,7 +390,7 @@ done
 
 # The aria2 auto-installer travels with the binaries so `--aria2` can install
 # aria2c on demand without the user doing anything.
-for f in ensure-aria2.sh ensure-aria2.ps1; do
+for f in ensure-aria2.sh ensure-aria2.ps1 ensure-ytdlp.sh ensure-ytdlp.ps1; do
   if [[ -n "${SRC:-}" && -f "$SRC/scripts/$f" ]]; then
     install -m 0755 "$SRC/scripts/$f" "$IDM_DIR/bin/$f" 2>/dev/null || true
   elif [[ -f "$TMP/unpack/$f" ]]; then
@@ -501,6 +501,15 @@ command -v gio >/dev/null 2>&1 && gio set "$ICON" metadata::trusted true 2>/dev/
 if [[ -x "$IDM_DIR/bin/ensure-aria2.sh" ]]; then
   log "kontroluji aria2 (volitelný zrychlený backend)"
   bash "$IDM_DIR/bin/ensure-aria2.sh" >/dev/null 2>&1 || warn "aria2 se nepodařilo připravit (--aria2 ho zkusí doinstalovat za běhu)"
+fi
+
+# yt-dlp is not optional the way aria2 is: without it no video page can be
+# downloaded at all, and until now nothing installed it. A clean machine was
+# left with a downloader that could not download videos.
+if [[ -x "$IDM_DIR/bin/ensure-ytdlp.sh" ]]; then
+  log "kontroluji yt-dlp (potřeba pro videa)"
+  bash "$IDM_DIR/bin/ensure-ytdlp.sh" "$IDM_DIR/bin" >/dev/null 2>&1 \
+    || warn "yt-dlp se nepodařilo připravit (engine ho zkusí doinstalovat při prvním videu)"
 fi
 
 echo

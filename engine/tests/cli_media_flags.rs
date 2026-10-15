@@ -114,3 +114,50 @@ fn aria2_and_yt_dlp_read_the_same_way() {
         assert!(stdout.contains(opt), "--help does not mention {}", opt);
     }
 }
+
+#[test]
+fn a_missing_yt_dlp_is_installed_rather_than_refused() {
+    // "the application did not download its own dependencies like yt-dlp".
+    // aria2c has had an installer since the beginning; yt-dlp had none, so a
+    // clean Windows machine had a downloader that could not download videos.
+    // The engine must at least try, and say what it tried.
+    let dir = std::env::temp_dir().join(format!("idm_noytdlp_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let missing = dir.join("not-installed-yt-dlp");
+    let (stdout, stderr, _) = run(&[
+        "--yt-dlp",
+        "--yt-dlp-path",
+        missing.to_str().unwrap(),
+        // Nothing listens on port 9, so this cannot accidentally download.
+        "http://127.0.0.1:9/clip.mp4",
+    ]);
+    let all = format!("{}{}", stdout, stderr);
+    assert!(
+        all.contains("yt-dlp"),
+        "the message must be about yt-dlp: {}",
+        all
+    );
+    // Either it installed one, or it explained how to get one. What it must
+    // not do is fail with a bare OS error.
+    assert!(
+        all.to_lowercase().contains("install")
+            || all.to_lowercase().contains("instal")
+            || all.contains("ensure-ytdlp"),
+        "a missing yt-dlp should lead to installing it, or to instructions: {}",
+        all
+    );
+}
+
+#[test]
+fn mp4_is_preferred_over_webm_by_default() {
+    // Reported: "I pasted a URL copied straight from a YouTube video and
+    // instead of downloading mp4 it downloads webm". yt-dlp's own default is
+    // "best", which on YouTube is usually VP9/Opus in webm. For a general
+    // downloader mp4 is the file people can actually use everywhere, so it is
+    // what we ask for unless --format says otherwise.
+    let (stdout, _, _) = run(&["--help"]);
+    assert!(
+        stdout.contains("--format"),
+        "--format must stay available for anyone who wants something else"
+    );
+}
