@@ -217,6 +217,38 @@ fn wait_ready(addr: &str) {
     }
 }
 
+/// Spawn `idm --serve` on a port that is really ours, retrying if it is not.
+///
+/// free_port() only FINDS a port and lets it go — the trap this repo already
+/// documents — and these tests run as parallel threads in one binary, so two
+/// of them can be handed the same number. The loser's server exits with
+/// "address in use" while a plain TcpStream::connect still succeeds, because
+/// the WINNER is listening there: the test then drives another test's server
+/// and dies with ConnectionReset the moment that test tears it down.
+///
+/// A port is only ours if our own child is still alive while it answers.
+fn start_server(out: &PathBuf, state: &PathBuf, extra: &[&str]) -> (Child, String) {
+    for _ in 0..8 {
+        let addr = format!("127.0.0.1:{}", free_port());
+        let mut child = spawn_server(&addr, out, state, extra);
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            if matches!(child.try_wait(), Ok(Some(_))) {
+                break; // lost the race for this port; take another
+            }
+            if TcpStream::connect(&addr).is_ok() {
+                return (child, addr);
+            }
+            if Instant::now() > deadline {
+                let _ = child.kill();
+                panic!("idm --serve never came up on {}", addr);
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+    }
+    panic!("could not get a port of our own for idm --serve");
+}
+
 fn find_item(items: &serde_json::Value, id: u64) -> serde_json::Value {
     items["items"]
         .as_array()
@@ -250,11 +282,7 @@ fn serve_ui_and_api_downloads_through_queue() {
     let origin = start_origin(data.clone(), 0, 0);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "2"]);
 
     // The UI itself must be served.
     let (st, html) = http_req(&addr, "GET", "/", None);
@@ -297,11 +325,7 @@ fn queue_persists_across_restart() {
     let origin = start_origin(data.clone(), 0, 0);
     let out = unique_dir("pout");
     let state = unique_dir("pstate");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &[]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &[]);
     let body = serde_json::json!({"url": format!("{}/one.bin", origin)}).to_string();
     let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
     assert_eq!(st, 200, "add: {}", resp);
@@ -331,11 +355,7 @@ fn pause_resume_and_remove() {
     let origin = start_origin(data.clone(), 64 * 1024, 120);
     let out = unique_dir("prout");
     let state = unique_dir("prstate");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "1"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "1"]);
 
     let body = serde_json::json!({"url": format!("{}/slow.bin", origin), "connections": 1}).to_string();
     let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
@@ -399,16 +419,13 @@ fn pause_resume_and_remove() {
 /// refused — otherwise any visited site can enqueue downloads (CSRF).
 #[test]
 fn api_rejects_unauthenticated_and_cross_origin_requests() {
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-    let tmp = std::env::temp_dir().join(format!("idm_gui_auth_{}", port));
+    let tmp = unique_dir("auth");
     let out = tmp.join("out");
     let state = tmp.join("state");
     std::fs::create_dir_all(&out).unwrap();
     std::fs::create_dir_all(&state).unwrap();
 
-    let mut srv = spawn_server(&addr, &out, &state, &[]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &[]);
 
     // Raw request with full control over the headers.
     let raw = |extra: &str, body: &str| -> u16 {
@@ -489,15 +506,12 @@ fn api_add_honours_the_gui_download_options() {
     let origin = start_origin(data.clone(), 0, 0);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
 
     // Where the "Save To" tab points -- deliberately NOT the server's out dir,
     // and deliberately not created in advance: the server must create it.
     let category_dir = unique_dir("category").join("Video");
 
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "2"]);
 
     let body = serde_json::json!({
         "url": format!("{}/file.bin", origin),
@@ -547,11 +561,7 @@ fn api_add_stores_rate_auth_and_mtime_options() {
     let origin = start_origin(data.clone(), 0, 0);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "2"]);
 
     let body = serde_json::json!({
         "url": format!("{}/file.bin", origin),
@@ -599,11 +609,7 @@ fn api_records_and_moves_queue_membership() {
     let origin = start_origin(data.clone(), 0, 0);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "2"]);
 
     // A download added into a named queue keeps that name.
     let body = serde_json::json!({
@@ -662,8 +668,6 @@ fn api_records_and_moves_queue_membership() {
 fn a_failed_download_is_retried_until_the_budget_runs_out() {
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
 
     // Nothing is listening here, so every attempt fails fast. Port 9 (discard)
     // rather than free_port(): that only *finds* a free port and lets it go,
@@ -672,8 +676,7 @@ fn a_failed_download_is_retried_until_the_budget_runs_out() {
     // another test's 80000 bytes.
     let dead_port = 9;
 
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "2"]);
 
     let body = serde_json::json!({
         "url": format!("http://127.0.0.1:{}/missing.bin", dead_port),
@@ -707,14 +710,11 @@ fn a_failed_download_is_retried_until_the_budget_runs_out() {
 fn a_failed_download_without_a_budget_is_not_retried() {
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
     // Port 9, for the same reason as in the test above: a free_port() result
     // can be bound by a parallel test before this download reaches it.
     let dead_port = 9;
 
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "2"]);
 
     let body = serde_json::json!({
         "url": format!("http://127.0.0.1:{}/missing.bin", dead_port),
@@ -746,11 +746,7 @@ fn api_update_edits_the_properties_fields() {
     let origin = start_origin(data.clone(), 0, 0);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "1"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "1"]);
 
     let body = serde_json::json!({"url": format!("{}/old.bin", origin), "connections": 2})
         .to_string();
@@ -822,11 +818,7 @@ fn api_update_persists_across_restart() {
     let origin = start_origin(data, 0, 0);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "1"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "1"]);
     let body =
         serde_json::json!({"url": format!("{}/f.bin", origin), "connections": 2}).to_string();
     let (_, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
@@ -866,11 +858,7 @@ fn api_update_refuses_to_retarget_a_running_download() {
     let origin = start_origin(data, 16_384, 40);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "2"]);
     let body =
         serde_json::json!({"url": format!("{}/slow.bin", origin), "connections": 1}).to_string();
     let (_, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
@@ -916,11 +904,7 @@ fn api_add_stores_the_media_options() {
     let origin = start_origin(data, 0, 0);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "1"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "1"]);
 
     let body = serde_json::json!({
         "url": format!("{}/clip.bin", origin),
@@ -959,8 +943,6 @@ fn api_add_stores_the_media_options() {
 fn api_formats_reports_what_the_backend_offers() {
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
 
     // A stub standing in for yt-dlp: --list-formats shells out to it, so the
     // test needs no network and no real yt-dlp.
@@ -982,13 +964,7 @@ JSON
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     }
 
-    let mut srv = spawn_server(
-        &addr,
-        &out,
-        &state,
-        &["--max-concurrent", "1", "--yt-dlp", fake.to_str().unwrap()],
-    );
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "1", "--yt-dlp", fake.to_str().unwrap()]);
 
     let body = serde_json::json!({"url": "https://example.com/watch?v=vid1"}).to_string();
     let (st, resp) = http_req(&addr, "POST", "/api/formats", Some(&body));
@@ -1026,11 +1002,7 @@ fn api_add_honours_a_requested_filename() {
     let origin = start_origin(data.clone(), 0, 0);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &["--max-concurrent", "2"]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "2"]);
 
     let body = serde_json::json!({
         "url": format!("{}/ugly-slug.bin", origin),
@@ -1089,11 +1061,7 @@ fn queue_file_is_not_world_readable() {
     let origin = start_origin(data.clone(), 0, 0);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &[]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &[]);
 
     let body = serde_json::json!({
         "url": format!("{}/file.bin", origin),
@@ -1125,11 +1093,7 @@ fn api_items_redacts_the_proxy_password() {
     let origin = start_origin(data.clone(), 0, 0);
     let out = unique_dir("out");
     let state = unique_dir("state");
-    let port = free_port();
-    let addr = format!("127.0.0.1:{}", port);
-
-    let mut srv = spawn_server(&addr, &out, &state, &[]);
-    wait_ready(&addr);
+    let (mut srv, addr) = start_server(&out, &state, &[]);
 
     let body = serde_json::json!({
         "url": format!("{}/file.bin", origin),
@@ -1150,4 +1114,75 @@ fn api_items_redacts_the_proxy_password() {
     assert!(proxy.contains("bob"), "the proxy user got lost: {}", proxy);
 
     let _ = srv.kill();
+}
+
+/// Stub yt-dlp for the queue: writes its payload under a different extension
+/// than `-o` asked for, exactly as the real one does when its merger picks a
+/// container.
+fn make_media_stub(dir: &PathBuf) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let stub = dir.join("yt-dlp");
+    std::fs::write(
+        &stub,
+        r#"#!/usr/bin/env bash
+if [[ "$1" == "-J" ]]; then
+  echo '{"id":"abc","title":"Queued Video","ext":"webm"}'
+  exit 0
+fi
+out=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "-o" ]]; then out="$2"; shift 2; else shift; fi
+done
+printf 'QUEUED-MEDIA-PAYLOAD' > "${out%.*}.webm"
+"#,
+    )
+    .unwrap();
+    let mut perm = std::fs::metadata(&stub).unwrap().permissions();
+    perm.set_mode(0o755);
+    std::fs::set_permissions(&stub, perm).unwrap();
+    stub
+}
+
+#[test]
+fn a_finished_media_download_reports_its_real_name_and_size() {
+    // What the window showed after queueing three YouTube links: three rows
+    // named "watch", "watch" and a slug, each with "-" for size, while the
+    // files on disk were .webm/.mp4 of a few hundred megabytes. The queue
+    // guessed the name from the URL at add time and never learned better,
+    // because the child's stdout is discarded.
+    const PAYLOAD_LEN: u64 = 20; // "QUEUED-MEDIA-PAYLOAD"
+    let out = unique_dir("mout");
+    let state = unique_dir("mstate");
+    let stub = make_media_stub(&state);
+
+    let (mut srv, addr) = start_server(&out, &state, &["--yt-dlp", stub.to_str().unwrap()]);
+
+    let body = serde_json::json!({"url": "https://youtu.be/abc"}).to_string();
+    let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
+    assert_eq!(st, 200, "POST /api/add returned {}: {}", st, resp);
+    let id = serde_json::from_str::<serde_json::Value>(&resp).unwrap()["id"]
+        .as_u64()
+        .expect("add must return an id");
+
+    let it = wait_status(&addr, id, "done", 40);
+
+    let real = out.join("abc.webm");
+    assert!(real.exists(), "the stub writes {}", real.display());
+
+    assert_eq!(
+        it["output"].as_str(),
+        real.to_str(),
+        "the queue must name the file that exists, not the guess from the URL: {}",
+        it
+    );
+    assert_eq!(
+        it["total"].as_u64(),
+        Some(PAYLOAD_LEN),
+        "a finished download has a known size, so the Size column must not stay '-': {}",
+        it
+    );
+    assert_eq!(it["downloaded"].as_u64(), Some(PAYLOAD_LEN), "item: {}", it);
+
+    let _ = srv.kill();
+    let _ = srv.wait();
 }

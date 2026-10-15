@@ -151,7 +151,9 @@ test('no --screenshot means no capture step at all', () => {
 
 import { execFileSync as run, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
+import {
+  existsSync, readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 
 /** null when the binary is not in PATH. */
@@ -214,11 +216,60 @@ test('--screenshot writes a real picture of the window', { skip: !HAVE_FFMPEG &&
 test('the Xvfb it started does not outlive it', () => {
   // An orphaned X server per launch is the same class of leak as the orphaned
   // `idm --serve` that build_window()-first was introduced to prevent.
+  //
+  // Asserted on the PID, not on /tmp/.X11-unix/X<n>: that socket belongs to
+  // whoever owns the display number, and a test running in parallel can own
+  // the very number this run just released.
   const out = guiRun(['--own-display', '--selftest-display']);
   const r = JSON.parse(out.split('\n').find((l) => l.startsWith('DISPLAY-SELFTEST:')).slice(17));
-  const sock = `/tmp/.X11-unix/X${r.display.slice(1)}`;
-  assert.ok(!existsSync(sock), `${sock} is still around, Xvfb was not reaped`);
+  assert.ok(r.xvfb_pid > 0, `no Xvfb pid reported: ${JSON.stringify(r)}`);
+  let alive = true;
+  try {
+    process.kill(r.xvfb_pid, 0);
+  } catch {
+    alive = false;
+  }
+  assert.ok(!alive, `Xvfb ${r.xvfb_pid} is still running, it was not reaped`);
 });
+
+test('losing the race for a display number costs a retry, not the launch', () => {
+  // Two launches scanning /tmp/.X11-unix at the same moment pick the same
+  // number, and the loser's Xvfb refuses to start — the display version of
+  // the free_port() trap this repo already documents. The scan cannot see
+  // that coming, so the recovery has to be in the starting, not the planning.
+  //
+  // Reproduced deterministically: an Xvfb that refuses :99 and is the real
+  // one for anything else.
+  const dir = mkdtempSync(join(tmpdir(), 'idm-xvfb-'));
+  try {
+    const fake = join(dir, 'Xvfb');
+    const realXvfb = run('sh', ['-c', 'command -v Xvfb'], { encoding: 'utf8' }).trim();
+    // Refuses whichever number it is asked for FIRST, then behaves. Keying on
+    // a fixed :99 would make the test depend on 99 happening to be free.
+    writeFileSync(fake,
+      '#!/usr/bin/env bash\n'
+      + `if [ ! -e "${join(dir, 'lost')}" ]; then\n`
+      + `  touch "${join(dir, 'lost')}"\n`
+      + `  echo "$1" > "${join(dir, 'refused')}"\n`
+      + '  echo "Server is already active for display ${1#:}" >&2\n'
+      + '  exit 1\n'
+      + 'fi\n'
+      + `exec ${realXvfb} "$@"\n`,
+      { mode: 0o755 });
+    const env = { ...process.env, PATH: `${dir}:${process.env.PATH}` };
+    delete env.DISPLAY;
+    delete env.XAUTHORITY;
+    const out = run('python3', [guiPy, '--own-display', '--selftest-display'],
+      { encoding: 'utf8', env, timeout: 90_000 });
+    const r = JSON.parse(out.split('\n').find((l) => l.startsWith('DISPLAY-SELFTEST:')).slice(17));
+    assert.equal(r.window, 'ok', `the window must still come up: ${out}`);
+    const refused = readFileSync(join(dir, 'refused'), 'utf8').trim();
+    assert.notEqual(r.display, refused, 'it must have moved on from the number that refused');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 
 
 /**

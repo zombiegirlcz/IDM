@@ -5586,6 +5586,37 @@ def start_display(plan: dict, timeout: float = 10.0):
     raise RuntimeError("Xvfb na %s se neozval do %gs" % (plan["display"], timeout))
 
 
+def open_display(args, env, attempts: int = 5):
+    """Plan a display and actually open it, retrying a number already taken.
+
+    probe_displays() can only see the sockets that exist WHEN IT LOOKS, so two
+    launches a moment apart pick the same number and the loser's Xvfb exits
+    with "Server is already active". That is the display version of the
+    free_port() trap documented in CLAUDE.md: the scan cannot prevent it, so
+    the recovery belongs here — each refusal adds that number to the busy set
+    and the next plan steps over it.
+
+    Returns (plan, proc); proc is None when no server was started. A plan in
+    "error" mode is returned untouched for the caller to report.
+    """
+    taken: list = []
+    plan = None
+    for _ in range(max(1, attempts)):
+        probe = probe_displays(env)
+        probe["busy"] = list(probe.get("busy") or []) + taken
+        plan = display_plan(args, env, probe)
+        if plan["mode"] != "own":
+            return plan, start_display(plan)
+        try:
+            return plan, start_display(plan)
+        except RuntimeError:
+            taken.append(int(str(plan["display"]).lstrip(":")))
+    raise RuntimeError(
+        "zadny volny X displej: cisla %s uz nekdo zabral"
+        % ", ".join(str(t) for t in taken)
+    )
+
+
 def stop_display(proc) -> None:
     """Reap the Xvfb we started. An orphan X server per launch is a leak."""
     if proc is None:
@@ -5629,7 +5660,7 @@ def take_screenshot(plan: dict) -> str | None:
     return shot["path"]
 
 
-def selftest_display(plan: dict):
+def selftest_display(plan: dict, xvfb_pid: int = 0):
     """Build the window on the planned display and photograph it.
 
     Deliberately no mainloop: this is the non-interactive proof that the
@@ -5637,7 +5668,7 @@ def selftest_display(plan: dict):
     """
     api = Api("127.0.0.1:1", timeout=0.2)
     out = {"mode": plan["mode"], "display": plan["display"],
-           "window": "no", "shot": None}
+           "window": "no", "shot": None, "xvfb_pid": xvfb_pid}
     root, _refresh, _w = build_window(api)
     try:
         out["window"] = "ok" if draw_window(root) else "not-viewable"
@@ -5716,24 +5747,23 @@ def main(argv=None):
     # The display comes before everything else that could need one. An error
     # here (no Xvfb, no capture tool) must stop the launch while it is still
     # free of side effects — no engine spawned, no X server running.
-    dplan = display_plan(vars(args), os.environ, probe_displays())
+    try:
+        dplan, xvfb = open_display(vars(args), os.environ)
+    except RuntimeError as e:
+        print("[x] %s" % e, file=sys.stderr)
+        return 2
     if dplan["mode"] == "error":
         print("[x] " + dplan["reason"], file=sys.stderr)
         return 2
     try:
-        xvfb = start_display(dplan)
-    except RuntimeError as e:
-        print("[x] %s" % e, file=sys.stderr)
-        return 2
-    try:
-        return _main_with_display(args, cmdline, p, dplan)
+        return _main_with_display(args, cmdline, p, dplan, xvfb)
     finally:
         stop_display(xvfb)
 
 
-def _main_with_display(args, cmdline, p, dplan):
+def _main_with_display(args, cmdline, p, dplan, xvfb):
     if args.selftest_display:
-        return selftest_display(dplan)
+        return selftest_display(dplan, xvfb.pid if xvfb else 0)
 
     if args.selftest_grabber_project:
         return selftest_grabber_project(args.state_dir)

@@ -257,3 +257,138 @@ fn a_plain_file_with_aria2_does_not_go_near_yt_dlp() {
     assert!(err.contains("aria2"), "stderr should name aria2: {}", err);
     assert!(!log.exists(), "yt-dlp must not be invoked for a plain file");
 }
+
+/// A stub whose output lands under a DIFFERENT extension than `-o` asked for.
+///
+/// This is what real yt-dlp does: the merger picks the container, so `-o
+/// video.mp4` legitimately produces `video.webm`. The engine resolves that
+/// already (`sibling_with_stem`), but nothing told the caller, so the queue
+/// kept showing the name it had guessed from the URL.
+fn make_stub_other_ext(dir: &Path) -> PathBuf {
+    let stub = dir.join("yt-dlp-webm");
+    let script = format!(
+        r#"#!/usr/bin/env bash
+if [[ "$1" == "-J" ]]; then
+  cat <<'JSON'
+{META}
+JSON
+  exit 0
+fi
+out=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "-o" ]]; then out="$2"; shift 2; else shift; fi
+done
+printf '{PAYLOAD}' > "${{out%.*}}.webm"
+"#,
+        META = META_JSON,
+        PAYLOAD = PAYLOAD
+    );
+    fs::write(&stub, script).unwrap();
+    let mut perm = fs::metadata(&stub).unwrap().permissions();
+    perm.set_mode(0o755);
+    fs::set_permissions(&stub, perm).unwrap();
+    stub
+}
+
+#[test]
+fn report_names_the_file_that_was_really_written() {
+    // The queue spawns the engine with stdout discarded, so "[+] done -> X"
+    // never reaches it: the only way it can learn the real name and size is an
+    // explicit report file.
+    let dir = unique_dir("report");
+    let stub = make_stub_other_ext(&dir);
+    let asked = dir.join("clip.mp4");
+    let report = dir.join("report.json");
+    let out = Command::new(IDM)
+        .arg("--yt-dlp")
+        .arg(&stub)
+        .arg("--force-media")
+        .arg("--report")
+        .arg(&report)
+        .arg("-o")
+        .arg(&asked)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+
+    let real = dir.join("clip.webm");
+    assert!(real.exists(), "the stub writes .webm, not the .mp4 that was asked for");
+    assert!(!asked.exists(), "nothing should have been written under the asked-for name");
+
+    let raw = fs::read_to_string(&report).expect("--report must write a file");
+    let v: serde_json::Value = serde_json::from_str(&raw).expect("the report must be JSON");
+    assert_eq!(
+        v["file"].as_str(),
+        real.to_str(),
+        "the report must name the file on disk, not the one we asked for: {}",
+        raw
+    );
+    assert_eq!(
+        v["total"].as_u64(),
+        Some(PAYLOAD.len() as u64),
+        "the report must carry the real size: {}",
+        raw
+    );
+}
+
+#[test]
+fn report_is_written_for_a_plain_http_download_too() {
+    // Same contract on the direct path: one reader, one shape, so the queue
+    // does not need to know which backend ran.
+    let dir = unique_dir("report_http");
+    let payload = b"PLAIN-HTTP-PAYLOAD";
+    let origin = tiny_origin(payload.to_vec());
+    let asked = dir.join("plain.bin");
+    let report = dir.join("report.json");
+    let out = Command::new(IDM)
+        .arg("--report")
+        .arg(&report)
+        .arg("-n")
+        .arg("1")
+        .arg("-o")
+        .arg(&asked)
+        .arg(format!("{}/plain.bin", origin))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&report).expect("--report must write a file"))
+            .unwrap();
+    assert_eq!(v["file"].as_str(), asked.to_str());
+    assert_eq!(v["total"].as_u64(), Some(payload.len() as u64));
+}
+
+/// A one-file HTTP origin on loopback. Local only: these tests never touch
+/// the network, and must not start doing so.
+fn tiny_origin(data: Vec<u8>) -> String {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = format!("http://{}", listener.local_addr().unwrap());
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let mut s = match stream {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+            let mut buf = [0u8; 2048];
+            let n = s.read(&mut buf).unwrap_or(0);
+            let req = String::from_utf8_lossy(&buf[..n]).to_string();
+            let head = req.starts_with("HEAD");
+            // Deliberately no Accept-Ranges: this origin exists to prove the
+            // report is written, not to re-implement Range. Without it the
+            // engine makes one plain GET, which is all the test needs.
+            let hdr = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
+                data.len()
+            );
+            let _ = s.write_all(hdr.as_bytes());
+            if !head {
+                let _ = s.write_all(&data);
+            }
+            let _ = s.flush();
+        }
+    });
+    addr
+}
