@@ -38,7 +38,14 @@ function freshHome() {
 function fakeArchive() {
   const dir = mkdtempSync(join(tmpdir(), 'idm_arch_'));
   for (const b of ['idm', 'idm-host']) {
-    writeFileSync(join(dir, b), `#!/bin/sh\necho ${b}\n`, { mode: 0o755 });
+    // The real binaries answer --version (verbs::dispatch handles it before
+    // clap), and the installer asks them what it just installed instead of
+    // writing down the channel name. The stub has to answer too.
+    writeFileSync(
+      join(dir, b),
+      `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "${b} 2.0.0"; exit 0; fi\necho ${b}\n`,
+      { mode: 0o755 },
+    );
   }
   writeFileSync(join(dir, 'idm_gui.py'), '# fake gui\n');
   writeFileSync(join(dir, 'ensure-aria2.sh'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
@@ -419,4 +426,28 @@ test('the local-source path says so when cargo is missing', () => {
     /cargo/,
     'a missing toolchain must be named, not guessed at',
   );
+});
+
+test('VERSION records a real version, never the word "latest"', () => {
+  // On the reporting machine $IDM_DIR/VERSION held the literal string
+  // "latest", because INSTALLED_VERSION was set from IDM_VERSION's default
+  // rather than from the tag that was actually downloaded. `idm update` then
+  // has nothing to compare against: "latest" is not a version, so a real new
+  // release can never look newer.
+  const home = freshHome();
+  install(home);
+  const v = readFileSync(join(idmDir(home), 'VERSION'), 'utf8').trim();
+  assert.notEqual(v, 'latest',
+    'VERSION must name the installed build, not the channel it came from');
+  assert.ok(v.length > 0, 'VERSION must not be empty');
+  // Either a release tag, or the local-source marker.
+  assert.match(v, /^(v?\d+\.\d+\.\d+|local:)/,
+    `VERSION should be a version or a local: marker, got ${JSON.stringify(v)}`);
+});
+
+test('an explicit IDM_VERSION is recorded as given', () => {
+  const home = freshHome();
+  install(home, { IDM_VERSION: 'v2.0.0' });
+  const v = readFileSync(join(idmDir(home), 'VERSION'), 'utf8').trim();
+  assert.equal(v, 'v2.0.0');
 });

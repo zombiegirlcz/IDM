@@ -250,7 +250,15 @@ trap 'rm -rf "$TMP"' EXIT
 ENGINE_BIN_SRC=""
 HOST_BIN_SRC=""
 ASSETS_SRC=""
-INSTALLED_VERSION="$VERSION"
+# Only a concrete tag is a version. "latest" is the channel we fetched from,
+# and writing it into $IDM_DIR/VERSION left `idm update` with nothing to
+# compare against -- no release could ever look newer than the word "latest".
+# The real number is asked of the binary we just installed.
+if [[ "$VERSION" == "latest" ]]; then
+  INSTALLED_VERSION=""
+else
+  INSTALLED_VERSION="$VERSION"
+fi
 
 if [[ -n "${IDM_LOCAL_SOURCE:-}" ]]; then
   # Power-user path: build from a local checkout (requires cargo).
@@ -334,7 +342,20 @@ install -m 0755 "$ENGINE_BIN_SRC" "$IDM_DIR/bin/idm"
 # point straight at it and cannot pass arguments, and it is the only link a
 # real browser verifies in CI.
 install -m 0755 "$HOST_BIN_SRC"   "$IDM_DIR/bin/idm-host"
-printf '%s\n' "$INSTALLED_VERSION" > "$IDM_DIR/VERSION"
+if [[ -z "$INSTALLED_VERSION" ]]; then
+  # `idm --version` prints something like "idm 2.0.0"; take the number.
+  INSTALLED_VERSION="$("$IDM_DIR/bin/idm" --version 2>/dev/null \
+    | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
+fi
+if [[ -z "$INSTALLED_VERSION" ]]; then
+  # Ask the release API as a last resort, then give up honestly: "unknown"
+  # at least does not pretend to be a version that can be compared.
+  INSTALLED_VERSION="$(curl -fsSL \
+    "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
+    | grep -oE '"tag_name"[[:space:]]*:[[:space:]]*"[^"]+"' \
+    | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+fi
+printf '%s\n' "${INSTALLED_VERSION:-unknown}" > "$IDM_DIR/VERSION"
 
 # `--uninstall` is documented as `bash $IDM_DIR/install.sh --uninstall`, so this
 # file has to be there — including after `curl ... | bash`, where BASH_SOURCE
