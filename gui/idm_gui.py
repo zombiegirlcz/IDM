@@ -4150,17 +4150,36 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     # The striping tags have to exist before the first refresh fills rows.
     tag_rows(listview, palette)
 
-    # Vertical rules between the columns. Redrawn on every <Configure>:
-    # Treeview stretches its columns with the window, so the boundaries move
-    # whenever the window or the divider does.
+    # Vertical rules between the columns.
+    #
+    # Keeping them on the boundaries is harder than it looks: Tk has no event
+    # for "a column changed width". <Configure> covers the window and the
+    # divider, but NOT a user dragging a column border, and not Tk
+    # redistributing widths on its own -- which it does, asynchronously, after
+    # a width is set. So the widths are polled and the rules are redrawn only
+    # when they actually move. CI caught exactly this: the rules sat at 360
+    # while the column had settled at 319.
     w["grid_lines"] = []
+    w["grid_widths"] = None
 
-    def _redraw_grid(_event=None):
+    def _redraw_grid(_event=None, force=False):
+        if not listview.winfo_exists():
+            return
+        widths = tuple(listview.column(k, "width") for k in listview["columns"])
+        if not force and widths == w["grid_widths"]:
+            return
+        w["grid_widths"] = widths
         grid_separators(listview, w["palette"], w["grid_lines"])
 
-    w["redraw_grid"] = _redraw_grid
+    def _poll_grid():
+        if not listview.winfo_exists():
+            return
+        _redraw_grid()
+        listview.after(400, _poll_grid)
+
+    w["redraw_grid"] = lambda: _redraw_grid(force=True)
     listview.bind("<Configure>", _redraw_grid, add="+")
-    listview.after(0, _redraw_grid)
+    listview.after(0, _poll_grid)
     body.add(right, weight=4)
 
     # --- download-list context menu (right click), like IDM ---
@@ -5697,6 +5716,18 @@ def selftest_live_graph(meta_path):
     return 0
 
 
+def _settle(root, rounds: int = 6) -> None:
+    """Let Tk finish laying out before anything is measured.
+
+    Geometry work is queued, not immediate: a single update() leaves column
+    widths still moving. Pumping the loop a few times is what makes a
+    measurement repeatable.
+    """
+    for _ in range(max(1, rounds)):
+        root.update_idletasks()
+        root.update()
+
+
 def _gridline_geometry(w) -> list:
     """What the placed rules actually look like, for the selftests.
 
@@ -5722,7 +5753,11 @@ def _build_for_gridlines(state_dir: str = ""):
     root.update_idletasks()
     root.update()
     # place() geometry is only real once the widget has been mapped and the
-    # <Configure> that draws the rules has been delivered.
+    # <Configure> that draws the rules has been delivered. Tk also
+    # redistributes column widths after the fact, so settle first and draw
+    # second -- drawing immediately would pin the rules to widths that are
+    # about to change.
+    _settle(root)
     w["redraw_grid"]()
     root.update_idletasks()
     root.update()
@@ -5750,9 +5785,9 @@ def selftest_gridlines_resize():
     first = w["list"]["columns"][0]
     new_width = w["list"].column(first, "width") + 120
     w["list"].column(first, width=new_width)
+    _settle(root)
     w["redraw_grid"]()
-    root.update_idletasks()
-    root.update()
+    _settle(root)
     after = [s["x"] for s in _gridline_geometry(w)]
     # Read the width back AFTER the redraw, not the one that was asked for:
     # Treeview stretches its columns to fill the widget, so a requested 321
