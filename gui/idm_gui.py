@@ -3596,6 +3596,54 @@ def apply_theme(root, name: str) -> dict:
     return p
 
 
+def column_edges(widths) -> list:
+    """Where the vertical rules go, from the column widths.
+
+    Cumulative, and never on the right-hand edge: a rule there reads as a
+    border round the widget rather than a divider between columns. A column
+    squeezed to zero contributes no new boundary, so two rules cannot end up
+    stacked in one place drawing a double-width line.
+    """
+    edges = []
+    x = 0
+    for wdt in list(widths)[:-1]:
+        x += max(0, int(wdt or 0))
+        if x > 0 and x not in edges:
+            edges.append(x)
+    return edges
+
+
+def grid_separators(tree, palette: dict, store: list) -> list:
+    """Draw (or redraw) the vertical rules over `tree`.
+
+    ttk's Treeview has no element for cell borders, so these are 1px frames
+    placed on top of it. `store` holds the ones already drawn; they are
+    destroyed and remade rather than moved, because the number of them changes
+    with the columns and a stale rule is worse than a redraw.
+
+    The caller must re-run this whenever the columns change width -- which is
+    every <Configure>, since Treeview stretches its columns with the window.
+    """
+    import tkinter as tk
+
+    for old in store:
+        try:
+            old.destroy()
+        except Exception:  # noqa: BLE001
+            pass
+    store.clear()
+
+    widths = [tree.column(key, "width") for key in tree["columns"]]
+    for x in column_edges(widths):
+        line = tk.Frame(tree, background=palette["grid"], width=1,
+                        borderwidth=0, highlightthickness=0)
+        # relheight=1 spans the heading too, which is what a table border
+        # looks like; y=0 keeps it anchored when rows scroll.
+        line.place(x=x, y=0, width=1, relheight=1.0)
+        store.append(line)
+    return store
+
+
 def tag_rows(tree, palette: dict) -> None:
     """Configure the two striping tags on a Treeview.
 
@@ -4017,6 +4065,9 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         w["theme"] = nxt
         w["palette"] = apply_theme(root, nxt)
         tag_rows(w["list"], w["palette"])
+        # The rules are plain frames, not styled widgets, so a theme change
+        # does not reach them on its own.
+        w["redraw_grid"]()
         save_theme(state_dir, nxt)
         w["theme_button"].configure(text=_theme_label(nxt))
 
@@ -4087,6 +4138,18 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     w["list"] = listview
     # The striping tags have to exist before the first refresh fills rows.
     tag_rows(listview, palette)
+
+    # Vertical rules between the columns. Redrawn on every <Configure>:
+    # Treeview stretches its columns with the window, so the boundaries move
+    # whenever the window or the divider does.
+    w["grid_lines"] = []
+
+    def _redraw_grid(_event=None):
+        grid_separators(listview, w["palette"], w["grid_lines"])
+
+    w["redraw_grid"] = _redraw_grid
+    listview.bind("<Configure>", _redraw_grid, add="+")
+    listview.after(0, _redraw_grid)
     body.add(right, weight=4)
 
     # --- download-list context menu (right click), like IDM ---
@@ -5623,6 +5686,89 @@ def selftest_live_graph(meta_path):
     return 0
 
 
+def _gridline_geometry(w) -> list:
+    """What the placed rules actually look like, for the selftests.
+
+    Read off the live widgets rather than recomputed, because the whole point
+    of checking on a real window is that place() can quietly put a frame
+    somewhere other than where it was asked to.
+    """
+    out = []
+    for line in w["grid_lines"]:
+        out.append({
+            "x": line.winfo_x(),
+            "width": line.winfo_width(),
+            "height": line.winfo_height(),
+            "bg": str(line.cget("background")),
+        })
+    return out
+
+
+def _build_for_gridlines(state_dir: str = ""):
+    api = Api("127.0.0.1:1", timeout=0.2)
+    root, _refresh, w = build_window(api, out_dir=".", state_dir=state_dir)
+    root.geometry("1100x500")
+    root.update_idletasks()
+    root.update()
+    # place() geometry is only real once the widget has been mapped and the
+    # <Configure> that draws the rules has been delivered.
+    w["redraw_grid"]()
+    root.update_idletasks()
+    root.update()
+    return root, w
+
+
+def selftest_gridlines():
+    root, w = _build_for_gridlines()
+    seps = _gridline_geometry(w)
+    out = {
+        "count": len(seps),
+        "columns": len(w["list"]["columns"]),
+        "grid": w["palette"]["grid"],
+        "separators": seps,
+    }
+    root.destroy()
+    print("GRIDLINES:" + json.dumps(out), flush=True)
+    return 0
+
+
+def selftest_gridlines_resize():
+    """Widening a column has to move the rules, not leave them behind."""
+    root, w = _build_for_gridlines()
+    before = [s["x"] for s in _gridline_geometry(w)]
+    first = w["list"]["columns"][0]
+    new_width = w["list"].column(first, "width") + 120
+    w["list"].column(first, width=new_width)
+    w["redraw_grid"]()
+    root.update_idletasks()
+    root.update()
+    after = [s["x"] for s in _gridline_geometry(w)]
+    out = {"before": before, "after": after,
+           "first_width": w["list"].column(first, "width")}
+    root.destroy()
+    print("GRIDLINES-RESIZE:" + json.dumps(out), flush=True)
+    return 0
+
+
+def selftest_gridlines_theme():
+    """The rules are plain frames, so the theme has to repaint them by hand."""
+    import tempfile
+
+    state = tempfile.mkdtemp()
+    save_theme(state, "light")
+    root, w = _build_for_gridlines(state)
+    light = _gridline_geometry(w)[0]["bg"] if w["grid_lines"] else ""
+    w["theme_button"].invoke()
+    root.update_idletasks()
+    root.update()
+    dark = _gridline_geometry(w)[0]["bg"] if w["grid_lines"] else ""
+    out = {"light": light, "dark": dark,
+           "dark_grid": theme_palette("dark")["grid"]}
+    root.destroy()
+    print("GRIDLINES-THEME:" + json.dumps(out), flush=True)
+    return 0
+
+
 def selftest_window():
     api = Api("127.0.0.1:1", timeout=0.2)
     root, refresh, _w = build_window(api)
@@ -6228,6 +6374,9 @@ def main(argv=None):
     p.add_argument("--selftest-properties-body", action="store_true")
     p.add_argument("--selftest-properties-ok", action="store_true")
     p.add_argument("--selftest-row", action="store_true")
+    p.add_argument("--selftest-gridlines", action="store_true")
+    p.add_argument("--selftest-gridlines-resize", action="store_true")
+    p.add_argument("--selftest-gridlines-theme", action="store_true")
     p.add_argument("--selftest-formats-body", action="store_true")
     p.add_argument("--selftest-format-labels", action="store_true")
     p.add_argument("--selftest-add-format", action="store_true")
@@ -6305,6 +6454,12 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
         return selftest_drop_paste()
     if args.selftest_row:
         return selftest_row()
+    if args.selftest_gridlines:
+        return selftest_gridlines()
+    if args.selftest_gridlines_resize:
+        return selftest_gridlines_resize()
+    if args.selftest_gridlines_theme:
+        return selftest_gridlines_theme()
     if args.selftest_migrate_logins:
         return selftest_migrate_logins()
     if args.selftest_add_ref:

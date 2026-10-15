@@ -51,8 +51,13 @@ test('a single column has no boundaries at all', () => {
 test('a collapsed column does not stack two rules in one place', () => {
   // Treeview lets a column be squeezed to zero. Two separators at the same x
   // would draw a double-width line.
+  //
+  // With widths 100, 0, 0, 80 the three boundaries all fall at x=100, and the
+  // right-hand side of the last column is not a boundary at all -- so one
+  // rule, at 100. (This expectation first said [100, 180]; 180 is the widget
+  // edge, which is exactly what column_edges refuses to draw.)
   const r = py('print("R:" + json.dumps(g.column_edges([100, 0, 0, 80])))');
-  assert.deepEqual(r, [100, 180]);
+  assert.deepEqual(r, [100]);
 });
 
 test('the real window places one separator per boundary, over the list', () => {
