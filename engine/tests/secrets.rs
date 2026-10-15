@@ -145,12 +145,26 @@ fn tampering_with_the_ciphertext_is_detected() {
     let path = dir.join("secrets.json");
     let mut v: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-    // Flip one base64 character of the ciphertext.
+    // Flip one base64 character of the ciphertext -- but NOT near the end.
+    //
+    // This used to change the second-to-last character, 'A' <-> 'B'. When the
+    // ciphertext length is 2 (mod 3) the encoding ends with one '=', and the
+    // character in that slot carries two bits that decoding throws away: an
+    // 'A' -> 'B' flip there changes only the lowest of them, so the "tampered"
+    // file decoded back to the ORIGINAL bytes and the vault unlocked exactly
+    // as it should. The test passed by not testing anything, roughly one run
+    // in seventy -- in a test whose whole job is to prove a forged vault is
+    // refused.
+    //
+    // The first quartet has no padding, so every bit of it reaches the
+    // plaintext. Assert the decoded content really moved, rather than trust it.
     let ct = v["ct"].as_str().unwrap().to_string();
-    let mut bytes = ct.into_bytes();
-    let last = bytes.len() - 2;
-    bytes[last] = if bytes[last] == b'A' { b'B' } else { b'A' };
-    v["ct"] = serde_json::Value::String(String::from_utf8(bytes).unwrap());
+    let mut bytes = ct.clone().into_bytes();
+    assert!(bytes.len() > 8, "ciphertext too short to tamper with: {ct}");
+    bytes[1] = if bytes[1] == b'A' { b'B' } else { b'A' };
+    let forged = String::from_utf8(bytes).unwrap();
+    assert_ne!(forged, ct, "the tamper must actually change the ciphertext");
+    v["ct"] = serde_json::Value::String(forged);
     std::fs::write(&path, v.to_string()).unwrap();
 
     let (ok, out) = get(&dir, &r);
