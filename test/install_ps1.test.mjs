@@ -151,3 +151,67 @@ test('--Uninstall removes registry keys, shortcuts and the env var', () => {
   assert.match(block, /SetEnvironmentVariable\("IDM_SETTINGS", \$null/s, 'must clear IDM_SETTINGS too');
   assert.match(block, /Remove-Item -Recurse -Force \$Prefix/s, 'must remove the install prefix');
 });
+
+// --- the one-directory layout (cycle A) --------------------------------------
+
+test('defaults to %USERPROFILE%\\.idm and honours $env:IDM_DIR', () => {
+  const s = src();
+  assert.match(s, /\$env:IDM_DIR/, 'IDM_DIR must override the default prefix');
+  assert.match(
+    s,
+    /Join-Path \$env:USERPROFILE "\.idm"/,
+    'the default must be %USERPROFILE%\\.idm, matching the Linux side',
+  );
+  assert.ok(
+    !/\$Prefix = Join-Path \$env:LOCALAPPDATA "idm"/.test(s),
+    'the old %LOCALAPPDATA%\\idm default must be gone (it may still be migrated from)',
+  );
+});
+
+test('persists IDM_DIR and puts only its bin directory on PATH', () => {
+  const s = src();
+  assert.match(
+    s,
+    /SetEnvironmentVariable\(\s*"IDM_DIR",\s*\$Prefix/,
+    'IDM_DIR must be persisted for the user, like the export on Linux',
+  );
+  assert.match(s, /Add-UserPath -Dir \$binDir/, 'only $Prefix\\bin belongs on PATH');
+  assert.ok(
+    !/Add-UserPath -Dir \$Prefix\b/.test(s),
+    'the prefix root itself must not go on PATH any more',
+  );
+});
+
+test('arranges the archive into bin/ gui/ assets/, like the Linux layout', () => {
+  const s = src();
+  for (const sub of ['bin', 'gui', 'assets']) {
+    assert.match(
+      s,
+      new RegExp(`Join-Path \\$Prefix "${sub}"`),
+      `the ${sub}/ subdirectory must exist under the prefix`,
+    );
+  }
+  assert.match(s, /Join-Path \$binDir "idm\.exe"/, 'idm.exe belongs in bin/');
+  assert.match(s, /Join-Path \$binDir "idm-host\.exe"/, 'idm-host.exe belongs in bin/');
+});
+
+test('the shortcut carries our own icon', () => {
+  const s = src();
+  assert.match(
+    s,
+    /\$idmIco = Join-Path \$assetsDir "idm\.ico"/,
+    'the .lnk must use assets\\idm.ico, not a shell32.dll index',
+  );
+  assert.match(s, /\$lnk\.IconLocation = \$idmIco/, 'and actually assign it');
+  assert.ok(
+    !/shell32\.dll,167/.test(s),
+    'the borrowed shell32 icon must be gone',
+  );
+});
+
+test('-Uninstall clears IDM_DIR and the bin PATH entry', () => {
+  const s = src();
+  const block = s.slice(s.indexOf('if ($Uninstall)'), s.indexOf('# 1) Download'));
+  assert.match(block, /SetEnvironmentVariable\("IDM_DIR", \$null/, 'must clear IDM_DIR');
+  assert.match(block, /Remove-UserPath -Dir \(Join-Path \$Prefix "bin"\)/, 'must drop the bin PATH entry');
+});

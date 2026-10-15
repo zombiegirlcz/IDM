@@ -15,7 +15,7 @@
 #
 # Parameters:
 #   -Uninstall        remove everything
-#   -Prefix DIR       install prefix (default %LOCALAPPDATA%\idm)
+#   -Prefix DIR       install directory (default %USERPROFILE%\.idm, or $env:IDM_DIR)
 #   -DownloadsDir DIR download directory (default %USERPROFILE%\Downloads)
 #   -Version TAG      release tag (default: latest)
 #   -ArchiveUrl URL   use a specific archive URL instead of the release
@@ -56,10 +56,14 @@ if (-not $Prefix) {
     # prefix) means that installation is the one to act on -- otherwise
     # "$Prefix\install.ps1 -Uninstall" would silently target the default
     # location when the user installed somewhere else.
-    if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "idm-host.exe"))) {
+    if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "bin\idm-host.exe"))) {
         $Prefix = $PSScriptRoot
+    } elseif ($env:IDM_DIR) {
+        $Prefix = $env:IDM_DIR
     } else {
-        $Prefix = Join-Path $env:LOCALAPPDATA "idm"
+        # Same place and same name as the Linux side, so one documented
+        # variable describes both: IDM_DIR.
+        $Prefix = Join-Path $env:USERPROFILE ".idm"
     }
 }
 if (-not $DownloadsDir) { $DownloadsDir = Join-Path $env:USERPROFILE "Downloads" }
@@ -114,6 +118,8 @@ if ($Uninstall) {
     Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path (Get-StartMenuDir) "IDM.lnk")
     [Environment]::SetEnvironmentVariable("IDM_ALLOWED_DIR", $null, "User")
     [Environment]::SetEnvironmentVariable("IDM_SETTINGS", $null, "User")
+    [Environment]::SetEnvironmentVariable("IDM_DIR", $null, "User")
+    Remove-UserPath -Dir (Join-Path $Prefix "bin")
     Remove-UserPath -Dir $Prefix
     if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix -ErrorAction SilentlyContinue }
     Write-Log "hotovo - odstraneno"
@@ -171,9 +177,59 @@ if ($haveSum) {
 # 2) Unpack
 # --------------------------------------------------------------------------- #
 Write-Log "rozbalavam do $Prefix"
-if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix -ErrorAction SilentlyContinue }
-New-Item -ItemType Directory -Force -Path $Prefix | Out-Null
-Expand-Archive -Path $zip -DestinationPath $Prefix -Force
+# The archive is flat; the installation is not. Unpack to a staging directory
+# and arrange the files into the same bin/ gui/ assets/ layout the Linux
+# installer builds, so one IDM_DIR means the same thing on both systems.
+$stage = Join-Path $tmp "unpack"
+New-Item -ItemType Directory -Force -Path $stage | Out-Null
+Expand-Archive -Path $zip -DestinationPath $stage -Force
+
+$binDir    = Join-Path $Prefix "bin"
+$guiDir    = Join-Path $Prefix "gui"
+$assetsDir = Join-Path $Prefix "assets"
+$stateDir  = Join-Path $Prefix "state"
+# state/ holds the queue and the vault; a reinstall must not throw them away.
+foreach ($d in @($binDir, $guiDir, $assetsDir)) {
+    if (Test-Path $d) { Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue }
+}
+foreach ($d in @($binDir, $guiDir, $assetsDir, $stateDir)) {
+    New-Item -ItemType Directory -Force -Path $d | Out-Null
+}
+
+# Pre-0.2 installs were flat under %LOCALAPPDATA%\idm; move what matters.
+$oldPrefix = Join-Path $env:LOCALAPPDATA "idm"
+if ((Test-Path $oldPrefix) -and ($oldPrefix -ne $Prefix)) {
+    $oldState = Join-Path $oldPrefix "state"
+    if (Test-Path $oldState) {
+        Write-Log "stehuji stav z $oldState"
+        Get-ChildItem -Force $oldState | ForEach-Object {
+            $dest = Join-Path $stateDir $_.Name
+            if (-not (Test-Path $dest)) { Move-Item $_.FullName $dest -Force }
+        }
+    }
+    Remove-Item -Recurse -Force $oldPrefix -ErrorAction SilentlyContinue
+}
+
+foreach ($f in @("idm.exe", "idm-host.exe", "ensure-aria2.ps1", "ensure-aria2.sh")) {
+    $srcFile = Join-Path $stage $f
+    if (Test-Path $srcFile) { Move-Item $srcFile (Join-Path $binDir $f) -Force }
+}
+$guiSrc = Join-Path $stage "idm_gui.py"
+if (Test-Path $guiSrc) { Move-Item $guiSrc (Join-Path $guiDir "idm_gui.py") -Force }
+foreach ($a in @("idm.ico", "idm.png")) {
+    $srcFile = Join-Path (Join-Path $stage "assets") $a
+    if (Test-Path $srcFile) {
+        Move-Item $srcFile (Join-Path $assetsDir $a) -Force
+    } else {
+        try {
+            Fetch-File -Uri "https://raw.githubusercontent.com/$Repo/master/assets/$a" `
+                -OutFile (Join-Path $assetsDir $a)
+        } catch { Write-Warn "nestahl $a" }
+    }
+}
+$stageSelf = Join-Path $stage "install.ps1"
+if (Test-Path $stageSelf) { Move-Item $stageSelf (Join-Path $Prefix "install.ps1") -Force }
+Set-Content -Encoding ASCII -Path (Join-Path $Prefix "VERSION") -Value $Version
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 
 # The last line of the output points at "$Prefix\install.ps1 -Uninstall", so
@@ -193,9 +249,9 @@ if (-not (Test-Path $selfInstalled)) {
     }
 }
 
-$engineInstalled = Join-Path $Prefix "idm.exe"
-$hostInstalled   = Join-Path $Prefix "idm-host.exe"
-$ensurePs1       = Join-Path $Prefix "ensure-aria2.ps1"
+$engineInstalled = Join-Path $binDir "idm.exe"
+$hostInstalled   = Join-Path $binDir "idm-host.exe"
+$ensurePs1       = Join-Path $binDir "ensure-aria2.ps1"
 if (-not (Test-Path $engineInstalled)) { Die "chybi idm.exe v archivu" }
 if (-not (Test-Path $hostInstalled))   { Die "chybi idm-host.exe v archivu" }
 New-Item -ItemType Directory -Force -Path $DownloadsDir | Out-Null
@@ -288,9 +344,7 @@ function Ensure-Python {
 }
 
 $python = Ensure-Python
-$guiPy  = Join-Path $Prefix "idm_gui.py"
-$stateDir = Join-Path $Prefix "state"
-New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
+$guiPy  = Join-Path $guiDir "idm_gui.py"
 
 # The browser extension cannot read settings.json itself; it asks the native
 # host (get_settings). On Linux a wrapper passes --settings, but Windows
@@ -310,7 +364,7 @@ Write-Log "nastaveno IDM_SETTINGS = $settingsFile"
 # A .cmd launcher is still written for people who want to run it from a shell,
 # but the shortcuts never point at it.
 $guiArgs = "`"$guiPy`" --engine `"$engineInstalled`" --out-dir `"$DownloadsDir`" --state-dir `"$stateDir`" --autostart"
-$launcher = Join-Path $Prefix "idm-gui.cmd"
+$launcher = Join-Path $binDir "idm-gui.cmd"
 if ($python -and (Test-Path $guiPy)) {
     $lines = @("@echo off", "`"$python`" $guiArgs")
 } else {
@@ -334,7 +388,10 @@ function New-IdmShortcut {
     }
     $lnk.WorkingDirectory = $Prefix
     $lnk.Description = "IDM - spravce stahovani"
-    $lnk.IconLocation = "$env:SystemRoot\System32\shell32.dll,167"
+    # Our own icon. The borrowed shell32 index rendered as whatever the theme
+    # had at slot 167, which is how the shortcut ended up looking generic.
+    $idmIco = Join-Path $assetsDir "idm.ico"
+    if (Test-Path $idmIco) { $lnk.IconLocation = $idmIco }
     $lnk.Save()
 }
 $desktopLnk = Join-Path (Get-DesktopDir) "IDM.lnk"
@@ -342,8 +399,12 @@ New-IdmShortcut -Path $desktopLnk
 Write-Log "ikona na plose: $desktopLnk"
 New-IdmShortcut -Path (Join-Path (Get-StartMenuDir) "IDM.lnk")
 
-# Put the install dir on the user PATH so `idm` runs from any shell/CMD.
-Add-UserPath -Dir $Prefix
+# One variable describes the installation, exactly like the Linux export, and
+# only bin/ goes on PATH -- the rest of the directory is not executables.
+[Environment]::SetEnvironmentVariable("IDM_DIR", $Prefix, "User")
+$env:IDM_DIR = $Prefix
+Write-Log "nastaveno IDM_DIR = $Prefix"
+Add-UserPath -Dir $binDir
 
 Write-Host ""
 Write-Log "hotovo!"
