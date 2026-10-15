@@ -90,8 +90,14 @@ test('the rules follow the columns when they are resized', () => {
   const d = JSON.parse(line.slice('GRIDLINES-RESIZE:'.length));
   assert.notDeepEqual(d.before, d.after,
     'widening a column must move the rules, not leave them behind');
+  // Against the width the widget REPORTS, not the one that was requested:
+  // Treeview stretches its columns to fill itself, so asking for 321 can
+  // legitimately land as 360. What matters is that the rule is where the
+  // column actually ends.
   assert.equal(d.after[0], d.first_width,
-    `the first rule should sit at the new width ${d.first_width}, got ${d.after[0]}`);
+    `the first rule should sit at the column's real width ${d.first_width}, got ${d.after[0]}`);
+  assert.ok(d.after[0] >= d.before[0],
+    `widening must not move the first rule left: ${d.before[0]} -> ${d.after[0]}`);
 });
 
 test('the rules are repainted when the theme changes', () => {
