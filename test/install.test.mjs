@@ -48,10 +48,18 @@ function fakeArchive() {
   for (const a of ['idm.png', 'idm.ico']) {
     copyFileSync(join(repoRoot, 'assets', a), join(dir, 'assets', a));
   }
+  // The shell/host integration scripts travel with the release too, so an
+  // offline install registers the browser host without reaching for GitHub.
+  mkdirSync(join(dir, 'extension'), { recursive: true });
+  for (const f of ['install-host.sh', 'install-shell.sh', 'com.tonec.idm.json',
+                   'com.tonec.idm.firefox.json']) {
+    copyFileSync(join(repoRoot, 'extension', f), join(dir, 'extension', f));
+  }
   const tar = join(dir, 'idm-linux-x64.tar.gz');
   execFileSync('tar', [
     '-czf', tar, '-C', dir,
-    'idm', 'idm-host', 'idm_gui.py', 'ensure-aria2.sh', 'install.sh', 'assets',
+    'idm', 'idm-host', 'idm_gui.py', 'ensure-aria2.sh', 'install.sh',
+    'assets', 'extension',
   ]);
   return tar;
 }
@@ -94,10 +102,14 @@ test('is syntactically valid bash', () => {
   // with `-o "$PREFIX/bin/$f"` for bash to execute. `bash -n` would not catch
   // that, so check for the shape directly as well.
   execFileSync('bash', ['-n', installer], { stdio: 'pipe' });
-  for (const [i, line] of src().split('\n').entries()) {
+  const lines = src().split('\n');
+  for (const [i, line] of lines.entries()) {
+    if (!/^\s*-[a-zA-Z]\s/.test(line)) continue;
+    const prev = lines[i - 1] ?? '';
     assert.ok(
-      !/^\s*-[a-zA-Z]\s/.test(line),
-      `line ${i + 1} starts with a bare flag -- a continuation was lost: ${line}`,
+      prev.endsWith('\\') && !/^\s*#/.test(prev),
+      `line ${i + 1} starts with a bare flag but line ${i} does not continue `
+      + `onto it -- a continuation was swallowed: ${prev}`,
     );
   }
 });
@@ -308,4 +320,28 @@ test('uninstall works through the copy kept in IDM_DIR (curl | bash case)', () =
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   assert.ok(!existsSync(idmDir(home)), 'IDM_DIR should be gone after --uninstall');
+});
+
+test('the browser/shell integration keeps its files inside IDM_DIR', () => {
+  // install-host.sh and install-shell.sh used to hardcode ~/.local/share/idm-gui
+  // and ~/.local/share/idm-native. They must follow IDM_DIR, or the migration
+  // we just did is undone by the very next step of the same install.
+  const home = freshHome();
+  install(home);
+  const d = idmDir(home);
+
+  assert.ok(existsSync(join(d, 'extension', 'install-host.sh')),
+    'the release must ship the integration scripts');
+  assert.ok(existsSync(join(d, 'native', 'idm-host-wrapper.sh')),
+    'the host wrapper belongs under IDM_DIR/native');
+  assert.ok(!existsSync(join(home, '.local', 'share', 'idm-native')),
+    'nothing may be left in the old idm-native directory');
+  assert.ok(!existsSync(join(home, '.local', 'share', 'idm-gui')),
+    'nothing may be left in the old idm-gui directory');
+
+  // The host reads settings.json from the window's state dir; if the two drift
+  // apart the extension silently falls back to defaults.
+  const wrapper = readFileSync(join(d, 'native', 'idm-host-wrapper.sh'), 'utf8');
+  assert.ok(wrapper.includes(join(d, 'state')),
+    `the host wrapper must point at IDM_DIR/state, got: ${wrapper}`);
 });

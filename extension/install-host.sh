@@ -25,12 +25,15 @@ FF_TEMPLATE_MANIFEST="$SCRIPT_DIR/$HOST_NAME.firefox.json"
 
 DOWNLOADS_DIR="${IDM_DOWNLOADS_DIR:-$HOME/Downloads}"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-STATE_DIR="$DATA_HOME/idm-native"
+# Where the generated wrapper and the installed manifests live. install.sh
+# points this inside $IDM_DIR so one directory holds the whole install; run on
+# its own (a dev checkout) it keeps the historical XDG location.
+STATE_DIR="${IDM_NATIVE_DIR:-$DATA_HOME/idm-native}"
 # settings.json lives in the GUI's own state dir — the one install.sh passes to
 # idm_gui.py as --state-dir. The host reads it for `get_settings`, which is the
 # only way the extension learns about the File Types / key settings. Keep the
 # two in step: change one and the extension silently falls back to defaults.
-GUI_STATE_DIR="$DATA_HOME/idm-gui"
+GUI_STATE_DIR="${IDM_STATE_DIR:-$DATA_HOME/idm-gui}"
 SETTINGS_FILE="$GUI_STATE_DIR/settings.json"
 WRAPPER="$STATE_DIR/idm-host-wrapper.sh"
 INSTALLED_MANIFEST="$STATE_DIR/$HOST_NAME.json"

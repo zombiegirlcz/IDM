@@ -7,23 +7,40 @@
 # downloads the prebuilt release archive and unpacks it. That mirrors how real
 # IDM ships — a ready-made binary, not a build recipe.
 #
-# User-scoped only (~/.local, ~/.config, ~/Desktop); never root, never system.
+# Everything lands in ONE directory, $IDM_DIR (default ~/.idm). Only two
+# things live outside it, and both out of necessity: the symlink
+# ~/.local/bin/idm, and the native-messaging manifests, which a browser only
+# looks for in its own config directory.
+#
+# User-scoped only; never root, never system.
 #
 # Environment overrides:
+#   IDM_DIR             install directory (default ~/.idm)
 #   IDM_VERSION         release tag (default: latest)
 #   IDM_ARCHIVE_URL     full archive URL (overrides IDM_VERSION)
 #   IDM_LOCAL_SOURCE    build from a local checkout instead (needs cargo)
-#   IDM_INSTALL_PREFIX  install prefix (default ~/.local/share/idm)
 #   IDM_DOWNLOADS_DIR   download directory (default ~/Downloads)
 #   IDM_SKIP_GUI_DEPS=1 do not try to install python3/tkinter
 set -euo pipefail
 
 REPO="zombiegirlcz/IDM"
 VERSION="${IDM_VERSION:-latest}"
-PREFIX="${IDM_INSTALL_PREFIX:-$HOME/.local/share/idm}"
+IDM_DIR="${IDM_DIR:-$HOME/.idm}"
 DOWNLOADS_DIR="${IDM_DOWNLOADS_DIR:-$HOME/Downloads}"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+LINK_DIR="$HOME/.local/bin"
+STATE_DIR="$IDM_DIR/state"
+NATIVE_DIR="$IDM_DIR/native"
+
+# Where 0.1.5 and older put things. Kept only so migration knows what to look
+# for; nothing is ever written here again.
+OLD_PREFIX="$DATA_HOME/idm"
+OLD_STATE="$DATA_HOME/idm-gui"
+OLD_NATIVE="$DATA_HOME/idm-native"
+
+RC_BEGIN='# >>> IDM >>>'
+RC_END='# <<< IDM <<<'
 
 log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[!]\033[0m %s\n' "$*" >&2; }
@@ -39,25 +56,145 @@ desktop_dir() {
   echo "$d"
 }
 
-# Add $bin to a shell rc file, idempotently. Matching the exact export line
-# (not a loose substring) keeps repeated installs from stacking entries.
-add_path_to_rc() {
-  local rc="$1" bin="$2"
-  [[ -n "$rc" ]] || return 0
-  touch "$rc" 2>/dev/null || return 0
-  grep -qsF "export PATH=\"$bin:" "$rc" && return 0
-  {
-    printf '\n# IDM (added by install.sh; removed by --uninstall)\n'
-    printf 'export PATH="%s:$PATH"\n' "$bin"
-  } >> "$rc"
+# --- shell rc: one marked block, rewritten in place ---------------------------
+# The block carries IDM_DIR and a guard that puts ~/.local/bin on PATH only if
+# it is missing. That guard is not decoration: ~/.profile adds the directory
+# only when it already exists at login time, and in a bare container it is
+# often absent entirely — without it the symlink we create is unreachable.
+
+rc_block() {
+  cat <<EOF
+$RC_BEGIN
+export IDM_DIR="$IDM_DIR"
+case ":\$PATH:" in
+  *:"\$HOME/.local/bin":*) ;;
+  *) export PATH="\$HOME/.local/bin:\$PATH" ;;
+esac
+$RC_END
+EOF
 }
 
-remove_path_from_rc() {
-  local rc="$1" bin="$2"
+# Strip our block AND the pre-0.2 lines, which were loose `export PATH=...`
+# entries with a comment above them rather than a delimited region.
+rc_strip() {
+  local rc="$1"
   [[ -f "$rc" ]] || return 0
   local tmp="$rc.idm.tmp"
-  grep -vF -e "export PATH=\"$bin:" -e "# IDM (added by install.sh" "$rc" > "$tmp" 2>/dev/null || true
-  mv "$tmp" "$rc" 2>/dev/null || rm -f "$tmp"
+  awk -v b="$RC_BEGIN" -v e="$RC_END" '
+    $0 == b { skip = 1; next }
+    $0 == e { skip = 0; next }
+    skip { next }
+    /^# IDM \(added by install\.sh/ { next }
+    /^export PATH="[^"]*\/idm\/bin:\$PATH"$/ { next }
+    { print }
+  ' "$rc" > "$tmp" && mv "$tmp" "$rc" || rm -f "$tmp"
+}
+
+rc_write() {
+  local rc="$1"
+  touch "$rc" 2>/dev/null || return 0
+  rc_strip "$rc"
+  rc_block >> "$rc"
+}
+
+# --- uninstall ----------------------------------------------------------------
+# Default is to KEEP state/: losing saved passwords is worse than leaving a
+# directory behind. --purge removes it too.
+
+do_uninstall() {
+  local purge=0 assume_yes=0 a
+  for a in "$@"; do
+    case "$a" in
+      --purge) purge=1 ;;
+      --yes|-y) assume_yes=1 ;;
+    esac
+  done
+  log "odinstalace ($IDM_DIR)"
+
+  # Both scripts must be told where their files went, or they clean up the
+  # pre-0.2 XDG locations and leave ours in place.
+  export IDM_STATE_DIR="$STATE_DIR" IDM_NATIVE_DIR="$NATIVE_DIR"
+  if [[ -x "$IDM_DIR/extension/install-shell.sh" ]]; then
+    IDM_ENGINE_BIN="$IDM_DIR/bin/idm" "$IDM_DIR/extension/install-shell.sh" --uninstall || true
+  fi
+  if [[ -x "$IDM_DIR/extension/install-host.sh" ]]; then
+    "$IDM_DIR/extension/install-host.sh" --uninstall >/dev/null 2>&1 || true
+  fi
+
+  rm -f "$(desktop_dir)/idm.desktop"
+  rm -f "$DATA_HOME/applications/idm-desktop.desktop" \
+        "$DATA_HOME/applications/idm-download.desktop" \
+        "$DATA_HOME/applications/idm-scheme.desktop"
+  [[ -L "$LINK_DIR/idm" ]] && rm -f "$LINK_DIR/idm"
+
+  for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.profile"; do
+    rc_strip "$rc"
+  done
+
+  if [[ "$purge" -eq 1 ]]; then
+    rm -rf "$IDM_DIR"
+    log "hotovo — odstraněno včetně stavu"
+    return 0
+  fi
+
+  # Keep state/, drop everything else. An empty IDM_DIR goes too.
+  local entry
+  if [[ -d "$IDM_DIR" ]]; then
+    for entry in "$IDM_DIR"/* "$IDM_DIR"/.[!.]*; do
+      [[ -e "$entry" ]] || continue
+      [[ "$(basename "$entry")" == "state" ]] && continue
+      rm -rf "$entry"
+    done
+    rmdir "$IDM_DIR" 2>/dev/null || true
+  fi
+  if [[ -d "$STATE_DIR" ]]; then
+    log "hotovo — stav zůstal v $STATE_DIR (smazat: --purge)"
+  else
+    log "hotovo — odstraněno"
+  fi
+  [[ "$assume_yes" -eq 1 ]] || true
+}
+
+if [[ "${1:-}" == "--uninstall" ]]; then
+  shift
+  do_uninstall "$@"
+  exit 0
+fi
+
+ARCH="$(uname -m)"
+case "$ARCH" in
+  x86_64|amd64) ASSET="idm-linux-x64.tar.gz" ;;
+  aarch64|arm64) ASSET="idm-linux-arm64.tar.gz" ;;
+  *) die "nepodporovaná architektura: $ARCH" ;;
+esac
+
+# --- 0) migrate a pre-0.2 split install --------------------------------------
+# Move, don't copy: two sources of truth about the queue is worse than either
+# one. An entry that already exists in the new state wins — the new install is
+# by definition the newer one.
+migrate_old_install() {
+  if [[ -d "$OLD_STATE" ]]; then
+    log "stěhuji stav z $OLD_STATE"
+    mkdir -p "$STATE_DIR"
+    local entry name
+    for entry in "$OLD_STATE"/* "$OLD_STATE"/.[!.]*; do
+      [[ -e "$entry" ]] || continue
+      name="$(basename "$entry")"
+      if [[ -e "$STATE_DIR/$name" ]]; then
+        rm -rf "$entry"          # the new state is newer; drop the stale copy
+      else
+        mv "$entry" "$STATE_DIR/$name"
+      fi
+    done
+    rmdir "$OLD_STATE" 2>/dev/null || rm -rf "$OLD_STATE"
+  fi
+  if [[ -d "$OLD_PREFIX" ]]; then
+    log "odstraňuji starý prefix $OLD_PREFIX"
+    rm -rf "$OLD_PREFIX"
+  fi
+  # The native wrappers are regenerated below from the new paths, so the old
+  # copies are not worth moving — only worth not leaving behind.
+  rm -rf "$OLD_NATIVE"
 }
 
 # Make sure the GUI runtime exists: python3 plus its tkinter module. A missing
@@ -85,58 +222,34 @@ install_gui_deps() {
   fi
   log "doinstalovávám GUI závislosti: ${need[*]}"
   if command -v apt-get >/dev/null 2>&1; then
-    { sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ${need[@]}; } 2>/dev/null \
-      || { apt-get update -qq && apt-get install -y --no-install-recommends ${need[@]}; } 2>/dev/null || true
+    { sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends "${need[@]}"; } 2>/dev/null \
+      || { apt-get update -qq && apt-get install -y --no-install-recommends "${need[@]}"; } 2>/dev/null || true
   elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y ${need[@]} 2>/dev/null || dnf install -y ${need[@]} 2>/dev/null || true
+    sudo dnf install -y "${need[@]}" 2>/dev/null || dnf install -y "${need[@]}" 2>/dev/null || true
   elif command -v yum >/dev/null 2>&1; then
-    sudo yum install -y ${need[@]} 2>/dev/null || yum install -y ${need[@]} 2>/dev/null || true
+    sudo yum install -y "${need[@]}" 2>/dev/null || yum install -y "${need[@]}" 2>/dev/null || true
   elif command -v pacman >/dev/null 2>&1; then
-    sudo pacman -Sy --noconfirm ${need[@]} 2>/dev/null || pacman -Sy --noconfirm ${need[@]} 2>/dev/null || true
+    sudo pacman -Sy --noconfirm "${need[@]}" 2>/dev/null || pacman -Sy --noconfirm "${need[@]}" 2>/dev/null || true
   elif command -v zypper >/dev/null 2>&1; then
-    sudo zypper install -y ${need[@]} 2>/dev/null || zypper install -y ${need[@]} 2>/dev/null || true
+    sudo zypper install -y "${need[@]}" 2>/dev/null || zypper install -y "${need[@]}" 2>/dev/null || true
   elif command -v apk >/dev/null 2>&1; then
-    sudo apk add ${need[@]} 2>/dev/null || apk add ${need[@]} 2>/dev/null || true
+    sudo apk add "${need[@]}" 2>/dev/null || apk add "${need[@]}" 2>/dev/null || true
   fi
   if python3 -c 'import tkinter' >/dev/null 2>&1; then
     log "GUI závislosti připraveny"
   else
-    warn "tkinter se nepodařilo doinstalovat — ikona vypíše chybu do $DATA_HOME/idm-gui/launcher.log"
+    warn "tkinter se nepodařilo doinstalovat — ikona vypíše chybu do $STATE_DIR/launcher.log"
   fi
 }
 
-# --- uninstall ---
-if [[ "${1:-}" == "--uninstall" ]]; then
-  log "odinstalace"
-  if [[ -x "$PREFIX/extension/install-shell.sh" ]]; then
-    IDM_ENGINE_BIN="$PREFIX/bin/idm" "$PREFIX/extension/install-shell.sh" --uninstall || true
-  fi
-  rm -f "$(desktop_dir)/idm.desktop"
-  rm -f "$DATA_HOME/applications/idm-desktop.desktop" \
-        "$DATA_HOME/applications/idm-download.desktop" \
-        "$DATA_HOME/applications/idm-scheme.desktop"
-  # Drop the PATH entry from every rc file we might have touched.
-  for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.profile"; do
-    remove_path_from_rc "$rc" "$PREFIX/bin"
-  done
-  rm -rf "$PREFIX"
-  log "hotovo — odstraněno"
-  exit 0
-fi
-
-ARCH="$(uname -m)"
-case "$ARCH" in
-  x86_64|amd64) ASSET="idm-linux-x64.tar.gz" ;;
-  aarch64|arm64) ASSET="idm-linux-arm64.tar.gz" ;;
-  *) die "nepodporovaná architektura: $ARCH" ;;
-esac
-
-# --- 1) obtain the binaries ---
+# --- 1) obtain the binaries ---------------------------------------------------
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 ENGINE_BIN_SRC=""
 HOST_BIN_SRC=""
+ASSETS_SRC=""
+INSTALLED_VERSION="$VERSION"
 
 if [[ -n "${IDM_LOCAL_SOURCE:-}" ]]; then
   # Power-user path: build from a local checkout (requires cargo).
@@ -148,7 +261,8 @@ if [[ -n "${IDM_LOCAL_SOURCE:-}" ]]; then
   HOST_BIN_SRC="$SRC/engine/target/release/idm-host"
   GUI_PY_SRC="$SRC/gui/idm_gui.py"
   EXT_SRC="$SRC/extension"
-  SELF_SRC="$SRC/install.sh"
+  ASSETS_SRC="$SRC/assets"
+  INSTALLED_VERSION="local:$SRC"
 else
   if [[ -n "${IDM_ARCHIVE_URL:-}" ]]; then
     URL="$IDM_ARCHIVE_URL"
@@ -198,67 +312,93 @@ else
   ENGINE_BIN_SRC="$TMP/unpack/idm"
   HOST_BIN_SRC="$TMP/unpack/idm-host"
   GUI_PY_SRC="$TMP/unpack/idm_gui.py"
-  EXT_SRC=""
-  SELF_SRC=""
+  ASSETS_SRC="$TMP/unpack/assets"
+  # Releases from 0.2 on ship the integration scripts in the archive, so an
+  # offline install can register the browser host without reaching for GitHub.
+  EXT_SRC="$TMP/unpack/extension"
 fi
 
 [[ -f "$ENGINE_BIN_SRC" ]] || die "chybí idm binárka"
 [[ -f "$HOST_BIN_SRC" ]]   || die "chybí idm-host binárka"
 
-# --- 2) install into PREFIX ---
-log "instaluji do $PREFIX"
-mkdir -p "$PREFIX/bin" "$PREFIX/gui" "$PREFIX/extension" "$DOWNLOADS_DIR"
-install -m 0755 "$ENGINE_BIN_SRC" "$PREFIX/bin/idm"
-install -m 0755 "$HOST_BIN_SRC"   "$PREFIX/bin/idm-host"
-# `--uninstall` is documented as `bash $PREFIX/install.sh --uninstall`, so this
+# --- 2) install into IDM_DIR --------------------------------------------------
+migrate_old_install
+
+log "instaluji do $IDM_DIR"
+mkdir -p "$IDM_DIR/bin" "$IDM_DIR/gui" "$IDM_DIR/assets" "$IDM_DIR/extension" \
+         "$NATIVE_DIR" "$STATE_DIR" "$DOWNLOADS_DIR"
+chmod 0700 "$STATE_DIR" 2>/dev/null || true
+install -m 0755 "$ENGINE_BIN_SRC" "$IDM_DIR/bin/idm"
+# idm-host stays its own binary on purpose: the native-messaging manifests
+# point straight at it and cannot pass arguments, and it is the only link a
+# real browser verifies in CI.
+install -m 0755 "$HOST_BIN_SRC"   "$IDM_DIR/bin/idm-host"
+printf '%s\n' "$INSTALLED_VERSION" > "$IDM_DIR/VERSION"
+
+# `--uninstall` is documented as `bash $IDM_DIR/install.sh --uninstall`, so this
 # file has to be there — including after `curl ... | bash`, where BASH_SOURCE
-# is not a readable file and we re-fetch it instead.
+# is not a readable file and we take the copy from the archive instead.
 if [[ -f "${BASH_SOURCE[0]:-}" ]]; then
-  install -m 0755 "${BASH_SOURCE[0]}" "$PREFIX/install.sh" 2>/dev/null || true
+  install -m 0755 "${BASH_SOURCE[0]}" "$IDM_DIR/install.sh" 2>/dev/null || true
 elif [[ -f "$TMP/unpack/install.sh" ]]; then
-  install -m 0755 "$TMP/unpack/install.sh" "$PREFIX/install.sh" 2>/dev/null || true
+  install -m 0755 "$TMP/unpack/install.sh" "$IDM_DIR/install.sh" 2>/dev/null || true
+elif [[ -n "${SRC:-}" && -f "$SRC/install.sh" ]]; then
+  install -m 0755 "$SRC/install.sh" "$IDM_DIR/install.sh" 2>/dev/null || true
 else
   curl -fsSL "https://raw.githubusercontent.com/$REPO/master/install.sh" \
-    -o "$PREFIX/install.sh" 2>/dev/null && chmod +x "$PREFIX/install.sh" || \
+    -o "$IDM_DIR/install.sh" 2>/dev/null && chmod +x "$IDM_DIR/install.sh" || \
     warn "nepodařilo se uložit install.sh pro odinstalaci"
 fi
+
 if [[ -n "${GUI_PY_SRC:-}" && -f "$GUI_PY_SRC" ]]; then
-  install -m 0755 "$GUI_PY_SRC" "$PREFIX/gui/idm_gui.py"
+  install -m 0755 "$GUI_PY_SRC" "$IDM_DIR/gui/idm_gui.py"
 fi
-# Local-source installs bring the integration scripts along; release installs
-# fetch the installers from the repo (they are tiny text files).
+
+# The icon files. Without these the desktop entry has nothing to point at, and
+# `Icon=` falls back to a theme name that most themes do not carry — which is
+# exactly why the shortcut used to render blank.
+for a in idm.png idm.ico; do
+  if [[ -n "$ASSETS_SRC" && -f "$ASSETS_SRC/$a" ]]; then
+    install -m 0644 "$ASSETS_SRC/$a" "$IDM_DIR/assets/$a"
+  else
+    curl -fsSL "https://raw.githubusercontent.com/$REPO/master/assets/$a" \
+      -o "$IDM_DIR/assets/$a" 2>/dev/null || warn "nestáhl $a"
+  fi
+done
+
 # The aria2 auto-installer travels with the binaries so `--aria2` can install
 # aria2c on demand without the user doing anything.
 for f in ensure-aria2.sh ensure-aria2.ps1; do
   if [[ -n "${SRC:-}" && -f "$SRC/scripts/$f" ]]; then
-    install -m 0755 "$SRC/scripts/$f" "$PREFIX/bin/$f" 2>/dev/null || true
+    install -m 0755 "$SRC/scripts/$f" "$IDM_DIR/bin/$f" 2>/dev/null || true
   elif [[ -f "$TMP/unpack/$f" ]]; then
-    # The release archive ships them next to the binaries.
-    install -m 0755 "$TMP/unpack/$f" "$PREFIX/bin/$f" 2>/dev/null || true
+    install -m 0755 "$TMP/unpack/$f" "$IDM_DIR/bin/$f" 2>/dev/null || true
   else
-    # Last resort (e.g. an older archive.githubusercontent.com/$REPO/master/scripts/$f" \
-      -o "$PREFIX/bin/$f" 2>/dev/null && chmod +x "$PREFIX/bin/$f" || \
+    # Last resort (e.g. an older archive that did not ship them yet).
+    curl -fsSL "https://raw.githubusercontent.com/$REPO/master/scripts/$f" \
+      -o "$IDM_DIR/bin/$f" 2>/dev/null && chmod +x "$IDM_DIR/bin/$f" || \
       warn "nestáhl $f (--aria2 si ho zkusí doinstalovat sám)"
   fi
 done
 
 if [[ -n "${EXT_SRC:-}" && -d "$EXT_SRC" ]]; then
-  cp -f "$EXT_SRC/install-host.sh"  "$PREFIX/extension/" 2>/dev/null || true
-  cp -f "$EXT_SRC/install-shell.sh" "$PREFIX/extension/" 2>/dev/null || true
-  cp -f "$EXT_SRC/com.tonec.idm.json" "$PREFIX/extension/" 2>/dev/null || true
-  chmod +x "$PREFIX/extension/"*.sh 2>/dev/null || true
+  cp -f "$EXT_SRC/install-host.sh"  "$IDM_DIR/extension/" 2>/dev/null || true
+  cp -f "$EXT_SRC/install-shell.sh" "$IDM_DIR/extension/" 2>/dev/null || true
+  cp -f "$EXT_SRC/com.tonec.idm.json" "$IDM_DIR/extension/" 2>/dev/null || true
+  cp -f "$EXT_SRC/com.tonec.idm.firefox.json" "$IDM_DIR/extension/" 2>/dev/null || true
+  chmod +x "$IDM_DIR/extension/"*.sh 2>/dev/null || true
 else
   RAW="https://raw.githubusercontent.com/$REPO/master"
-  for f in install-host.sh install-shell.sh com.tonec.idm.json; do
-    curl -fsSL "$RAW/extension/$f" -o "$PREFIX/extension/$f" 2>/dev/null || warn "nestáhl $f"
+  for f in install-host.sh install-shell.sh com.tonec.idm.json com.tonec.idm.firefox.json; do
+    curl -fsSL "$RAW/extension/$f" -o "$IDM_DIR/extension/$f" 2>/dev/null || warn "nestáhl $f"
   done
-  chmod +x "$PREFIX/extension/"*.sh 2>/dev/null || true
+  chmod +x "$IDM_DIR/extension/"*.sh 2>/dev/null || true
 fi
 
 # Host manifest template must point at the installed host.
-MANIFEST="$PREFIX/extension/com.tonec.idm.json"
-if [[ -f "$MANIFEST" ]]; then
-  python3 - "$MANIFEST" "$PREFIX/bin/idm-host" <<'PY'
+MANIFEST="$IDM_DIR/extension/com.tonec.idm.json"
+if [[ -f "$MANIFEST" ]] && command -v python3 >/dev/null 2>&1; then
+  python3 -I - "$MANIFEST" "$IDM_DIR/bin/idm-host" <<'PY'
 import json, sys
 p, host = sys.argv[1], sys.argv[2]
 try:
@@ -271,66 +411,45 @@ open(p, "a").write("\n")
 PY
 fi
 
-# --- 3) register with browsers + desktop ---
-if [[ -x "$PREFIX/extension/install-host.sh" ]]; then
+# --- 3) register with browsers + desktop --------------------------------------
+if [[ -x "$IDM_DIR/extension/install-host.sh" ]]; then
   log "registruji native-messaging hosta"
-  IDM_DOWNLOADS_DIR="$DOWNLOADS_DIR" "$PREFIX/extension/install-host.sh" >/dev/null 2>&1 || warn "install-host.sh selhal"
-fi
-if [[ -x "$PREFIX/extension/install-shell.sh" ]]; then
-  log "registruji desktop integraci"
-  IDM_ENGINE_BIN="$PREFIX/bin/idm" \
   IDM_DOWNLOADS_DIR="$DOWNLOADS_DIR" \
-  IDM_STATE_DIR="$DATA_HOME/idm-gui" \
-    "$PREFIX/extension/install-shell.sh" >/dev/null 2>&1 || warn "install-shell.sh selhal"
+  IDM_STATE_DIR="$STATE_DIR" \
+  IDM_NATIVE_DIR="$NATIVE_DIR" \
+    "$IDM_DIR/extension/install-host.sh" >/dev/null 2>&1 || warn "install-host.sh selhal"
+fi
+if [[ -x "$IDM_DIR/extension/install-shell.sh" ]]; then
+  log "registruji desktop integraci"
+  IDM_ENGINE_BIN="$IDM_DIR/bin/idm" \
+  IDM_DOWNLOADS_DIR="$DOWNLOADS_DIR" \
+  IDM_STATE_DIR="$STATE_DIR" \
+  IDM_NATIVE_DIR="$NATIVE_DIR" \
+    "$IDM_DIR/extension/install-shell.sh" >/dev/null 2>&1 || warn "install-shell.sh selhal"
 fi
 
-# --- 4) GUI runtime + launcher + Desktop icon ---
+# --- 4) GUI runtime -----------------------------------------------------------
 # The icon has to "just work": install python3/tkinter first, so the shortcut
-# we hand the user cannot silently do nothing.
+# we hand the user cannot silently do nothing. There is no generated launcher
+# any more — `idm --gui` is the launcher.
 install_gui_deps
 
-LAUNCHER="$PREFIX/bin/idm-gui"
-cat > "$LAUNCHER" <<EOF
-#!/usr/bin/env bash
-# Generated by install.sh — opens the native IDM window.
-LOG="$DATA_HOME/idm-gui/launcher.log"
-mkdir -p "\$(dirname "\$LOG")" 2>/dev/null || true
-PY="\${IDM_PYTHON:-python3}"
-if ! command -v "\$PY" >/dev/null 2>&1 || ! "\$PY" -c 'import tkinter' >/dev/null 2>&1; then
-  {
-    echo "[\$(date)] GUI nelze spustit: chybí '\$PY' nebo modul tkinter."
-    echo "Doinstaluj např.: sudo apt-get install -y python3 python3-tk"
-  } | tee -a "\$LOG" >&2
-  if command -v x-terminal-emulator >/dev/null 2>&1; then
-    x-terminal-emulator -e sh -c "cat '\$LOG'; sleep 20" >/dev/null 2>&1 &
-  fi
-  exit 1
-fi
-exec "\$PY" "$PREFIX/gui/idm_gui.py" \\
-    --engine "$PREFIX/bin/idm" \\
-    --out-dir "$DOWNLOADS_DIR" \\
-    --state-dir "$DATA_HOME/idm-gui" \\
-    --autostart >>"\$LOG" 2>&1
-EOF
-chmod +x "$LAUNCHER"
+# --- 5) symlink + shell rc ----------------------------------------------------
+mkdir -p "$LINK_DIR"
+ln -sfn "$IDM_DIR/bin/idm" "$LINK_DIR/idm"
+log "symlink: $LINK_DIR/idm -> $IDM_DIR/bin/idm"
 
-# --- 5) put $PREFIX/bin on PATH (zsh + bash) ---
-# So `idm`, `idm-host` and `idm-gui` work from any shell, like a real install.
-# Write to whichever rc files exist; if there is none (a bare container), fall
-# back to ~/.bashrc so the next login still gets the tools.
-PATH_BIN="$PREFIX/bin"
-PATH_ADDED=0
+RC_WRITTEN=0
 for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
   if [[ -f "$rc" ]]; then
-    add_path_to_rc "$rc" "$PATH_BIN"
-    PATH_ADDED=1
+    rc_write "$rc"
+    RC_WRITTEN=1
   fi
 done
-if [[ "$PATH_ADDED" -eq 0 ]]; then
-  add_path_to_rc "$HOME/.bashrc" "$PATH_BIN"
-fi
-log "PATH: $PATH_BIN přidán do ~/.zshrc / ~/.bashrc"
+[[ "$RC_WRITTEN" -eq 1 ]] || rc_write "$HOME/.bashrc"
+log "shell: IDM_DIR + PATH zapsáno do ~/.zshrc / ~/.bashrc"
 
+# --- 6) desktop entry ---------------------------------------------------------
 DESKTOP="$(desktop_dir)"
 mkdir -p "$DESKTOP"
 ICON="$DESKTOP/idm.desktop"
@@ -340,8 +459,8 @@ Type=Application
 Version=1.0
 Name=IDM — správce stahování
 Comment=Stahovat soubory a videa (multi-connection, resume, yt-dlp)
-Exec=$LAUNCHER
-Icon=download
+Exec=$IDM_DIR/bin/idm --gui
+Icon=$IDM_DIR/assets/idm.png
 Terminal=false
 Categories=Network;FileTransfer;
 Keywords=download;idm;stahovani;
@@ -357,15 +476,16 @@ command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$
 command -v gio >/dev/null 2>&1 && gio set "$ICON" metadata::trusted true 2>/dev/null || true
 
 # Offer to install aria2 up front (non-fatal if it fails).
-if [[ -x "$PREFIX/bin/ensure-aria2.sh" ]]; then
+if [[ -x "$IDM_DIR/bin/ensure-aria2.sh" ]]; then
   log "kontroluji aria2 (volitelný zrychlený backend)"
-  bash "$PREFIX/bin/ensure-aria2.sh" >/dev/null 2>&1 || warn "aria2 se nepodařilo připravit (--aria2 ho zkusí doinstalovat za běhu)"
+  bash "$IDM_DIR/bin/ensure-aria2.sh" >/dev/null 2>&1 || warn "aria2 se nepodařilo připravit (--aria2 ho zkusí doinstalovat za běhu)"
 fi
 
 echo
 log "hotovo!"
-echo "  Engine    : $PREFIX/bin/idm"
-echo "  Okno      : ikona 'IDM' na ploše nebo v menu"
-echo "  Stažení   : $DOWNLOADS_DIR"
-echo "  Log okna  : $DATA_HOME/idm-gui/launcher.log"
-echo "  Odinstalace: bash $PREFIX/install.sh --uninstall"
+echo "  Složka     : $IDM_DIR"
+echo "  Nástroj    : idm  (symlink v $LINK_DIR)"
+echo "  Okno       : idm --gui, nebo ikona 'IDM' na ploše"
+echo "  Stažení    : $DOWNLOADS_DIR"
+echo "  Stav       : $STATE_DIR"
+echo "  Odinstalace: idm uninstall"
