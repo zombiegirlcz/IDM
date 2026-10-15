@@ -44,6 +44,7 @@ import subprocess
 import threading
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -548,6 +549,7 @@ class Api:
 
     def __init__(self, addr: str, timeout: float = 5.0, token: str = ""):
         self.base = "http://" + addr
+        self.addr = addr
         self.timeout = timeout
         # The engine requires this on every /api/* request (CSRF protection);
         # it is written to STATE_DIR/api-token when the engine starts.
@@ -665,12 +667,40 @@ class Api:
     def remove(self, i: int) -> dict:
         return self._req("POST", "/api/remove", {"id": i})
 
+    def addr_set(self, addr: str) -> None:
+        """Point this client at another address (the port plan walks them)."""
+        self.addr = addr
+        self.base = "http://" + addr
+
     def alive(self) -> bool:
         try:
             self.items()
             return True
         except Exception:
             return False
+
+    def probe(self) -> dict:
+        """Who, if anyone, is on our address.
+
+        alive() answers one question with one bit and loses the distinction
+        that matters: an engine from an older install can hold the port and
+        refuse our token, and that is NOT a free port. A 403/401 proves
+        somebody is listening, so it is reported as listening-but-unauthorized
+        and server_decision() moves us off that address.
+        """
+        try:
+            self.items()
+            return {"listening": True, "authorized": True}
+        except urllib.error.HTTPError as e:
+            # An HTTP status at all means a server answered us.
+            return {"listening": True, "authorized": e.code not in (401, 403)}
+        except urllib.error.URLError:
+            # Refused, unreachable, timed out: nothing serving there.
+            return {"listening": False, "authorized": False}
+        except Exception:  # noqa: BLE001
+            # Something answered but not with HTTP we could parse. Still not
+            # ours, and still not a port we should fight over.
+            return {"listening": True, "authorized": False}
 
 
 def fmt_speed(bps) -> str:
@@ -4846,15 +4876,27 @@ def new_token() -> str:
     return secrets.token_hex(24)
 
 
-def spawn_server(engine, addr, out_dir, state_dir, token: str = ""):
+def spawn_server(engine, addr, out_dir, state_dir, token: str = "",
+                 log_dir: str = ""):
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(state_dir, exist_ok=True)
     cmd = [engine, "--serve", addr, "--output-dir", out_dir, "--state-dir", state_dir]
     if token:
         cmd += ["--api-token", token]
+    # The engine's own stderr is the only place "address in use" or a missing
+    # dependency is ever stated. Sending it to DEVNULL is what made a failed
+    # start indistinguishable from a working one, so it goes to a file we can
+    # quote back to the user.
+    log = subprocess.DEVNULL
+    if log_dir:
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+            log = open(os.path.join(log_dir, "engine.log"), "ab", buffering=0)
+        except OSError:
+            log = subprocess.DEVNULL
     kwargs = {
         "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
+        "stderr": log,
     }
     # The engine is a headless backend, never something the user should see.
     # On Windows a console-subsystem binary spawned from a GUI process would
@@ -4868,6 +4910,88 @@ def spawn_server(engine, addr, out_dir, state_dir, token: str = ""):
         # Fully detach from our session so a closed terminal cannot kill it.
         kwargs["start_new_session"] = True
     return subprocess.Popen(cmd, **kwargs)
+
+
+def server_addr_plan(addr: str, tries: int = 4):
+    """The addresses to try, in order, starting with the configured one.
+
+    Mirrors open_display()'s recovery for X display numbers: a rejected
+    candidate is not a dead end, the plan simply moves on. The host is never
+    rewritten -- the queue API has no authentication beyond the token and must
+    stay on loopback.
+    """
+    host, sep, port = addr.rpartition(":")
+    if not sep or not port.isdigit():
+        yield addr
+        return
+    base = int(port)
+    for i in range(max(1, tries)):
+        yield f"{host}:{base + i}"
+
+
+def engine_log_tail(state_dir: str, limit: int = 300) -> str:
+    """The last thing the engine said, short enough to put in a dialog.
+
+    The engine's stderr used to go to DEVNULL, so "address in use" -- the
+    reason downloads silently did nothing -- was unrecoverable. It is now kept
+    in STATE_DIR/engine.log and the tail is what the user gets told.
+    """
+    path = os.path.join(state_dir or ".", "engine.log")
+    try:
+        with open(path, "rb") as f:
+            try:
+                f.seek(-4096, os.SEEK_END)
+            except OSError:
+                f.seek(0)
+            raw = f.read().decode("utf-8", "replace")
+    except OSError:
+        return ""
+    lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+    if not lines:
+        return ""
+    return lines[-1][-limit:]
+
+
+def server_decision(listening: bool, authorized: bool,
+                    child_alive=None) -> dict:
+    """What to do about the queue API, given what a probe just saw.
+
+    `listening` -- something answered on the address at all.
+    `authorized` -- it accepted our api-token, which is the only evidence we
+    can have that the server on that port is the one WE started: the token is
+    generated per install and passed to our own child.
+    `child_alive` -- our spawned engine is still running (None: we have not
+    spawned one in this launch).
+
+    This exists because a `idm --serve` left over from an earlier install kept
+    holding the port. Our engine then died with "address in use" while the
+    stranger answered every request with 403, and the window sat there looking
+    healthy and downloading nothing. A connect that succeeds says only that
+    SOMEBODY is listening -- engine/tests/gui.rs has guarded against the same
+    confusion for a while, and this is production catching up.
+    """
+    if listening and authorized:
+        return {"action": "use", "reason": "our server answered"}
+    if listening and not authorized:
+        # Somebody else's engine (or anything else) holds the address. Talking
+        # to it is never right: at best every call is refused, at worst we
+        # would be driving a queue that belongs to another install.
+        return {
+            "action": "other_port",
+            "reason": "foreign server: the address answered but refused our token",
+            "message": "Na adrese posloucha jiny server (odmitl nas token). "
+                       "Zkousim jiny port.",
+        }
+    if child_alive:
+        return {"action": "wait", "reason": "our child is still starting"}
+    if child_alive is None:
+        return {"action": "spawn", "reason": "nothing is listening yet"}
+    return {
+        "action": "failed",
+        "reason": "our child exited without serving",
+        "message": "Engine se nespustil a na adrese nic neposlouch\u00e1. "
+                   "Stahovani nebude fungovat.",
+    }
 
 
 def wait_alive(api, seconds=15.0):
@@ -6638,20 +6762,67 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
         return 1
 
     # A window exists, so it is safe to make sure an engine is running.
+    #
+    # The address is not taken on trust. An engine from an earlier install can
+    # still be holding it -- the binary deleted, the process alive -- and it
+    # refuses our api-token, so every download silently fails while the window
+    # looks healthy. server_decision() calls that case out and we move to the
+    # next port rather than driving a queue that is not ours.
     proc = None
-    if not api.alive():
-        if args.autostart:
-            print(f"[*] starting engine: {args.engine} --serve {args.addr}", flush=True)
-            token = args.api_token or new_token()
-            api.token = token
-            proc = spawn_server(args.engine, args.addr, args.out_dir, args.state_dir, token)
-            wait_alive(api, 15)
-        else:
-            print(
-                f"[!] {args.addr} neodpovida. Spust `idm --serve {args.addr}` "
-                "nebo pouzij --autostart.",
-                file=sys.stderr,
-            )
+    engine_error = ""
+    for addr in server_addr_plan(args.addr):
+        api.addr_set(addr)
+        decision = server_decision(**api.probe(), child_alive=None)
+        if decision["action"] == "use":
+            break
+        if decision["action"] == "other_port":
+            print(f"[!] {addr}: {decision['reason']}", file=sys.stderr)
+            engine_error = decision.get("message", "")
+            continue
+        if not args.autostart:
+            engine_error = (f"{addr} neodpovida. Spust `idm --serve {addr}` "
+                            "nebo pouzij --autostart.")
+            print(f"[!] {engine_error}", file=sys.stderr)
+            break
+        print(f"[*] starting engine: {args.engine} --serve {addr}", flush=True)
+        token = args.api_token or new_token()
+        api.token = token
+        # The engine's own diagnostics ("address in use") used to go to
+        # DEVNULL, which is why nothing could explain the silence.
+        proc = spawn_server(args.engine, addr, args.out_dir, args.state_dir, token,
+                            log_dir=args.state_dir)
+        wait_alive(api, 15)
+        decision = server_decision(**api.probe(),
+                                   child_alive=(proc.poll() is None))
+        if decision["action"] == "use":
+            engine_error = ""
+            break
+        # Our child could not serve here. Take it down before trying the next
+        # port so a half-dead engine is not left behind.
+        if proc.poll() is None:
+            proc.terminate()
+        proc = None
+        engine_error = decision.get("message", "") or decision["reason"]
+        detail = engine_log_tail(args.state_dir)
+        print(f"[!] {addr}: {decision['reason']}"
+              + (f"\n    {detail}" if detail else ""), file=sys.stderr)
+        if decision["action"] == "other_port":
+            continue
+        if detail:
+            engine_error = f"{engine_error} ({detail})"
+        break
+    else:
+        engine_error = engine_error or "Nepodarilo se spustit engine na zadnem portu."
+
+    if engine_error:
+        # Silence was the actual complaint: the window opened, the clipboard
+        # prompt appeared, and nothing downloaded. Say it on screen.
+        _w["status_var"].set(f"engine: {engine_error}")
+        try:
+            import tkinter.messagebox as mb
+            mb.showerror("IDM - engine se nespustil", engine_error)
+        except Exception:  # noqa: BLE001
+            pass
 
     apply_items = _w["apply_items"]
     status_var = _w["status_var"]
