@@ -857,14 +857,26 @@ class Api:
             self.items()
             return {"listening": True, "authorized": True}
         except urllib.error.HTTPError as e:
-            # An HTTP status at all means a server answered us.
+            # An HTTP status at all means a server answered. Only an auth
+            # refusal says the server is somebody else's; a 500 is our engine
+            # having a bad day.
             return {"listening": True, "authorized": e.code not in (401, 403)}
         except urllib.error.URLError:
-            # Refused, unreachable, timed out: nothing serving there.
+            # Refused, unreachable, DNS: nothing is serving there.
+            return {"listening": False, "authorized": False}
+        except OSError:
+            # Timeouts and resets. This branch is why the window downloaded
+            # nothing on Windows: a socket timeout is a TimeoutError, which is
+            # an OSError and NOT a URLError, so it used to fall through to the
+            # catch-all and be reported as "somebody is listening". The GUI
+            # then abandoned a perfectly free port, walked the rest of the
+            # plan looking for a server that did not exist, and started no
+            # engine at all. Linux refuses a dead port quickly and rarely gets
+            # here; Windows times out.
             return {"listening": False, "authorized": False}
         except Exception:  # noqa: BLE001
-            # Something answered but not with HTTP we could parse. Still not
-            # ours, and still not a port we should fight over.
+            # Something answered, but not with HTTP we could parse. Not ours,
+            # and not a port worth fighting over.
             return {"listening": True, "authorized": False}
 
 
@@ -3849,6 +3861,20 @@ def current_theme(widget) -> str:
         return "light"
 
 
+def tab_colors(palette: dict, selected: bool) -> dict:
+    """Colours for one notebook tab.
+
+    apply_theme() used to style "TNotebook" -- the body -- and never
+    "TNotebook.Tab", so clam kept its own pale tabs and the labels on them
+    were unreadable in dark mode. Options has seven of them and Scheduler two.
+    """
+    p = dict(palette)
+    if selected:
+        # The current tab reads as part of the page below it.
+        return {"background": p["surface"], "foreground": p["fg"]}
+    return {"background": p["heading_bg"], "foreground": p["muted"]}
+
+
 def apply_theme(root, name: str) -> dict:
     """Paint the whole window in `name`. Returns the palette it applied.
 
@@ -3891,6 +3917,21 @@ def apply_theme(root, name: str) -> dict:
                     lightcolor=p["bg"], darkcolor=p["bg"])
     for widget in ("TFrame", "TLabelframe", "TPanedwindow", "TNotebook"):
         style.configure(widget, background=p["bg"])
+    # The tabs themselves: a separate element from the notebook body, and the
+    # one the user actually reads.
+    off = tab_colors(p, False)
+    on = tab_colors(p, True)
+    style.configure("TNotebook.Tab", background=off["background"],
+                    foreground=off["foreground"], bordercolor=p["grid"],
+                    lightcolor=off["background"], darkcolor=off["background"],
+                    padding=(14, 7), borderwidth=0)
+    style.map("TNotebook.Tab",
+              background=[("selected", on["background"]),
+                          ("active", p["selection_bg"])],
+              foreground=[("selected", on["foreground"]),
+                          ("active", p["selection_fg"])],
+              lightcolor=[("selected", on["background"])],
+              expand=[("selected", (0, 0, 0, 0))])
     style.configure("TLabel", background=p["bg"], foreground=p["fg"])
     style.configure("TLabelframe.Label", background=p["bg"], foreground=p["fg"])
     style.configure("TButton", background=p["surface"], foreground=p["fg"],
