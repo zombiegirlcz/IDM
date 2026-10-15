@@ -14,7 +14,8 @@
 
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { removeProfile } from '../rm_profile.mjs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -156,6 +157,6 @@ export class Marionette {
       await new Promise((r) => setTimeout(r, 300));
       if (this.proc.exitCode === null) this.proc.kill('SIGKILL');
     }
-    if (this.profile) rmSync(this.profile, { recursive: true, force: true });
+    if (this.profile) removeProfile(this.profile);
   }
 }
