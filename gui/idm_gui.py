@@ -130,6 +130,167 @@ def theme_palette(name: str) -> dict:
     return dict(THEMES.get(str(name or "").lower(), THEMES["light"]))
 
 
+def should_offer_update(cache) -> bool:
+    """Whether the window should install an update on startup.
+
+    Deliberately strict. The window replaces its own binaries without asking,
+    so every way of being unsure -- no cache, a half-written one, a claim of
+    news with no version to install, `newer` as a string rather than a bool --
+    answers no. Doing nothing is always recoverable; installing when we should
+    not is not.
+    """
+    if not isinstance(cache, dict):
+        return False
+    if cache.get("newer") is not True:
+        return False
+    return bool(str(cache.get("latest") or "").strip())
+
+
+def auto_update_enabled(state_dir: str) -> bool:
+    """Install new releases on startup? On by default, switchable off.
+
+    'Without confirmation' is the default the brief asked for, not a life
+    sentence: someone who does not want their binaries replaced on startup
+    has to be able to say so.
+    """
+    value = (load_settings(state_dir).get("updates") or {}).get("auto_install")
+    return value is not False
+
+
+def read_update_cache(state_dir: str) -> dict:
+    """What the last release check found. Missing or broken reads as empty."""
+    try:
+        with open(os.path.join(state_dir, "update.json"), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def read_update_progress(path: str) -> dict:
+    """One poll of the updater's progress file, as something displayable.
+
+    The updater writes atomically, but the window can look before the first
+    write lands -- and a reader that raised there would take the dialog down
+    with it. A missing or half-written file is 'starting', never 'finished'.
+    """
+    raw = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            loaded = json.load(f)
+        if isinstance(loaded, dict):
+            raw = loaded
+    except Exception:  # noqa: BLE001
+        raw = {}
+
+    phase = str(raw.get("phase") or "start")
+    error = raw.get("error") or None
+    try:
+        percent = float(raw.get("percent") or 0.0)
+    except (TypeError, ValueError):
+        percent = 0.0
+    try:
+        speed = int(raw.get("speed_bps") or 0)
+    except (TypeError, ValueError):
+        speed = 0
+    done = raw.get("done") is True
+
+    if error:
+        label = "Aktualizace selhala: %s" % error
+    elif not raw:
+        label = "Připravuji aktualizaci…"
+    elif done:
+        label = "Hotovo"
+    else:
+        names = {
+            "check": "Zjišťuji verzi",
+            "download": "Stahuji",
+            "verify": "Ověřuji kontrolní součet",
+            "unpack": "Rozbaluji",
+            "swap": "Instaluji",
+        }
+        label = names.get(phase, phase)
+        if percent > 0:
+            label += " %.0f %%" % percent
+        rate = fmt_speed(speed)
+        if rate:
+            label += "  (%s)" % rate
+
+    return {"phase": phase, "percent": percent, "speed_bps": speed,
+            "done": done, "error": error, "label": label}
+
+
+def _dialog_update(parent, engine: str, state_dir: str, latest: str):
+    """The install window: progress, no question asked.
+
+    It drives `idm update --progress-file` as a separate process and polls the
+    file it writes, rather than doing the work in the Tk thread -- an update
+    that froze the window for the length of a download would look like a
+    crash, and a swap half-done inside a process that is about to be replaced
+    is worse than that.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+
+    win = tk.Toplevel(parent)
+    win.title("Aktualizace IDM")
+    win.transient(parent)
+    win.resizable(False, False)
+    frame = ttk.Frame(win, padding=14)
+    frame.pack(fill="both", expand=True)
+    ttk.Label(frame, text="Instaluji verzi %s" % latest).pack(anchor="w")
+    bar = ttk.Progressbar(frame, length=320, mode="determinate", maximum=100)
+    bar.pack(fill="x", pady=(8, 6))
+    status = tk.StringVar(value="Připravuji aktualizaci…")
+    ttk.Label(frame, textvariable=status).pack(anchor="w")
+    close = ttk.Button(frame, text="Zavřít", command=win.destroy, state="disabled")
+    close.pack(anchor="e", pady=(10, 0))
+
+    progress_file = os.path.join(state_dir, "update-progress.json")
+    try:
+        os.remove(progress_file)
+    except OSError:
+        pass
+
+    kwargs = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    if os.name == "nt":
+        kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
+    try:
+        proc = subprocess.Popen(
+            [engine, "update", "--progress-file", progress_file], **kwargs
+        )
+    except Exception as e:  # noqa: BLE001
+        status.set("Aktualizaci nelze spustit: %s" % e)
+        close.configure(state="normal")
+        return win
+
+    def poll():
+        if not win.winfo_exists():
+            return
+        p = read_update_progress(progress_file)
+        bar["value"] = p["percent"]
+        status.set(p["label"])
+        finished = p["done"] or proc.poll() is not None
+        if finished:
+            # The process can exit before its last write is seen; one more
+            # look keeps "Hotovo" from being reported as "Připravuji".
+            p = read_update_progress(progress_file)
+            status.set(p["label"] if p.get("done") or p.get("error")
+                       else "Hotovo")
+            if not p.get("error"):
+                bar["value"] = 100
+                ttk.Label(
+                    frame,
+                    text="Nová verze se projeví po restartu okna.",
+                ).pack(anchor="w", pady=(6, 0))
+            close.configure(state="normal")
+            return
+        win.after(400, poll)
+
+    win.after(200, poll)
+    return win
+
+
 def _theme_label(name: str) -> str:
     """The toggle's caption: what the click leads to, not where you are."""
     return "Tmavý motiv" if str(name).lower() == "light" else "Světlý motiv"
@@ -6231,6 +6392,30 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
 
     apply_items = _w["apply_items"]
     status_var = _w["status_var"]
+
+    # A newer release found by an earlier check installs itself now, with the
+    # progress on screen. The check that filled the cache is fired off at the
+    # same time, so the NEXT launch knows about today's release -- asking
+    # GitHub synchronously here would delay every start by a round trip, for
+    # news that is almost never there.
+    if auto_update_enabled(args.state_dir):
+        cache = read_update_cache(args.state_dir)
+        if should_offer_update(cache):
+            try:
+                _dialog_update(root, args.engine, args.state_dir,
+                               str(cache.get("latest")))
+            except Exception as e:  # noqa: BLE001
+                print("[!] aktualizacni okno se neotevrelo: %s" % e,
+                      file=sys.stderr)
+        else:
+            try:
+                kwargs = {"stdout": subprocess.DEVNULL,
+                          "stderr": subprocess.DEVNULL}
+                if os.name == "nt":
+                    kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
+                subprocess.Popen([args.engine, "update", "--check"], **kwargs)
+            except Exception:  # noqa: BLE001
+                pass  # no network, no release, no matter
 
     # --screenshot comes LAST, once there is something worth photographing.
     # Taken right after build_window() it caught the window before its first
