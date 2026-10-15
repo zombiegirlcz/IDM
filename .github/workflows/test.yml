@@ -233,6 +233,10 @@ jobs:
           '# gui'  | Set-Content (Join-Path $stage 'idm_gui.py')
           Copy-Item ./install.ps1 $stage
           Copy-Item ./scripts/ensure-aria2.ps1 $stage
+          # The shortcut's icon comes out of the archive, like on Linux.
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'assets') | Out-Null
+          Copy-Item ./assets/idm.ico (Join-Path $stage 'assets')
+          Copy-Item ./assets/idm.png (Join-Path $stage 'assets')
           $zip = Join-Path $env:RUNNER_TEMP 'idm-windows-x64.zip'
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
           $sha = (Get-FileHash $zip -Algorithm SHA256).Hash
@@ -241,13 +245,24 @@ jobs:
 
           ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir $dl
 
-          foreach ($f in 'idm.exe', 'idm-host.exe', 'install.ps1') {
+          # The flat archive must have been arranged into the same layout
+          # install.sh builds, so one IDM_DIR means one thing on both systems.
+          foreach ($f in 'bin\idm.exe', 'bin\idm-host.exe', 'bin\ensure-aria2.ps1',
+                         'gui\idm_gui.py', 'assets\idm.ico', 'install.ps1', 'VERSION') {
             if (-not (Test-Path (Join-Path $prefix $f))) { throw "missing after install: $f" }
           }
+          if ([Environment]::GetEnvironmentVariable('IDM_DIR', 'User') -ne $prefix) {
+            throw "IDM_DIR was not persisted"
+          }
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          if ($userPath -notlike "*$prefix\bin*") { throw "bin not on the user PATH" }
           $reg = 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.tonec.idm'
           if (-not (Test-Path $reg)) { throw "native messaging host not registered" }
 
           & (Join-Path $prefix 'install.ps1') -Uninstall
           if (Test-Path $prefix) { throw "prefix still present after -Uninstall" }
           if (Test-Path $reg) { throw "registry key still present after -Uninstall" }
+          if ([Environment]::GetEnvironmentVariable('IDM_DIR', 'User')) {
+            throw "IDM_DIR survived -Uninstall"
+          }
           Write-Host "install + uninstall OK"

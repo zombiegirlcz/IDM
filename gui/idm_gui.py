@@ -5561,23 +5561,42 @@ def probe_displays(env: dict | None = None) -> dict:
     return {"have": tools, "busy": busy}
 
 
-def start_display(plan: dict, timeout: float = 10.0):
+def start_display(plan: dict, timeout: float = 10.0,
+                  sock_dir: str = "/tmp/.X11-unix"):
     """Execute a display_plan: point DISPLAY at it, starting Xvfb if asked.
 
     Returns the Xvfb Popen when one was started (the caller must reap it) or
     None. Waiting is on the socket, never a sleep: a fixed nap is either a
     stall or a race, and this repo has paid for that lesson elsewhere.
+
+    The socket alone proves nothing, though -- the same way a free port is
+    only ours while our own child holds it. When somebody else already owns
+    the number, the socket is there from the first look, the wait succeeds
+    instantly, and our Xvfb dies with "Server is already active" behind our
+    back. The window then connects to a stranger's display and fails on
+    Xauthority, which is a much harder error to read than "that number is
+    taken". So: a socket that pre-dates the spawn means the number is not
+    ours, and the one we do accept has to still be held by a live child.
     """
     if plan["display"]:
         os.environ["DISPLAY"] = plan["display"]
     if not plan["xvfb_argv"]:
         return None
+    sock = os.path.join(sock_dir, "X%s" % plan["display"].lstrip(":"))
+    if os.path.exists(sock):
+        raise RuntimeError("displej %s uz nekdo obsadil" % plan["display"])
     proc = subprocess.Popen(plan["xvfb_argv"], stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL)
-    sock = "/tmp/.X11-unix/X%s" % plan["display"].lstrip(":")
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if os.path.exists(sock):
+            # The loser exits right after the socket shows up, so confirm the
+            # child is still the one holding it before handing it over.
+            time.sleep(0.1)
+            if proc.poll() is not None:
+                raise RuntimeError(
+                    "Xvfb na %s skoncil hned po startu s kodem %s"
+                    % (plan["display"], proc.returncode))
             return proc
         if proc.poll() is not None:
             raise RuntimeError("Xvfb skoncil s kodem %s" % proc.returncode)

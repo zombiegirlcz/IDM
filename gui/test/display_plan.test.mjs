@@ -386,3 +386,52 @@ test('the screenshot waits for the queue, not just for the window',
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+test('an X socket that was already there is not proof our Xvfb started', () => {
+  // The port trap, one more face. start_display() waited for the SOCKET to
+  // appear -- but when another launch already owns that number, the socket is
+  // there from the first look, so the wait succeeds instantly while our own
+  // Xvfb dies with "Server is already active". The window then connects to
+  // somebody else's display and fails on Xauthority, which is far harder to
+  // read than "that number is taken".
+  //
+  // The number is ours only while OUR child holds it.
+  const r = py(`
+import json, os, tempfile
+d = tempfile.mkdtemp()
+os.mkdir(os.path.join(d, ".X11-unix"))
+# Somebody else's server is already on :77.
+open(os.path.join(d, ".X11-unix", "X77"), "w").close()
+plan = {"mode": "own", "display": ":77",
+        "xvfb_argv": ["/bin/true"], "screenshot": None, "reason": ""}
+try:
+    g.start_display(plan, timeout=2.0, sock_dir=os.path.join(d, ".X11-unix"))
+    out = {"raised": False}
+except RuntimeError as e:
+    out = {"raised": True, "message": str(e)}
+print("R:" + json.dumps(out))
+`);
+  assert.ok(r.raised, 'a pre-existing socket must be refused, not taken for success');
+});
+
+test('start_display still accepts a display its own Xvfb opened', () => {
+  const r = py(`
+import json, os, tempfile
+d = tempfile.mkdtemp()
+sock = os.path.join(d, ".X11-unix")
+os.mkdir(sock)
+# A stand-in "Xvfb" that creates the socket and stays alive.
+script = os.path.join(d, "fake")
+open(script, "w").write(
+    "#!/usr/bin/env bash\\ntouch '%s/X78'\\nsleep 30\\n" % sock)
+os.chmod(script, 0o755)
+plan = {"mode": "own", "display": ":78",
+        "xvfb_argv": [script], "screenshot": None, "reason": ""}
+proc = g.start_display(plan, timeout=10.0, sock_dir=sock)
+out = {"started": proc is not None, "alive": proc.poll() is None}
+g.stop_display(proc)
+print("R:" + json.dumps(out))
+`);
+  assert.ok(r.started, 'our own Xvfb must still be accepted');
+  assert.ok(r.alive, 'and it must be the live process we return');
+});
