@@ -887,7 +887,22 @@ fn api_update_refuses_to_retarget_a_running_download() {
         "/api/update",
         Some(&serde_json::json!({"id": id, "url": "http://example.com/other"}).to_string()),
     );
-    assert_eq!(st, 409, "retargeting a running download must be refused, got {}", resp);
+    // When this fails it is almost always because the item is no longer
+    // running -- finished, errored, or back in the queue for a retry -- and
+    // the status alone does not say which. Twice now it has failed with a
+    // bare "got {ok:true}", which is not enough to fix anything.
+    let state_now = find_item(&json(&addr, "/api/items"), id);
+    assert_eq!(
+        st, 409,
+        "retargeting a running download must be refused, got {} -- item was \
+         status={:?} error={:?} downloaded={:?}/{:?} attempts={:?}",
+        resp,
+        state_now["status"],
+        state_now["error"],
+        state_now["downloaded"],
+        state_now["total"],
+        state_now["attempts"],
+    );
     let it = find_item(&json(&addr, "/api/items"), id);
     assert!(
         it["url"].as_str().unwrap_or("").contains("slow.bin"),

@@ -1250,6 +1250,28 @@ async fn run_direct_dynamic(
     Ok(())
 }
 
+/// aria2c, but only if it is already installed. Never installs anything.
+///
+/// This is what `idm <URL>` uses on its own. Fetching and installing a
+/// program because somebody typed a URL would be a far ruder thing than
+/// picking a backend, so the installer stays behind an explicit --aria2.
+async fn aria2c_if_present(args: &Args) -> Option<PathBuf> {
+    let ok = tokio::process::Command::new(&args.aria2_path)
+        .hide_console()
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if ok {
+        Some(args.aria2_path.clone())
+    } else {
+        None
+    }
+}
+
 /// Return the aria2c path to use, installing it first if it is missing.
 ///
 /// When `--aria2` is requested but aria2c is not present, we run the platform
@@ -1407,9 +1429,14 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
 /// auto-installer still runs, exactly as it does on the direct path.
 async fn media_speed(args: &Args) -> anyhow::Result<media::Speed> {
     let aria2c = if args.aria2 {
+        // Asked for explicitly: install it if it is missing.
         Some(ensure_aria2c(args).await?)
     } else {
-        None
+        // Not asked for, but `idm <URL>` should still do the fast thing when
+        // the fast thing is sitting right there: yt-dlp finds the video,
+        // aria2c moves the bytes. Absent, the download simply happens
+        // without it.
+        aria2c_if_present(args).await
     };
     Ok(media::Speed {
         connections: args.connections,
