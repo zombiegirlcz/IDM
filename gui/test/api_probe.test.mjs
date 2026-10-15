@@ -38,7 +38,7 @@ function probe(addr, token) {
 const SERVER_PY = `
 import sys, json
 from http.server import BaseHTTPRequestHandler, HTTPServer
-TOKEN = sys.argv[2]
+TOKEN = sys.argv[1]
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         body = b'{"items":[]}'
@@ -53,8 +53,38 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(body)
     def log_message(self, *a):
         pass
-HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
+# Port 0: the OS picks one and we announce it. A hard-coded port is the
+# mistake this project has already paid for -- a parallel test can own it,
+# and then either the bind fails or somebody else answers our questions.
+srv = HTTPServer(('127.0.0.1', 0), H)
+print(srv.server_address[1], flush=True)
+srv.serve_forever()
 `;
+
+/** Start the stand-in engine and wait for it to announce its port. */
+function startServer(token) {
+  const srv = spawn('python3', ['-I', '-c', SERVER_PY, token],
+    { stdio: ['ignore', 'pipe', 'ignore'] });
+  return new Promise((resolve, reject) => {
+    let buf = '';
+    const timer = setTimeout(() => {
+      srv.kill('SIGKILL');
+      reject(new Error('the stand-in server never announced a port'));
+    }, 20000);
+    srv.stdout.on('data', (chunk) => {
+      buf += chunk;
+      const m = buf.match(/(\d+)\s/);
+      if (m) {
+        clearTimeout(timer);
+        resolve({ srv, port: Number(m[1]) });
+      }
+    });
+    srv.on('exit', (code) => {
+      clearTimeout(timer);
+      reject(new Error(`the stand-in server exited with ${code}`));
+    });
+  });
+}
 
 function waitTcp(port, ms = 8000) {
   const deadline = Date.now() + ms;
@@ -81,9 +111,7 @@ test('a port nobody is listening on is not listening', () => {
 });
 
 test('our own token gets an authorized answer', async () => {
-  const port = 34611;
-  const srv = spawn('python3', ['-I', '-c', SERVER_PY, String(port), 'goodtoken'],
-    { stdio: 'ignore' });
+  const { srv, port } = await startServer('goodtoken');
   try {
     await waitTcp(port);
     const p = probe(`127.0.0.1:${port}`, 'goodtoken');
@@ -95,9 +123,7 @@ test('our own token gets an authorized answer', async () => {
 
 test('a stranger that refuses the token is listening but not authorized', async () => {
   // THE BUG, reproduced: this is the state the user's machine was in.
-  const port = 34612;
-  const srv = spawn('python3', ['-I', '-c', SERVER_PY, String(port), 'someoneelsestoken'],
-    { stdio: 'ignore' });
+  const { srv, port } = await startServer('someoneelsestoken');
   try {
     await waitTcp(port);
     const p = probe(`127.0.0.1:${port}`, 'ourtoken');
