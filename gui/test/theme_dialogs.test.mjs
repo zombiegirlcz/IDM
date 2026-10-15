@@ -86,3 +86,27 @@ test('every classic widget class the program uses is covered', () => {
     assert.ok(o.background, `${cls} has no background in the table`);
   }
 });
+
+test('classic widgets are flattened like the ttk ones', () => {
+  // The dialog came out dark but every button still wore a light bevel,
+  // because relief/borderwidth/highlightthickness are per-widget on classic
+  // Tk and have nothing to do with the colour scheme.
+  for (const cls of ['Button', 'Checkbutton', 'Label', 'Frame']) {
+    const o = py(`print("R:" + json.dumps(g.tk_widget_palette("${cls}", ${DARK})))`);
+    assert.equal(o.relief, 'flat', `${cls} keeps a bevel`);
+    assert.equal(o.highlightthickness, 0,
+      `${cls} keeps a focus ring drawn in the platform colour`);
+  }
+  // Entry is the deliberate exception -- see the next test.
+  const e = py(`print("R:" + json.dumps(g.tk_widget_palette("Entry", ${DARK})))`);
+  assert.equal(e.relief, 'flat', 'an entry should be flat too');
+});
+
+test('the flattening does not swallow the entry border', () => {
+  // An entry with no edge at all on a dark surface is invisible; it keeps a
+  // border, it just uses the palette's grid colour for it.
+  const o = py(`print("R:" + json.dumps(g.tk_widget_palette("Entry", ${DARK})))`);
+  const p = py(`print("R:" + json.dumps(${DARK}))`);
+  assert.equal(o.highlightbackground, p.grid,
+    'an entry needs an edge, drawn in the palette');
+});
