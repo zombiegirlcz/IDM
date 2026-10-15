@@ -475,3 +475,100 @@ fn without_aria2c_the_download_still_happens() {
         argv
     );
 }
+
+/// yt-dlp does not always replace the extension -- sometimes it appends one.
+///
+/// Seen on a real download: `-o /tmp/auto.mp4` produced `/tmp/auto.mp4.webm`,
+/// 723 MB of perfectly good video, and the engine reported
+///
+///     [x] error: yt-dlp reported success but /tmp/auto.mp4 was not created
+///
+/// sibling_with_stem() is meant to cover exactly this, but it compares file
+/// stems: the stem of `auto.mp4` is `auto`, while the stem of `auto.mp4.webm`
+/// is `auto.mp4`, so the file it was looking for was skipped. The existing
+/// test only covers the replace case (`auto.webm`), which is why this went
+/// unnoticed.
+///
+/// In the queue this is worse than a wrong message: a finished download is
+/// marked as an error and retried, up to ten times, and on Windows every
+/// retry flashes a console window.
+fn make_stub_appends_ext(dir: &Path) -> PathBuf {
+    let stub = dir.join("yt-dlp-append");
+    let script = format!(
+        r#"#!/usr/bin/env bash
+if [[ "$1" == "-J" ]]; then
+  cat <<'JSON'
+{META}
+JSON
+  exit 0
+fi
+out=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "-o" ]]; then out="$2"; shift 2; else shift; fi
+done
+printf '{PAYLOAD}' > "$out.webm"
+"#,
+        META = META_JSON,
+        PAYLOAD = PAYLOAD
+    );
+    fs::write(&stub, script).unwrap();
+    let mut perm = fs::metadata(&stub).unwrap().permissions();
+    perm.set_mode(0o755);
+    fs::set_permissions(&stub, perm).unwrap();
+    stub
+}
+
+#[test]
+fn an_appended_extension_is_still_the_file_we_asked_for() {
+    let dir = unique_dir("append");
+    let stub = make_stub_appends_ext(&dir);
+    let out_file = dir.join("video.mp4");
+    let out = Command::new(IDM)
+        .arg("--yt-dlp-path")
+        .arg(&stub)
+        .arg("--force-media")
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "the video was downloaded; reporting failure makes the queue retry it: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let produced = dir.join("video.mp4.webm");
+    assert!(produced.exists(), "the stub should have written {}", produced.display());
+    assert_eq!(String::from_utf8_lossy(&fs::read(&produced).unwrap()), PAYLOAD);
+}
+
+#[test]
+fn the_reported_path_is_the_file_that_exists() {
+    // --report is how the queue learns the real name; it has to name the file
+    // that is actually on disk, or the GUI shows a row pointing at nothing.
+    let dir = unique_dir("append_report");
+    let stub = make_stub_appends_ext(&dir);
+    let out_file = dir.join("video.mp4");
+    let report = dir.join("report.json");
+    let out = Command::new(IDM)
+        .arg("--yt-dlp-path")
+        .arg(&stub)
+        .arg("--force-media")
+        .arg("--report")
+        .arg(&report)
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    let text = fs::read_to_string(&report).expect("a report must be written");
+    let v: serde_json::Value = serde_json::from_str(&text).expect("report must be json");
+    let named = v["output"].as_str().unwrap_or("");
+    assert!(
+        named.ends_with("video.mp4.webm"),
+        "the report must name the file on disk, got {:?}",
+        named
+    );
+    assert!(Path::new(named).exists(), "the reported file must exist: {}", named);
+}
