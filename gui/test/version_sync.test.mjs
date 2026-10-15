@@ -49,11 +49,16 @@ test('Cargo.lock agrees with Cargo.toml', () => {
 test('a published release is recognised as newer than this build', () => {
   // The tags are v-prefixed, so the comparison has to cope with that -- and it
   // must answer "newer" for the next release, not shrug.
+  // The "newer" tag is derived from VERSION rather than written down: a
+  // literal like v0.1.99 stops being higher the moment the major version
+  // moves, and the test would then fail on the release instead of on a bug.
   const out = JSON.parse(
     execPy(`
 import json
+parts = VERSION.split(".")
+higher = ".".join(parts[:-1] + [str(int(parts[-1]) + 1)])
 print(json.dumps({
-  "next": is_newer_version("v0.1.99", VERSION),
+  "next": is_newer_version("v" + higher, VERSION),
   "same": is_newer_version("v" + VERSION, VERSION),
   "older": is_newer_version("v0.0.1", VERSION),
 }))
