@@ -369,10 +369,22 @@ fn sibling_with_stem(out: &Path) -> Option<PathBuf> {
         _ => PathBuf::from("."),
     };
     let stem = out.file_stem()?.to_owned();
+    // yt-dlp may REPLACE the extension (video.mp4 -> video.webm) or APPEND
+    // one (video.mp4 -> video.mp4.webm); which of the two depends on the
+    // format it merged. Only the first was handled, so a finished 723 MB
+    // download was reported as "was not created" -- and in the queue that
+    // means an error, a retry, and the whole video fetched again.
+    let full = out.file_name()?.to_owned();
     let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
     for e in std::fs::read_dir(dir).ok()?.flatten() {
         let p = e.path();
-        if p.file_stem() != Some(stem.as_os_str()) || !p.is_file() {
+        if !p.is_file() {
+            continue;
+        }
+        let matches_stem = p.file_stem() == Some(stem.as_os_str());
+        // The appended case: the whole requested name is this file's stem.
+        let matches_full = p.file_stem() == Some(full.as_os_str());
+        if !matches_stem && !matches_full {
             continue;
         }
         // Skip yt-dlp's own leftovers (.part, .ytdl).
