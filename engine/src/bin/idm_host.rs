@@ -370,7 +370,7 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
                 Err(e) => return e,
             };
             let mut cmd = Command::new(ctx.engine);
-            cmd.arg("--yt-dlp").arg(ctx.yt_dlp);
+            cmd.arg("--yt-dlp-path").arg(ctx.yt_dlp);
             cmd.arg("--list-formats").arg(&url);
             if let Some(c) = opt_str(req, "cookie") {
                 cmd.arg("--cookie").arg(c);
@@ -429,7 +429,7 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
                 cmd.arg("--category-dir").arg(c);
             }
             // Use the same media backend binary as list_formats.
-            cmd.arg("--yt-dlp").arg(ctx.yt_dlp);
+            cmd.arg("--yt-dlp-path").arg(ctx.yt_dlp);
 
             if let Some(f) = opt_str(req, "format") {
                 cmd.arg("--format").arg(f);
@@ -525,7 +525,9 @@ fn main() {
                     allowed_dir = Some(PathBuf::from(p));
                 }
             }
-            "--yt-dlp" => {
+            // Both spellings: the native-messaging manifest on a machine
+            // may still be the one an older install wrote.
+            "--yt-dlp" | "--yt-dlp-path" => {
                 if let Some(p) = args.next() {
                     yt_dlp = Some(PathBuf::from(p));
                 }

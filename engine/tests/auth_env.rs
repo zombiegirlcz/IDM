@@ -218,7 +218,7 @@ fn the_variable_is_not_inherited_by_the_media_backend() {
     let out_file = dir.join("media.mp4");
     let out = Command::new(IDM)
         .env("IDM_AUTH", CREDS)
-        .arg("--yt-dlp")
+        .arg("--yt-dlp-path")
         .arg(&stub)
         .arg("--force-media")
         .arg("--auth-env")

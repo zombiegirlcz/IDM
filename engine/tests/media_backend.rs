@@ -58,7 +58,7 @@ fn list_formats_returns_summary_json() {
     let dir = unique_dir("list");
     let (stub, _log) = make_stub(&dir);
     let out = Command::new(IDM)
-        .arg("--yt-dlp")
+        .arg("--yt-dlp-path")
         .arg(&stub)
         .arg("--list-formats")
         .arg("https://youtu.be/abc")
@@ -82,7 +82,7 @@ fn media_download_passes_format_and_auth_flags() {
     let out_file = dir.join("out.m4a");
     let out = Command::new(IDM)
         .env("STUB_LOG", &log)
-        .arg("--yt-dlp")
+        .arg("--yt-dlp-path")
         .arg(&stub)
         .arg("--force-media")
         .arg("--format")
@@ -117,7 +117,7 @@ fn auto_detects_media_url_without_force_flag() {
     let out_file = dir.join("auto.mp4");
     let out = Command::new(IDM)
         .env("STUB_LOG", &log)
-        .arg("--yt-dlp")
+        .arg("--yt-dlp-path")
         .arg(&stub)
         .arg("-o")
         .arg(&out_file)
@@ -136,7 +136,7 @@ fn no_media_skips_the_backend() {
     let (stub, log) = make_stub(&dir);
     let out = Command::new(IDM)
         .env("STUB_LOG", &log)
-        .arg("--yt-dlp")
+        .arg("--yt-dlp-path")
         .arg(&stub)
         .arg("--no-media")
         .arg("https://youtu.be/abc")
@@ -165,7 +165,7 @@ fn aria2_and_the_media_backend_combine_instead_of_competing() {
     let out_file = dir.join("video.mp4");
     let out = Command::new(IDM)
         .env("STUB_LOG", &log)
-        .arg("--yt-dlp")
+        .arg("--yt-dlp-path")
         .arg(&stub)
         .arg("--aria2")
         .arg("--aria2-path")
@@ -211,7 +211,7 @@ fn the_connection_count_becomes_concurrent_fragments() {
     let out_file = dir.join("video.mp4");
     let out = Command::new(IDM)
         .env("STUB_LOG", &log)
-        .arg("--yt-dlp")
+        .arg("--yt-dlp-path")
         .arg(&stub)
         .arg("--force-media")
         .arg("-n")
@@ -238,7 +238,7 @@ fn a_plain_file_with_aria2_does_not_go_near_yt_dlp() {
     let (stub, log) = make_stub(&dir);
     let out = Command::new(IDM)
         .env("STUB_LOG", &log)
-        .arg("--yt-dlp")
+        .arg("--yt-dlp-path")
         .arg(&stub)
         .arg("--aria2")
         .arg("--aria2-path")
@@ -300,7 +300,7 @@ fn report_names_the_file_that_was_really_written() {
     let asked = dir.join("clip.mp4");
     let report = dir.join("report.json");
     let out = Command::new(IDM)
-        .arg("--yt-dlp")
+        .arg("--yt-dlp-path")
         .arg(&stub)
         .arg("--force-media")
         .arg("--report")
@@ -391,4 +391,87 @@ fn tiny_origin(data: Vec<u8>) -> String {
         }
     });
     addr
+}
+
+/// aria2c should be used without being asked for.
+///
+/// What the user wants from `idm <URL>` is what they already get on Linux
+/// after typing three extra words: yt-dlp finds the video, aria2 moves the
+/// bytes. Requiring --aria2 for that is a switch standing in front of the
+/// only sensible default -- nobody wants the slow path when the fast one is
+/// installed.
+///
+/// The auto path only picks up an aria2c that is already there. Installing
+/// one behind the user's back because they typed a URL would be a different
+/// and much ruder thing; --aria2 keeps that meaning.
+#[test]
+fn aria2c_is_used_without_being_asked_when_it_is_installed() {
+    let dir = unique_dir("autoaria");
+    let (stub, log) = make_stub(&dir);
+    let aria2c = dir.join("aria2c");
+    fs::write(&aria2c, "#!/usr/bin/env bash\nexit 0\n").unwrap();
+    fs::set_permissions(&aria2c, fs::Permissions::from_mode(0o755)).unwrap();
+    let out_file = dir.join("video.mp4");
+
+    // Note what is NOT here: no --aria2.
+    let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
+        .arg("--yt-dlp-path")
+        .arg(&stub)
+        .arg("--aria2-path")
+        .arg(&aria2c)
+        .arg("--force-media")
+        .arg("-n")
+        .arg("16")
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+
+    let argv = fs::read_to_string(&log).expect("the stub must have logged argv");
+    assert!(
+        argv.contains("--downloader") && argv.contains(&aria2c.display().to_string()),
+        "aria2c was installed and should have been used without --aria2: {}",
+        argv
+    );
+    assert!(
+        argv.contains("-x 16") || argv.contains("-x16"),
+        "the connection count must still reach aria2c: {}",
+        argv
+    );
+}
+
+/// ...but a missing aria2c is not an error, and nothing gets installed.
+#[test]
+fn without_aria2c_the_download_still_happens() {
+    let dir = unique_dir("noaria");
+    let (stub, log) = make_stub(&dir);
+    let out_file = dir.join("video.mp4");
+    let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
+        .arg("--yt-dlp-path")
+        .arg(&stub)
+        .arg("--aria2-path")
+        .arg(dir.join("definitely-no-aria2c-here"))
+        .arg("--force-media")
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "a missing aria2c must not break a download: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let got = fs::read(&out_file).expect("media output must exist");
+    assert_eq!(String::from_utf8_lossy(&got), PAYLOAD);
+    let argv = fs::read_to_string(&log).expect("the stub must have logged argv");
+    assert!(
+        !argv.contains("--downloader"),
+        "yt-dlp must not be pointed at an aria2c that is not there: {}",
+        argv
+    );
 }

@@ -978,7 +978,7 @@ JSON
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     }
 
-    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "1", "--yt-dlp", fake.to_str().unwrap()]);
+    let (mut srv, addr) = start_server(&out, &state, &["--max-concurrent", "1", "--yt-dlp-path", fake.to_str().unwrap()]);
 
     let body = serde_json::json!({"url": "https://example.com/watch?v=vid1"}).to_string();
     let (st, resp) = http_req(&addr, "POST", "/api/formats", Some(&body));
@@ -1169,7 +1169,7 @@ fn a_finished_media_download_reports_its_real_name_and_size() {
     let state = unique_dir("mstate");
     let stub = make_media_stub(&state);
 
-    let (mut srv, addr) = start_server(&out, &state, &["--yt-dlp", stub.to_str().unwrap()]);
+    let (mut srv, addr) = start_server(&out, &state, &["--yt-dlp-path", stub.to_str().unwrap()]);
 
     let body = serde_json::json!({"url": "https://youtu.be/abc"}).to_string();
     let (st, resp) = http_req(&addr, "POST", "/api/add", Some(&body));
