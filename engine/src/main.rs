@@ -19,9 +19,11 @@ use tokio::sync::{Mutex, Semaphore};
 mod gui;
 mod media;
 mod secrets;
+mod verbs;
 
 #[derive(Parser, Debug)]
-#[command(name = "idm", about = "Multi-connection downloader with resume (IDM-like POC)")]
+#[command(name = "idm", version, about = "Multi-connection downloader with resume (IDM-like POC)")]
+#[command(after_help = verbs::AFTER_HELP)]
 struct Args {
     /// URL to download
     url: Option<String>,
@@ -1860,6 +1862,12 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() {
+    // The verbs come first: `url` is an optional positional, so clap would
+    // read `update` as a URL. Anything that is not a verb falls through
+    // untouched.
+    if let Some(code) = verbs::dispatch() {
+        std::process::exit(code);
+    }
     let args = Args::parse();
     if let Err(e) = run(args).await {
         eprintln!("[x] error: {:#}", e);
