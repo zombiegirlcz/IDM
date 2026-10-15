@@ -26,6 +26,11 @@ chrono = "0.4"
 # reqwest already links.
 chacha20poly1305 = "0.10"
 rand_core = { version = "0.6", features = ["getrandom"] }
+# Verifying the release archive against its published .sha256 during
+# `idm update`. The installers do it with sha256sum/Get-FileHash; the engine
+# cannot assume either, and this is the same RustCrypto family as the vault's
+# cipher rather than a new dependency tree.
+sha2 = "0.10"
 
 [features]
 # OS keyring for the vault key. Opt-in rather than default: the backends need
@@ -56,6 +61,7 @@ keyring = { version = "3", optional = true, features = ["windows-native"] }
 [dev-dependencies]
 crc32fast = "1"
 serde_json = "1"
+sha2 = "0.10"
 
 [profile.release]
 opt-level = 3

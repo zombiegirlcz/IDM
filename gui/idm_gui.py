@@ -69,15 +69,252 @@ CATEGORIES = [
 ]
 
 # Main list columns, in IDM order. "Q" is the queue column.
+#
+# "speed" and "eta" say their units in the heading, because a number with no
+# unit in a narrow column is a riddle. "eta" replaces the old "time" key: the
+# cell showed nothing for as long as the engine sent no rate, so there is no
+# saved layout worth keeping compatible with.
 COLUMNS = [
-    ("name", "File Name", 280),
+    ("name", "File Name", 240),
+    ("category", "Category", 90),
     ("size", "Size", 90),
-    ("status", "Status", 110),
-    ("speed", "Speed", 90),
-    ("time", "Time Left", 80),
+    ("status", "Status", 100),
+    ("speed", "Speed (MB/s)", 100),
+    ("eta", "ETA", 80),
     ("queue", "Q", 40),
-    ("description", "Description", 180),
+    ("url", "URL", 260),
+    ("description", "Description", 160),
 ]
+
+# Light and dark palettes.
+#
+# Every foreground here is checked against every surface it lands on at WCAG AA
+# (4.5:1) by gui/test/theme.test.mjs -- a palette that looks designed and
+# cannot be read is worse than the platform grey it replaces. The two row
+# colours are deliberately close: enough to follow a row across the window,
+# not enough to turn the list into a zebra crossing.
+THEMES = {
+    "light": {
+        "bg": "#f4f5f7",          # window chrome
+        "surface": "#ffffff",     # panels, entries, the list itself
+        "fg": "#1b1f24",
+        "muted": "#5c6670",       # secondary cells (URL, description)
+        "row_odd": "#ffffff",
+        "row_even": "#eef1f5",
+        "grid": "#d4d9e0",        # row separators and panel borders
+        "accent": "#1565c0",
+        "selection_bg": "#cfe2ff",
+        "selection_fg": "#10243e",
+        "heading_bg": "#e4e8ee",
+        "heading_fg": "#1b1f24",
+    },
+    "dark": {
+        "bg": "#16181d",
+        "surface": "#1e2127",
+        "fg": "#e6e9ef",
+        "muted": "#9aa4b2",
+        "row_odd": "#1e2127",
+        "row_even": "#24282f",
+        "grid": "#333942",
+        "accent": "#4d9fff",
+        "selection_bg": "#2d4a6b",
+        "selection_fg": "#eaf2ff",
+        "heading_bg": "#272b33",
+        "heading_fg": "#e6e9ef",
+    },
+}
+
+
+def theme_palette(name: str) -> dict:
+    """The colours for a theme. An unknown name is light, never a crash."""
+    return dict(THEMES.get(str(name or "").lower(), THEMES["light"]))
+
+
+def should_offer_update(cache) -> bool:
+    """Whether the window should install an update on startup.
+
+    Deliberately strict. The window replaces its own binaries without asking,
+    so every way of being unsure -- no cache, a half-written one, a claim of
+    news with no version to install, `newer` as a string rather than a bool --
+    answers no. Doing nothing is always recoverable; installing when we should
+    not is not.
+    """
+    if not isinstance(cache, dict):
+        return False
+    if cache.get("newer") is not True:
+        return False
+    return bool(str(cache.get("latest") or "").strip())
+
+
+def auto_update_enabled(state_dir: str) -> bool:
+    """Install new releases on startup? On by default, switchable off.
+
+    'Without confirmation' is the default the brief asked for, not a life
+    sentence: someone who does not want their binaries replaced on startup
+    has to be able to say so.
+    """
+    value = (load_settings(state_dir).get("updates") or {}).get("auto_install")
+    return value is not False
+
+
+def read_update_cache(state_dir: str) -> dict:
+    """What the last release check found. Missing or broken reads as empty."""
+    try:
+        with open(os.path.join(state_dir, "update.json"), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def read_update_progress(path: str) -> dict:
+    """One poll of the updater's progress file, as something displayable.
+
+    The updater writes atomically, but the window can look before the first
+    write lands -- and a reader that raised there would take the dialog down
+    with it. A missing or half-written file is 'starting', never 'finished'.
+    """
+    raw = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            loaded = json.load(f)
+        if isinstance(loaded, dict):
+            raw = loaded
+    except Exception:  # noqa: BLE001
+        raw = {}
+
+    phase = str(raw.get("phase") or "start")
+    error = raw.get("error") or None
+    try:
+        percent = float(raw.get("percent") or 0.0)
+    except (TypeError, ValueError):
+        percent = 0.0
+    try:
+        speed = int(raw.get("speed_bps") or 0)
+    except (TypeError, ValueError):
+        speed = 0
+    done = raw.get("done") is True
+
+    if error:
+        label = "Aktualizace selhala: %s" % error
+    elif not raw:
+        label = "Připravuji aktualizaci…"
+    elif done:
+        label = "Hotovo"
+    else:
+        names = {
+            "check": "Zjišťuji verzi",
+            "download": "Stahuji",
+            "verify": "Ověřuji kontrolní součet",
+            "unpack": "Rozbaluji",
+            "swap": "Instaluji",
+        }
+        label = names.get(phase, phase)
+        if percent > 0:
+            label += " %.0f %%" % percent
+        rate = fmt_speed(speed)
+        if rate:
+            label += "  (%s)" % rate
+
+    return {"phase": phase, "percent": percent, "speed_bps": speed,
+            "done": done, "error": error, "label": label}
+
+
+def _dialog_update(parent, engine: str, state_dir: str, latest: str):
+    """The install window: progress, no question asked.
+
+    It drives `idm update --progress-file` as a separate process and polls the
+    file it writes, rather than doing the work in the Tk thread -- an update
+    that froze the window for the length of a download would look like a
+    crash, and a swap half-done inside a process that is about to be replaced
+    is worse than that.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+
+    win = tk.Toplevel(parent)
+    win.title("Aktualizace IDM")
+    win.transient(parent)
+    win.resizable(False, False)
+    frame = ttk.Frame(win, padding=14)
+    frame.pack(fill="both", expand=True)
+    ttk.Label(frame, text="Instaluji verzi %s" % latest).pack(anchor="w")
+    bar = ttk.Progressbar(frame, length=320, mode="determinate", maximum=100)
+    bar.pack(fill="x", pady=(8, 6))
+    status = tk.StringVar(value="Připravuji aktualizaci…")
+    ttk.Label(frame, textvariable=status).pack(anchor="w")
+    close = ttk.Button(frame, text="Zavřít", command=win.destroy, state="disabled")
+    close.pack(anchor="e", pady=(10, 0))
+
+    progress_file = os.path.join(state_dir, "update-progress.json")
+    try:
+        os.remove(progress_file)
+    except OSError:
+        pass
+
+    kwargs = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    if os.name == "nt":
+        kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
+    try:
+        proc = subprocess.Popen(
+            [engine, "update", "--progress-file", progress_file], **kwargs
+        )
+    except Exception as e:  # noqa: BLE001
+        status.set("Aktualizaci nelze spustit: %s" % e)
+        close.configure(state="normal")
+        return win
+
+    def poll():
+        if not win.winfo_exists():
+            return
+        p = read_update_progress(progress_file)
+        bar["value"] = p["percent"]
+        status.set(p["label"])
+        finished = p["done"] or proc.poll() is not None
+        if finished:
+            # The process can exit before its last write is seen; one more
+            # look keeps "Hotovo" from being reported as "Připravuji".
+            p = read_update_progress(progress_file)
+            status.set(p["label"] if p.get("done") or p.get("error")
+                       else "Hotovo")
+            if not p.get("error"):
+                bar["value"] = 100
+                ttk.Label(
+                    frame,
+                    text="Nová verze se projeví po restartu okna.",
+                ).pack(anchor="w", pady=(6, 0))
+            close.configure(state="normal")
+            return
+        win.after(400, poll)
+
+    win.after(200, poll)
+    return win
+
+
+def _theme_label(name: str) -> str:
+    """The toggle's caption: what the click leads to, not where you are."""
+    return "Tmavý motiv" if str(name).lower() == "light" else "Světlý motiv"
+
+
+def next_theme(name: str) -> str:
+    """What the toggle switches to. Anything that is not dark becomes dark."""
+    return "light" if str(name or "").lower() == "dark" else "dark"
+
+
+def load_theme(state_dir: str) -> str:
+    """The remembered theme, defaulting to light."""
+    value = (load_settings(state_dir).get("appearance") or {}).get("theme")
+    return "dark" if str(value or "").lower() == "dark" else "light"
+
+
+def save_theme(state_dir: str, name: str) -> dict:
+    s = load_settings(state_dir)
+    s.setdefault("appearance", {})["theme"] = (
+        "dark" if str(name or "").lower() == "dark" else "light"
+    )
+    save_settings(state_dir, s)
+    return s
+
 
 # Toolbar buttons, in IDM order.
 TOOLBAR = [
@@ -101,22 +338,23 @@ TOOLBAR = [
 _ICON_CACHE = {}
 
 
-def _icon(color, shape="square", size=16, master=None):
-    """Return a Tk PhotoImage for a small coloured icon (cached).
+def _shade(rgb, factor):
+    """Lighten (factor > 1) or darken (factor < 1) a colour, clamped."""
+    return tuple(max(0, min(255, int(c * factor))) for c in rgb)
 
-    Draws a simple but recognisable glyph so the toolbar/tree look like IDM
-    instead of bare text buttons. Falls back to None if PIL is unavailable.
+
+def _glyph_mask(shape: str, size: int):
+    """The glyph as an 8-bit mask: 255 inside, 0 outside.
+
+    One mask per shape, drawn once, is what lets the shading below be written
+    a single time instead of per glyph. Adding a shape therefore cannot forget
+    to be shaded.
     """
-    key = (color, shape, size)
-    if key in _ICON_CACHE:
-        return _ICON_CACHE[key]
-    try:
-        from PIL import Image, ImageDraw, ImageTk
-    except Exception:  # noqa: BLE001
-        _ICON_CACHE[key] = None
-        return None
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
+    from PIL import Image, ImageDraw
+
+    m = Image.new("L", (size, size), 0)
+    d = ImageDraw.Draw(m)
+    color = 255
     if shape == "arrow_down":
         d.polygon([(size // 2, size - 2), (2, 6), (size - 2, 6)], fill=color)
         d.rectangle([size // 2 - 2, 1, size // 2 + 2, 8], fill=color)
@@ -147,8 +385,110 @@ def _icon(color, shape="square", size=16, master=None):
         d.line([2, size // 2, size - 2, size // 2], fill=color, width=3)
     else:  # square
         d.rectangle([2, 2, size - 2, size - 2], fill=color)
+    return m
+
+
+def icon_image(color, shape: str = "square", size: int = 16, depth: bool = True):
+    """Render an icon as a PIL image. `depth=False` gives the old flat glyph.
+
+    The depth is three things, in this order: a soft shadow under the glyph, a
+    body lit from above (a vertical gradient from a lightened to a darkened
+    version of the colour), and a highlight along the upper edge. Because they
+    are applied through the shape's MASK, every glyph gets them -- including
+    any added later.
+
+    Drawn at 4x and reduced, so the gradient and the shadow do not land on
+    16 whole pixels and look like stairs.
+    """
+    from PIL import Image, ImageFilter
+
+    scale = 4
+    big = size * scale
+    # The glyph geometry is written in nominal pixels (a 3px-wide "plus"
+    # stroke, a 2px inset). Drawing it straight into a 4x canvas would keep
+    # those numbers literal, so the stroke would come back from the reduction
+    # as a quarter of a pixel -- which is how this first came out blank.
+    # Draw at nominal size, then enlarge the MASK.
+    mask = _glyph_mask(shape, size).resize((big, big), Image.LANCZOS)
+    rgb = _hex_to_rgb(color)
+
+    out = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    if not depth:
+        body = Image.new("RGBA", (big, big), rgb + (255,))
+        out.paste(body, (0, 0), mask)
+        return out.resize((size, size), Image.LANCZOS)
+
+    # 1) Shadow: the mask, offset down-right, blurred, in translucent black.
+    shadow = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    shadow.paste((0, 0, 0, 110), (0, 0), mask)
+    shadow = shadow.transform(
+        (big, big), Image.AFFINE, (1, 0, -scale, 0, 1, -scale),
+        resample=Image.BILINEAR,
+    ).filter(ImageFilter.GaussianBlur(scale * 0.7))
+    out = Image.alpha_composite(out, shadow)
+
+    # 2) Body: lit from above.
+    top, bottom = _shade(rgb, 1.45), _shade(rgb, 0.62)
+    grad = Image.new("RGBA", (1, big))
+    for y in range(big):
+        t = y / max(1, big - 1)
+        grad.putpixel((0, y), tuple(
+            int(a + (b - a) * t) for a, b in zip(top, bottom)
+        ) + (255,))
+    body = grad.resize((big, big))
+    lit = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    lit.paste(body, (0, 0), mask)
+    out = Image.alpha_composite(out, lit)
+
+    # 3) Highlight: the sliver where the body stands above its own edge.
+    #
+    # Composited, never pasted. paste() with a translucent source writes that
+    # source's alpha THROUGH the mask, so on a thin glyph -- the "plus" is
+    # three pixels wide -- the rim covers nearly the whole stroke and the body
+    # ends up 35% transparent. alpha_composite lays the gloss on top and
+    # leaves the body's own alpha alone.
+    erode = 2 * (scale // 2) + 1
+    inner = mask.filter(ImageFilter.MinFilter(erode))
+    rim = Image.new("L", (big, big))
+    rim.paste(mask, (0, 0))
+    rim.paste(0, (0, 0), inner)
+    rim = rim.transform(
+        (big, big), Image.AFFINE, (1, 0, scale // 2, 0, 1, scale // 2),
+        resample=Image.BILINEAR,
+    )
+    gloss = Image.new("RGBA", (big, big), (255, 255, 255, 0))
+    gloss.putalpha(rim.point(lambda v: v * 90 // 255))
+    white = Image.new("RGBA", (big, big), (255, 255, 255, 255))
+    white.putalpha(gloss.getchannel("A"))
+    out = Image.alpha_composite(out, white)
+
+    return out.resize((size, size), Image.LANCZOS)
+
+
+def _hex_to_rgb(color):
+    """#rrggbb -> (r, g, b). A tuple is passed through."""
+    if isinstance(color, (tuple, list)):
+        return tuple(color[:3])
+    v = str(color).lstrip("#")
+    return tuple(int(v[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _icon(color, shape="square", size=16, master=None):
+    """Return a Tk PhotoImage for a small coloured icon (cached).
+
+    Draws a simple but recognisable glyph so the toolbar/tree look like IDM
+    instead of bare text buttons. Falls back to None if PIL is unavailable.
+    """
+    key = (color, shape, size)
+    if key in _ICON_CACHE:
+        return _ICON_CACHE[key]
     try:
-        ph = ImageTk.PhotoImage(img, master=master)
+        from PIL import ImageTk
+    except Exception:  # noqa: BLE001
+        _ICON_CACHE[key] = None
+        return None
+    try:
+        ph = ImageTk.PhotoImage(icon_image(color, shape, size), master=master)
     except Exception:  # noqa: BLE001
         ph = None
     _ICON_CACHE[key] = ph
@@ -333,6 +673,40 @@ class Api:
             return False
 
 
+def fmt_speed(bps) -> str:
+    """A transfer rate. Empty for a standing start -- "0 MB/s" is noise.
+
+    The column heading says MB/s, which is what a download is measured in, but
+    a 64 kB/s line deserves to say so rather than read "0.1 MB/s".
+    """
+    try:
+        v = float(bps or 0)
+    except (TypeError, ValueError):
+        return ""
+    if v < 1:
+        return ""
+    if v < 1024:
+        return f"{v:.0f} B/s"
+    if v < 1024 * 1024:
+        return f"{v / 1024:.0f} KB/s"
+    return f"{v / (1024 * 1024):.1f} MB/s"
+
+
+def fmt_eta(seconds) -> str:
+    """Time remaining. Empty when unknown: a blank cell beats a made-up one."""
+    try:
+        v = int(seconds or 0)
+    except (TypeError, ValueError):
+        return ""
+    if v <= 0:
+        return ""
+    if v < 60:
+        return f"{v}s"
+    if v < 3600:
+        return f"{v // 60}m {v % 60}s"
+    return f"{v // 3600}h {(v % 3600) // 60}m"
+
+
 def fmt_size(n) -> str:
     if not n:
         return "-"
@@ -377,6 +751,11 @@ def category_of(url: str) -> str:
 # decoration: values survive a restart and the ones that map to engine flags
 # are actually used when a download is added.
 DEFAULT_SETTINGS = {
+    # Window appearance. Kept out of "general" because it is the user's taste,
+    # not behaviour, and Options groups those separately.
+    "appearance": {
+        "theme": "light",
+    },
     "general": {
         "launch_on_startup": True,
         "integrate_browsers": True,
@@ -1231,8 +1610,11 @@ _SORT_KEYS = {
     "size": lambda it: int(it.get("total") or 0),
     "status": lambda it: str(it.get("status", "")).lower(),
     "speed": lambda it: float(it.get("speed_bps") or 0),
-    "time": lambda it: float(it.get("time_left_s") or 0),
+    "eta": lambda it: float(it.get("time_left_s") or 0),
     "queue": lambda it: str(it.get("status", "")) in ("running", "pending"),
+    "url": lambda it: str(it.get("url", "")).lower(),
+    "category": lambda it: item_category({}, it.get("url", "")).lower(),
+    "description": lambda it: str(it.get("description") or "").lower(),
 }
 
 
@@ -3162,18 +3544,93 @@ def format_labels(formats: list) -> list:
     return out
 
 
-def row_values(it: dict) -> tuple:
-    """One value per entry in COLUMNS, for a single item from /api/items."""
+def apply_theme(root, name: str) -> dict:
+    """Paint the whole window in `name`. Returns the palette it applied.
+
+    ttk's built-in themes mostly ignore colour options -- "clam" is the one
+    that honours them on every platform, so it is the base even on Windows,
+    where the native theme would quietly drop half of this.
+    """
+    from tkinter import ttk
+
+    p = theme_palette(name)
+    style = ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except Exception:  # noqa: BLE001
+        pass
+
+    root.configure(background=p["bg"])
+    style.configure(".", background=p["bg"], foreground=p["fg"],
+                    fieldbackground=p["surface"], bordercolor=p["grid"],
+                    lightcolor=p["bg"], darkcolor=p["bg"])
+    for widget in ("TFrame", "TLabelframe", "TPanedwindow", "TNotebook"):
+        style.configure(widget, background=p["bg"])
+    style.configure("TLabel", background=p["bg"], foreground=p["fg"])
+    style.configure("TLabelframe.Label", background=p["bg"], foreground=p["fg"])
+    style.configure("TButton", background=p["surface"], foreground=p["fg"],
+                    bordercolor=p["grid"], focuscolor=p["accent"])
+    style.map("TButton",
+              background=[("active", p["heading_bg"]), ("pressed", p["grid"])])
+    style.configure("TCheckbutton", background=p["bg"], foreground=p["fg"])
+    style.configure("TRadiobutton", background=p["bg"], foreground=p["fg"])
+    for entry in ("TEntry", "TCombobox", "TSpinbox"):
+        style.configure(entry, fieldbackground=p["surface"], foreground=p["fg"],
+                        insertcolor=p["fg"], bordercolor=p["grid"],
+                        arrowcolor=p["fg"])
+    style.configure("TProgressbar", background=p["accent"],
+                    troughcolor=p["surface"], bordercolor=p["grid"])
+    style.configure("TScrollbar", background=p["surface"],
+                    troughcolor=p["bg"], arrowcolor=p["fg"],
+                    bordercolor=p["grid"])
+    style.configure("Treeview", background=p["surface"],
+                    fieldbackground=p["surface"], foreground=p["fg"],
+                    bordercolor=p["grid"], rowheight=22)
+    style.configure("Treeview.Heading", background=p["heading_bg"],
+                    foreground=p["heading_fg"], bordercolor=p["grid"],
+                    relief="raised")
+    style.map("Treeview.Heading", background=[("active", p["grid"])])
+    style.map("Treeview",
+              background=[("selected", p["selection_bg"])],
+              foreground=[("selected", p["selection_fg"])])
+    return p
+
+
+def tag_rows(tree, palette: dict) -> None:
+    """Configure the two striping tags on a Treeview.
+
+    This is as close to "gridlines" as ttk gets: the Treeview has no element
+    for cell borders, so a row can only be coloured whole. Alternating shades
+    let the eye follow a row across the width, which is what the lines were
+    for. Real per-cell rules would mean drawing the table on a Canvas instead
+    of using Treeview at all.
+    """
+    tree.tag_configure("odd", background=palette["row_odd"],
+                       foreground=palette["fg"])
+    tree.tag_configure("even", background=palette["row_even"],
+                       foreground=palette["fg"])
+
+
+def row_values(it: dict, settings: dict = None) -> tuple:
+    """One value per entry in COLUMNS, for a single item from /api/items.
+
+    `settings` is only needed for the Category cell (custom categories win
+    over the built-in extension map); callers without any pass nothing and get
+    the built-in answer.
+    """
     dl = it.get("downloaded") or 0
     total = it.get("total") or 0
     status = it.get("status", "")
+    url = it.get("url", "")
     return (
-        basename(it.get("url", "")),
+        basename(url),
+        item_category(settings or {}, url),
         f"{fmt_size(dl)} / {fmt_size(total)}" if total else fmt_size(dl),
         status,
-        it.get("speed") or "",
-        it.get("time_left") or "",
+        fmt_speed(it.get("speed_bps")),
+        fmt_eta(it.get("time_left_s")),
         "*" if status in ("running", "pending") else "",
+        url,
         it.get("description") or "",
     )
 
@@ -3506,10 +3963,18 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
 
     root = tk.Tk()
     root.title("Internet Download Manager")
-    root.geometry("900x520")
-    root.minsize(720, 400)
+    root.geometry("1040x560")
+    root.minsize(820, 420)
 
     w = {}  # widget registry, used by --selftest-dump
+
+    # Paint before anything is built: ttk styles are global, so a widget
+    # created afterwards picks them up, while one created before would keep
+    # the platform default until it is redrawn.
+    theme_name = load_theme(state_dir)
+    palette = apply_theme(root, theme_name)
+    w["theme"] = theme_name
+    w["palette"] = palette
 
     # --- toolbar (above the list, like IDM) ---
     toolbar = ttk.Frame(root, padding=(6, 6, 6, 2))
@@ -3544,6 +4009,21 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     w["aria2_var"] = aria2_var
     w["aria2_check"] = ttk.Checkbutton(search_row, text="Via aria2", variable=aria2_var)
     w["aria2_check"].pack(side="left", padx=(8, 0))
+
+    # Theme toggle. One button rather than a menu: there are two themes, and
+    # the label says which one the click leads to.
+    def _toggle_theme():
+        nxt = next_theme(w["theme"])
+        w["theme"] = nxt
+        w["palette"] = apply_theme(root, nxt)
+        tag_rows(w["list"], w["palette"])
+        save_theme(state_dir, nxt)
+        w["theme_button"].configure(text=_theme_label(nxt))
+
+    w["theme_button"] = ttk.Button(
+        search_row, text=_theme_label(theme_name), command=_toggle_theme, width=10
+    )
+    w["theme_button"].pack(side="left", padx=(8, 0))
 
     # --- body: category tree LEFT, download list RIGHT ---
     body = ttk.Panedwindow(root, orient="horizontal")
@@ -3605,6 +4085,8 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         listview.column(key, width=width, anchor="w")
     listview.pack(fill="both", expand=True)
     w["list"] = listview
+    # The striping tags have to exist before the first refresh fills rows.
+    tag_rows(listview, palette)
     body.add(right, weight=4)
 
     # --- download-list context menu (right click), like IDM ---
@@ -3965,21 +4447,29 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         if view["sort"]:
             items = sort_items(items, view["sort"], view["reverse"])
         seen = set()
-        for it in items:
+        # The Category cell reads the user's custom categories, so the same
+        # snapshot of settings the view filter used is handed along.
+        row_settings = load_settings(state_dir)
+        for row, it in enumerate(items):
             try:
                 iid = str(it["id"])
                 dl = it.get("downloaded") or 0
                 total = it.get("total") or 0
                 st = it.get("status", "")
                 # One value per column in COLUMNS; the id lives in the iid.
-                vals = row_values(it)
+                vals = row_values(it, row_settings)
             except Exception:  # noqa: BLE001
                 continue
             seen.add(iid)
+            # Striping is positional, so it has to be reapplied on every pass:
+            # a row that moves (a sort, a filter, a deletion above it) changes
+            # parity, and a tag left from its old position would make two
+            # neighbours share a shade.
+            stripe = ("odd",) if row % 2 else ("even",)
             if listview.exists(iid):
-                listview.item(iid, values=vals)
+                listview.item(iid, values=vals, tags=stripe)
             else:
-                listview.insert("", "end", iid=iid, values=vals)
+                listview.insert("", "end", iid=iid, values=vals, tags=stripe)
             if st == "running":
                 progress["value"] = (dl / total * 100.0) if total else 0.0
         for iid in list(listview.get_children()):
@@ -5902,6 +6392,30 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
 
     apply_items = _w["apply_items"]
     status_var = _w["status_var"]
+
+    # A newer release found by an earlier check installs itself now, with the
+    # progress on screen. The check that filled the cache is fired off at the
+    # same time, so the NEXT launch knows about today's release -- asking
+    # GitHub synchronously here would delay every start by a round trip, for
+    # news that is almost never there.
+    if auto_update_enabled(args.state_dir):
+        cache = read_update_cache(args.state_dir)
+        if should_offer_update(cache):
+            try:
+                _dialog_update(root, args.engine, args.state_dir,
+                               str(cache.get("latest")))
+            except Exception as e:  # noqa: BLE001
+                print("[!] aktualizacni okno se neotevrelo: %s" % e,
+                      file=sys.stderr)
+        else:
+            try:
+                kwargs = {"stdout": subprocess.DEVNULL,
+                          "stderr": subprocess.DEVNULL}
+                if os.name == "nt":
+                    kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
+                subprocess.Popen([args.engine, "update", "--check"], **kwargs)
+            except Exception:  # noqa: BLE001
+                pass  # no network, no release, no matter
 
     # --screenshot comes LAST, once there is something worth photographing.
     # Taken right after build_window() it caught the window before its first

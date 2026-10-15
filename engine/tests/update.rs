@@ -1,0 +1,358 @@
+// `idm update` — the self-update path.
+//
+// The engine is a downloader, so it downloads its own release: fetch the tag
+// from the release API, pull the archive, verify the published .sha256, unpack
+// to a staging directory and only then swap bin/ gui/ assets/ into place. The
+// previous versions are kept next door, because an update that cannot be
+// undone is a trap -- "it installed itself and now it is broken" has to have
+// an answer.
+//
+// Nothing here touches the network: IDM_UPDATE_API and IDM_UPDATE_BASE point
+// the engine at a local server.
+
+use std::io::{Read, Write};
+use std::net::TcpListener;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::thread;
+
+const IDM: &str = env!("CARGO_BIN_EXE_idm");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+fn unique_dir(tag: &str) -> PathBuf {
+    static C: AtomicU64 = AtomicU64::new(0);
+    let n = C.fetch_add(1, Ordering::SeqCst);
+    let d = std::env::temp_dir().join(format!("idm_upd_{}_{}_{}", tag, std::process::id(), n));
+    std::fs::create_dir_all(&d).unwrap();
+    d
+}
+
+/// A plausible installation: what install.sh leaves behind.
+fn fake_install(version: &str) -> PathBuf {
+    let dir = unique_dir("inst");
+    for sub in ["bin", "gui", "assets", "state", "extension"] {
+        std::fs::create_dir_all(dir.join(sub)).unwrap();
+    }
+    std::fs::write(dir.join("bin").join("idm"), "OLD-ENGINE").unwrap();
+    std::fs::write(dir.join("bin").join("idm-host"), "OLD-HOST").unwrap();
+    std::fs::write(dir.join("gui").join("idm_gui.py"), "OLD-GUI").unwrap();
+    std::fs::write(dir.join("assets").join("idm.png"), "OLD-ICON").unwrap();
+    // State must survive every path through this code.
+    std::fs::write(dir.join("state").join("queue.json"), "[{\"id\":\"mine\"}]").unwrap();
+    std::fs::write(dir.join("state").join("secrets.json"), "{\"v\":1}").unwrap();
+    std::fs::write(dir.join("VERSION"), format!("{version}\n")).unwrap();
+    dir
+}
+
+/// The release archive, built the way release.yml builds it (flat, plus assets/).
+fn fake_archive() -> (PathBuf, String) {
+    let dir = unique_dir("arch");
+    let stage = dir.join("dist");
+    std::fs::create_dir_all(stage.join("assets")).unwrap();
+    std::fs::write(stage.join("idm"), "NEW-ENGINE").unwrap();
+    std::fs::write(stage.join("idm-host"), "NEW-HOST").unwrap();
+    std::fs::write(stage.join("idm_gui.py"), "NEW-GUI").unwrap();
+    std::fs::write(stage.join("assets").join("idm.png"), "NEW-ICON").unwrap();
+    let tar = dir.join("release.tar.gz");
+    let ok = Command::new("tar")
+        .arg("-czf")
+        .arg(&tar)
+        .arg("-C")
+        .arg(&stage)
+        .arg(".")
+        .status()
+        .expect("tar")
+        .success();
+    assert!(ok, "tar failed");
+    let sha = sha256_hex(&std::fs::read(&tar).unwrap());
+    (tar, sha)
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(bytes);
+    h.finalize().iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Serves the release API and the archive. `sha` is what the .sha256 file will
+/// claim, so a test can publish a wrong one on purpose.
+fn serve(tag: &str, archive: &Path, sha: &str) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = format!("http://{}", listener.local_addr().unwrap());
+    let tag = tag.to_string();
+    let body = std::fs::read(archive).unwrap();
+    let sha = sha.to_string();
+    thread::spawn(move || {
+        for mut s in listener.incoming().flatten() {
+            let mut buf = [0u8; 2048];
+            let n = s.read(&mut buf).unwrap_or(0);
+            let req = String::from_utf8_lossy(&buf[..n]).to_string();
+            let path = req.split_whitespace().nth(1).unwrap_or("/").to_string();
+            let (ctype, payload): (&str, Vec<u8>) = if path.contains("releases/latest") {
+                (
+                    "application/json",
+                    format!("{{\"tag_name\":\"{tag}\",\"name\":\"IDM {tag}\"}}").into_bytes(),
+                )
+            } else if path.ends_with(".sha256") {
+                (
+                    "text/plain",
+                    format!("{sha}  idm.tar.gz\n").into_bytes(),
+                )
+            } else {
+                ("application/octet-stream", body.clone())
+            };
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                ctype,
+                payload.len()
+            );
+            let _ = s.write_all(head.as_bytes());
+            let _ = s.write_all(&payload);
+        }
+    });
+    addr
+}
+
+fn run(dir: &Path, args: &[&str], api: &str, base: &str) -> (bool, String) {
+    let out = Command::new(IDM)
+        .args(args)
+        .env("IDM_DIR", dir)
+        .env("IDM_UPDATE_API", format!("{api}/repos/x/y/releases/latest"))
+        .env("IDM_UPDATE_BASE", base)
+        .output()
+        .expect("spawn idm");
+    let mut s = String::from_utf8_lossy(&out.stdout).to_string();
+    s.push_str(&String::from_utf8_lossy(&out.stderr));
+    (out.status.success(), s)
+}
+
+#[test]
+fn check_reports_a_newer_release_without_touching_anything() {
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update", "--check"], &addr, &addr);
+    assert!(ok, "check must succeed: {out}");
+    assert!(out.contains("9.9.9"), "must name the new version: {out:?}");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(),
+        "OLD-ENGINE",
+        "--check must not install anything",
+    );
+}
+
+#[test]
+fn check_says_so_when_there_is_nothing_newer() {
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve(&format!("v{VERSION}"), &archive, &sha);
+    let (ok, out) = run(&dir, &["update", "--check"], &addr, &addr);
+    assert!(ok, "check must succeed: {out}");
+    assert!(
+        out.to_lowercase().contains("aktuální") || out.to_lowercase().contains("up to date"),
+        "must say it is current: {out:?}",
+    );
+}
+
+#[test]
+fn check_caches_its_answer_so_the_cli_can_tell_you_without_a_request() {
+    // A download must not pay for a release lookup. The notice the CLI prints
+    // comes from this cache, written by whoever checked last.
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, _) = run(&dir, &["update", "--check"], &addr, &addr);
+    assert!(ok);
+    let cache = std::fs::read_to_string(dir.join("state").join("update.json"))
+        .expect("the check must leave a cache in state/");
+    assert!(cache.contains("9.9.9"), "cache must hold the tag: {cache}");
+}
+
+#[test]
+fn update_swaps_the_program_and_keeps_the_previous_version() {
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update"], &addr, &addr);
+    assert!(ok, "update must succeed: {out}");
+
+    assert_eq!(std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(), "NEW-ENGINE");
+    assert_eq!(std::fs::read_to_string(dir.join("bin").join("idm-host")).unwrap(), "NEW-HOST");
+    assert_eq!(std::fs::read_to_string(dir.join("gui").join("idm_gui.py")).unwrap(), "NEW-GUI");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("assets").join("idm.png")).unwrap(),
+        "NEW-ICON",
+    );
+    assert_eq!(std::fs::read_to_string(dir.join("VERSION")).unwrap().trim(), "v9.9.9");
+
+    // The installed binary has to stay executable, or the next launch is dead.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(dir.join("bin").join("idm")).unwrap().permissions().mode();
+        assert_ne!(mode & 0o111, 0, "the new engine must be executable (mode {mode:o})");
+    }
+
+    // Keeping the old one is what makes --rollback possible.
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin.old").join("idm")).unwrap(),
+        "OLD-ENGINE",
+    );
+    // And the staging directory must not be left lying around.
+    assert!(!dir.join(".update").exists(), "staging must be cleaned up");
+}
+
+#[test]
+fn update_never_touches_the_queue_or_the_vault() {
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update"], &addr, &addr);
+    assert!(ok, "{out}");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("state").join("queue.json")).unwrap(),
+        "[{\"id\":\"mine\"}]",
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("state").join("secrets.json")).unwrap(),
+        "{\"v\":1}",
+    );
+}
+
+#[test]
+fn a_wrong_checksum_leaves_the_installation_alone() {
+    // The one thing standing between a tampered archive and the user's
+    // machine. It must fail BEFORE anything is swapped, not half way.
+    let dir = fake_install(VERSION);
+    let (archive, _) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &"0".repeat(64));
+    let (ok, out) = run(&dir, &["update"], &addr, &addr);
+    assert!(!ok, "a bad checksum must fail the update: {out}");
+    assert!(
+        out.to_lowercase().contains("sou\u{10d}et") || out.to_lowercase().contains("checksum"),
+        "the error must say what failed: {out:?}",
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(),
+        "OLD-ENGINE",
+        "nothing may be swapped when the archive is not trusted",
+    );
+    assert!(!dir.join("bin.old").exists(), "and no rollback copy either");
+}
+
+#[test]
+fn rollback_puts_the_previous_version_back() {
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    assert!(run(&dir, &["update"], &addr, &addr).0);
+
+    let (ok, out) = run(&dir, &["update", "--rollback"], &addr, &addr);
+    assert!(ok, "rollback must succeed: {out}");
+    assert_eq!(std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(), "OLD-ENGINE");
+    assert_eq!(std::fs::read_to_string(dir.join("gui").join("idm_gui.py")).unwrap(), "OLD-GUI");
+    assert_eq!(std::fs::read_to_string(dir.join("VERSION")).unwrap().trim(), VERSION);
+}
+
+#[test]
+fn rollback_with_nothing_to_roll_back_to_is_an_honest_error() {
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update", "--rollback"], &addr, &addr);
+    assert!(!ok, "there is no previous version: {out}");
+    assert_eq!(std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(), "OLD-ENGINE");
+}
+
+#[test]
+fn a_progress_file_reports_percent_and_speed_for_the_window() {
+    // The GUI shows an install dialog with a progress bar, so the numbers have
+    // to come from somewhere structured. Polling a file keeps the window and
+    // the updater independent processes.
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let prog = dir.join("state").join("progress.json");
+    let (ok, out) = run(
+        &dir,
+        &["update", "--progress-file", prog.to_str().unwrap()],
+        &addr,
+        &addr,
+    );
+    assert!(ok, "{out}");
+    let text = std::fs::read_to_string(&prog).expect("progress file must exist");
+    for key in ["phase", "percent", "speed_bps", "done"] {
+        assert!(text.contains(key), "progress must report {key}: {text}");
+    }
+    assert!(text.contains("\"done\":true"), "the last write must be final: {text}");
+}
+
+#[test]
+fn a_plain_download_mentions_a_newer_version_without_asking_the_network() {
+    // The CLI must not pay a release lookup per download, and it must not go
+    // quiet about an update either. The notice comes from the cache that
+    // `--check` (or the window) wrote.
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    std::fs::write(
+        dir.join("state").join("update.json"),
+        format!("{{\"checked_at\":{now},\"installed\":\"{VERSION}\",\"latest\":\"v9.9.9\",\"newer\":true}}"),
+    )
+    .unwrap();
+
+    let out = dir.join("f.bin");
+    let res = Command::new(IDM)
+        .arg(format!("{addr}/file.bin"))
+        .arg("-o")
+        .arg(&out)
+        .env("IDM_DIR", &dir)
+        // No update endpoints: the notice must not need them.
+        .env_remove("IDM_UPDATE_API")
+        .env_remove("IDM_UPDATE_BASE")
+        .output()
+        .expect("spawn idm");
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&res.stdout),
+        String::from_utf8_lossy(&res.stderr)
+    );
+    assert!(res.status.success(), "the download must still succeed: {text}");
+    assert!(out.is_file(), "and write the file: {text}");
+    assert!(text.contains("9.9.9"), "it must mention the new version: {text:?}");
+    assert!(text.contains("idm update"), "and how to get it: {text:?}");
+}
+
+#[test]
+fn a_stale_cache_says_nothing() {
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    // Checked a year ago: the answer is not worth repeating as news.
+    std::fs::write(
+        dir.join("state").join("update.json"),
+        format!("{{\"checked_at\":1,\"installed\":\"{VERSION}\",\"latest\":\"v9.9.9\",\"newer\":true}}"),
+    )
+    .unwrap();
+    let out = dir.join("f.bin");
+    let res = Command::new(IDM)
+        .arg(format!("{addr}/file.bin"))
+        .arg("-o")
+        .arg(&out)
+        .env("IDM_DIR", &dir)
+        .output()
+        .expect("spawn idm");
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&res.stdout),
+        String::from_utf8_lossy(&res.stderr)
+    );
+    assert!(res.status.success(), "{text}");
+    assert!(!text.contains("9.9.9"), "a stale cache must stay quiet: {text:?}");
+}
