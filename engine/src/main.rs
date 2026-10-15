@@ -19,6 +19,7 @@ use tokio::sync::{Mutex, Semaphore};
 mod gui;
 mod media;
 mod secrets;
+mod update;
 mod verbs;
 
 #[derive(Parser, Debug)]
@@ -1865,12 +1866,29 @@ async fn main() {
     // The verbs come first: `url` is an optional positional, so clap would
     // read `update` as a URL. Anything that is not a verb falls through
     // untouched.
-    if let Some(code) = verbs::dispatch() {
+    if let Some(code) = verbs::dispatch().await {
         std::process::exit(code);
     }
     let args = Args::parse();
+    let serving = args.serve.is_some();
     if let Err(e) = run(args).await {
         eprintln!("[x] error: {:#}", e);
         std::process::exit(1);
+    }
+    // One line at the end of a finished command, from the cache somebody else
+    // already filled. A download must never pay for a release lookup, and the
+    // long-running server must not interrupt itself with news.
+    if !serving {
+        update_notice();
+    }
+}
+
+/// Mention a newer release if a recent check found one. Silent otherwise —
+/// including when there is no cache at all, which is the normal state on a
+/// machine that has never opened the window.
+fn update_notice() {
+    const WEEK: std::time::Duration = std::time::Duration::from_secs(7 * 24 * 60 * 60);
+    if let Some(tag) = update::cached_notice(&verbs::idm_dir(), WEEK) {
+        eprintln!("[i] je nová verze {tag} — nainstaluj ji: idm update");
     }
 }
