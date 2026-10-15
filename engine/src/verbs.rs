@@ -154,7 +154,7 @@ pub fn uninstall_plan(dir: PathBuf, purge: bool) -> UninstallPlan {
         .unwrap_or_else(|| home.join(".local").join("share"));
     let mut files = vec![
         home.join(".local").join("bin").join("idm"),
-        home.join("Desktop").join("idm.desktop"),
+        desktop_dir(&home).join("idm.desktop"),
     ];
     for app in ["idm-desktop", "idm-download", "idm-scheme"] {
         files.push(data.join("applications").join(format!("{app}.desktop")));
@@ -169,6 +169,46 @@ pub fn uninstall_plan(dir: PathBuf, purge: bool) -> UninstallPlan {
             .map(|f| home.join(f))
             .collect(),
     }
+}
+
+/// The Desktop directory, the way install.sh resolves it. A localized system
+/// puts the icon in ~/Plocha or ~/Schreibtisch, and a hardcoded ~/Desktop
+/// would leave the shortcut behind.
+pub fn desktop_dir(home: &Path) -> PathBuf {
+    let cfg = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".config"));
+    if let Ok(text) = std::fs::read_to_string(cfg.join("user-dirs.dirs")) {
+        if let Some(d) = parse_user_dir(&text, "XDG_DESKTOP_DIR", home) {
+            return d;
+        }
+    }
+    home.join("Desktop")
+}
+
+/// `XDG_DESKTOP_DIR="$HOME/Plocha"` — one shell assignment per line, with the
+/// value quoted and `$HOME` spelled literally.
+fn parse_user_dir(text: &str, key: &str, home: &Path) -> Option<PathBuf> {
+    for line in text.lines() {
+        let line = line.trim();
+        let Some(rest) = line.strip_prefix(key).and_then(|r| r.strip_prefix('=')) else {
+            continue;
+        };
+        let value = rest.trim().trim_matches('"');
+        if value.is_empty() {
+            continue;
+        }
+        let expanded = match value.strip_prefix("$HOME/") {
+            Some(tail) => home.join(tail),
+            None => PathBuf::from(value),
+        };
+        // An unset entry points at $HOME itself; that is not a Desktop.
+        if expanded == home {
+            continue;
+        }
+        return Some(expanded);
+    }
+    None
 }
 
 /// Drop the `# >>> IDM >>>` block, and the loose pre-0.2 lines that came
@@ -330,6 +370,24 @@ fn write_atomic(path: &Path, contents: &str) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_a_localized_desktop_entry() {
+        let home = PathBuf::from("/home/u");
+        let text = "XDG_DOWNLOAD_DIR=\"$HOME/Stazene\"\nXDG_DESKTOP_DIR=\"$HOME/Plocha\"\n";
+        assert_eq!(
+            parse_user_dir(text, "XDG_DESKTOP_DIR", &home),
+            Some(PathBuf::from("/home/u/Plocha")),
+        );
+    }
+
+    #[test]
+    fn an_unset_desktop_entry_is_not_a_desktop() {
+        // `XDG_DESKTOP_DIR="$HOME/"` is how the spec spells "no Desktop";
+        // treating it as one would make us delete out of $HOME.
+        let home = PathBuf::from("/home/u");
+        assert_eq!(parse_user_dir("XDG_DESKTOP_DIR=\"$HOME/\"\n", "XDG_DESKTOP_DIR", &home), None);
+    }
 
     #[test]
     fn strip_rc_block_keeps_unrelated_lines() {

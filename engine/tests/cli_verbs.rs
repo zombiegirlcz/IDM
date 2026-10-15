@@ -143,3 +143,37 @@ fn a_url_that_looks_like_a_verb_is_still_a_url() {
         "must not have run the update verb, got: {out:?}",
     );
 }
+
+#[test]
+fn uninstall_finds_a_localized_desktop_directory() {
+    // install.sh resolves the Desktop through user-dirs.dirs, so on a Czech or
+    // German system the icon is in ~/Plocha or ~/Schreibtisch. Hardcoding
+    // ~/Desktop here would leave the shortcut behind pointing at nothing.
+    let home = unique_dir("home");
+    let cfg = home.join(".config");
+    std::fs::create_dir_all(&cfg).unwrap();
+    std::fs::write(
+        cfg.join("user-dirs.dirs"),
+        "XDG_DOWNLOAD_DIR=\"$HOME/Stazene\"\nXDG_DESKTOP_DIR=\"$HOME/Plocha\"\n",
+    )
+    .unwrap();
+    let desk = home.join("Plocha");
+    std::fs::create_dir_all(&desk).unwrap();
+    std::fs::write(desk.join("idm.desktop"), "[Desktop Entry]\n").unwrap();
+
+    let dir = unique_dir("loc");
+    std::fs::create_dir_all(dir.join("bin")).unwrap();
+    let out = Command::new(IDM)
+        .args(["uninstall", "--yes", "--purge"])
+        .env("IDM_DIR", &dir)
+        .env("HOME", &home)
+        .env("XDG_CONFIG_HOME", &cfg)
+        .output()
+        .expect("spawn idm");
+    assert!(out.status.success());
+    assert!(
+        !desk.join("idm.desktop").exists(),
+        "the localized desktop entry must be removed: {}",
+        String::from_utf8_lossy(&out.stdout),
+    );
+}
