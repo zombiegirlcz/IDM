@@ -102,11 +102,13 @@ rc_write() {
 # directory behind. --purge removes it too.
 
 do_uninstall() {
-  local purge=0 assume_yes=0 a
+  # --yes is accepted and ignored: this entry point never prompts, so that
+  # `bash install.sh --uninstall` keeps working the way it is documented.
+  # `idm uninstall` is the one that asks.
+  local purge=0 a
   for a in "$@"; do
     case "$a" in
       --purge) purge=1 ;;
-      --yes|-y) assume_yes=1 ;;
     esac
   done
   log "odinstalace ($IDM_DIR)"
@@ -152,7 +154,6 @@ do_uninstall() {
   else
     log "hotovo — odstraněno"
   fi
-  [[ "$assume_yes" -eq 1 ]] || true
 }
 
 if [[ "${1:-}" == "--uninstall" ]]; then
