@@ -30,6 +30,15 @@ struct Args {
     #[arg(short, long)]
     output: Option<PathBuf>,
 
+    /// Write a JSON summary of the finished download here
+    ///
+    /// The queue spawns this binary with stdout discarded, so the "done -> X"
+    /// line never reaches it. yt-dlp's merger also picks its own container, so
+    /// the file that appears is often not the one `-o` asked for. This is how
+    /// the caller learns what was really written, and how big it is.
+    #[arg(long)]
+    report: Option<PathBuf>,
+
     /// Number of parallel connections
     #[arg(short = 'n', long, default_value_t = 4)]
     connections: usize,
@@ -814,6 +823,7 @@ async fn run_direct(
 
     let _ = tokio::fs::remove_file(&mpath).await;
     append_history(&args.history, url, &out, read_total, crc);
+    write_report(args.report.as_deref(), &out, read_total, crc);
     println!("[+] done -> {}", out.display());
     Ok(())
 }
@@ -1221,6 +1231,7 @@ async fn run_direct_dynamic(
         anyhow::bail!("size mismatch: expected {}, got {}", total, read_total);
     }
     append_history(&args.history, url, &out, read_total, crc);
+    write_report(args.report.as_deref(), &out, read_total, crc);
     println!("[+] done -> {}", out.display());
     Ok(())
 }
@@ -1365,6 +1376,7 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
 
     let (size, crc) = crc32_file(&out)?;
     append_history(&args.history, url, &out, size, crc);
+    write_report(args.report.as_deref(), &out, size, crc);
     println!("[*] downloaded   : {} bytes", size);
     println!("[*] crc32        : {:08x}", crc);
     println!("[+] done -> {}", out.display());
@@ -1444,10 +1456,47 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
 
     let (size, crc) = crc32_file(&out)?;
     append_history(&args.history, url, &out, size, crc);
+    write_report(args.report.as_deref(), &out, size, crc);
     println!("[*] downloaded   : {} bytes", size);
     println!("[*] crc32        : {:08x}", crc);
     println!("[+] done -> {}", out.display());
     Ok(())
+}
+
+/// Write the finished download's real name and size where the caller asked.
+///
+/// Best-effort in the same sense as the history: a report that cannot be
+/// written must not fail a download that succeeded. Written atomically
+/// (tmp + rename) and 0600, like every other file this project creates, so a
+/// reader never sees a half-written JSON.
+fn write_report(path: Option<&Path>, out: &Path, total: u64, crc: u32) {
+    let path = match path {
+        Some(p) => p,
+        None => return,
+    };
+    let body = serde_json::json!({
+        "file": out.to_string_lossy(),
+        "total": total,
+        "crc32": format!("{:08x}", crc),
+    })
+    .to_string();
+    let tmp = path.with_extension("tmp");
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+    }
+    if std::fs::write(&tmp, body).is_err() {
+        return;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600));
+    }
+    if std::fs::rename(&tmp, path).is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
 }
 
 /// Append one JSON line describing a completed download.
