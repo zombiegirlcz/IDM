@@ -16,7 +16,8 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { removeProfile } from '../rm_profile.mjs';
 import { chromium } from 'playwright-core';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -152,6 +153,6 @@ test('REAL Chromium: click on <a download> -> idm-host -> file with correct CRC'
   } finally {
     await context.close();
     server.close();
-    rmSync(userDataDir, { recursive: true, force: true });
+    removeProfile(userDataDir);
   }
 });

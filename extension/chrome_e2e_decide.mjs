@@ -3,7 +3,8 @@
 // Output is one TAB-separated line — mode, chromium, xvfb, reason — so
 // scripts/test.sh can read it without parsing JSON in bash.
 
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
+import { removeProfile } from './rm_profile.mjs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -48,7 +49,10 @@ function startsHere(bin) {
     // exit 133 (SIGTRAP) is the shape seen on unsupported kernels.
     return false;
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    // The smoke profile is still being flushed by Chromium's helpers;
+    // a plain rmSync races them, and a failed cleanup must not turn a
+    // successful probe into a crashed gate.
+    removeProfile(dir);
   }
 }
 
