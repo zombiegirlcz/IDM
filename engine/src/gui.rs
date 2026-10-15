@@ -881,7 +881,7 @@ async fn run_item(st: Arc<State>, id: u64) {
     if force_media {
         cmd.arg("--force-media");
     }
-    cmd.arg("--yt-dlp").arg(&st.yt_dlp);
+    cmd.arg("--yt-dlp-path").arg(&st.yt_dlp);
     // The child's stdout goes to /dev/null, so this file is the only way back:
     // it says which file was really written (yt-dlp renames) and how big it is.
     let report = report_path(&st.state_path, id);
@@ -1400,7 +1400,7 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
             }
             let mut cmd = Command::new(&st.engine);
             cmd.hide_console();
-            cmd.arg("--list-formats").arg("--yt-dlp").arg(&st.yt_dlp);
+            cmd.arg("--list-formats").arg("--yt-dlp-path").arg(&st.yt_dlp);
             if let Some(c) = v["cookie"].as_str().filter(|s| !s.is_empty()) {
                 cmd.arg("--cookie").arg(c);
             }
