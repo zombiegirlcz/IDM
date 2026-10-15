@@ -233,7 +233,7 @@ def _dialog_update(parent, engine: str, state_dir: str, latest: str):
     import tkinter as tk
     from tkinter import ttk
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Aktualizace IDM")
     win.transient(parent)
     win.resizable(False, False)
@@ -297,6 +297,14 @@ def _theme_label(name: str) -> str:
     return "Tmavý motiv" if str(name).lower() == "light" else "Světlý motiv"
 
 
+def theme_toggle_glyph(name: str) -> str:
+    """Which glyph the toggle wears: it shows the theme the click leads to.
+
+    On a light theme the button offers the dark one, so it wears a moon.
+    """
+    return "moon" if str(name or "").lower() == "light" else "sun"
+
+
 def next_theme(name: str) -> str:
     """What the toggle switches to. Anything that is not dark becomes dark."""
     return "light" if str(name or "").lower() == "dark" else "dark"
@@ -337,6 +345,7 @@ TOOLBAR = [
 # with PIL so we ship no binary assets and still look like the original).
 # --------------------------------------------------------------------------- #
 _ICON_CACHE = {}
+_ICON_USED_PIL = [False]
 
 
 def _shade(rgb, factor):
@@ -474,24 +483,156 @@ def _hex_to_rgb(color):
     return tuple(int(v[i:i + 2], 16) for i in (0, 2, 4))
 
 
-def _icon(color, shape="square", size=16, master=None):
+# --- icons drawn with the standard library ------------------------------------
+#
+# These used to go through PIL.ImageTk, which is a native extension: when the
+# Pillow build does not match the interpreter's Tcl/Tk it raises
+# "bad argument type for built-in operation" and every icon in the program
+# silently became None. Tk 8.6 can take pixel data directly, so nothing outside
+# the standard library is needed and the icons cannot disappear again.
+#
+# A glyph is a list of primitives in a 16x16 nominal grid, scaled on draw.
+# Keeping the shapes as data (not drawing code) means a new icon is a few
+# numbers and the geometry is inspectable in a test.
+
+GLYPHS = {
+    # (kind, *coords) in a 0..16 grid. "rect" x1,y1,x2,y2 | "disc" cx,cy,r
+    # | "tri" x1,y1,x2,y2,x3,y3 | "ring" cx,cy,r_outer,r_inner
+    "plus":      [("rect", 7, 3, 9, 13), ("rect", 3, 7, 13, 9)],
+    "pause":     [("rect", 4, 3, 7, 13), ("rect", 9, 3, 12, 13)],
+    "stop":      [("rect", 4, 4, 12, 12)],
+    "resume":    [("tri", 5, 3, 5, 13, 13, 8)],
+    "arrow_down": [("rect", 7, 2, 9, 9), ("tri", 4, 8, 12, 8, 8, 13)],
+    "arrow_up":  [("rect", 7, 7, 9, 14), ("tri", 4, 8, 12, 8, 8, 3)],
+    "trash":     [("rect", 4, 5, 12, 13), ("rect", 3, 3, 13, 5),
+                  ("rect", 6, 1, 10, 3)],
+    "gear":      [("ring", 8, 8, 6, 3), ("rect", 7, 1, 9, 4),
+                  ("rect", 7, 12, 9, 15), ("rect", 1, 7, 4, 9),
+                  ("rect", 12, 7, 15, 9)],
+    "clock":     [("ring", 8, 8, 7, 5), ("rect", 7, 4, 9, 9),
+                  ("rect", 7, 7, 12, 9)],
+    "folder":    [("rect", 2, 5, 14, 13), ("rect", 2, 3, 7, 5)],
+    "sun":       [("disc", 8, 8, 4), ("rect", 7, 0, 9, 3), ("rect", 7, 13, 9, 16),
+                  ("rect", 0, 7, 3, 9), ("rect", 13, 7, 16, 9),
+                  ("rect", 2, 2, 5, 5), ("rect", 11, 11, 14, 14),
+                  ("rect", 11, 2, 14, 5), ("rect", 2, 11, 5, 14)],
+    # A crescent: a disc with a second disc bitten out of it (see _glyph_mask).
+    "moon":      [("disc", 8, 8, 6), ("cut", 12, 5, 6)],
+    "link":      [("ring", 5, 11, 4, 2), ("ring", 11, 5, 4, 2),
+                  ("rect", 6, 6, 10, 10)],
+    "search":    [("ring", 7, 7, 5, 3), ("rect", 10, 10, 14, 14)],
+}
+
+
+def _glyph_mask(shape: str, size: int) -> list:
+    """Which pixels of a size x size icon belong to `shape`.
+
+    The primitives are specified in a 16x16 grid and scaled here, so the
+    geometry stays in nominal pixels -- the lesson from the 3D icons, where
+    scaling the coordinates instead of the mask produced empty images.
+    """
+    prims = GLYPHS.get(shape) or GLYPHS["folder"]
+    s = size / 16.0
+    mask = [[False] * size for _ in range(size)]
+
+    def fill(test):
+        for y in range(size):
+            for x in range(size):
+                if test(x + 0.5, y + 0.5):
+                    mask[y][x] = True
+
+    def clear(test):
+        for y in range(size):
+            for x in range(size):
+                if test(x + 0.5, y + 0.5):
+                    mask[y][x] = False
+
+    for p in prims:
+        kind = p[0]
+        if kind == "rect":
+            x1, y1, x2, y2 = (v * s for v in p[1:])
+            fill(lambda px, py, x1=x1, y1=y1, x2=x2, y2=y2:
+                 x1 <= px <= x2 and y1 <= py <= y2)
+        elif kind == "disc":
+            cx, cy, r = (v * s for v in p[1:])
+            fill(lambda px, py, cx=cx, cy=cy, r=r:
+                 (px - cx) ** 2 + (py - cy) ** 2 <= r * r)
+        elif kind == "cut":
+            cx, cy, r = (v * s for v in p[1:])
+            clear(lambda px, py, cx=cx, cy=cy, r=r:
+                  (px - cx) ** 2 + (py - cy) ** 2 <= r * r)
+        elif kind == "ring":
+            cx, cy, ro, ri = (v * s for v in p[1:])
+            fill(lambda px, py, cx=cx, cy=cy, ro=ro:
+                 (px - cx) ** 2 + (py - cy) ** 2 <= ro * ro)
+            clear(lambda px, py, cx=cx, cy=cy, ri=ri:
+                  (px - cx) ** 2 + (py - cy) ** 2 <= ri * ri)
+        elif kind == "tri":
+            xs = [p[1] * s, p[3] * s, p[5] * s]
+            ys = [p[2] * s, p[4] * s, p[6] * s]
+
+            def inside(px, py, xs=xs, ys=ys):
+                def side(i, j):
+                    return ((xs[j] - xs[i]) * (py - ys[i])
+                            - (ys[j] - ys[i]) * (px - xs[i]))
+                a, b, c = side(0, 1), side(1, 2), side(2, 0)
+                return (a >= 0 and b >= 0 and c >= 0) or (a <= 0 and b <= 0 and c <= 0)
+
+            fill(inside)
+    return mask
+
+
+def tk_glyph(color, shape="folder", size=16, master=None, bg=""):
+    """A Tk PhotoImage of `shape` in `color`, using only the standard library.
+
+    `bg` is the colour behind the icon. Tk's PhotoImage does support per-pixel
+    transparency, but setting it pixel by pixel is slow enough to be visible at
+    startup; painting the known widget background is both faster and sharper.
+    An empty bg leaves those pixels transparent.
+    """
+    import tkinter as tk
+    img = tk.PhotoImage(width=size, height=size, master=master)
+    mask = _glyph_mask(shape, size)
+    for y in range(size):
+        row = mask[y]
+        x = 0
+        while x < size:
+            on = row[x]
+            start = x
+            while x < size and row[x] == on:
+                x += 1
+            if on:
+                img.put(color, to=(start, y, x, y + 1))
+            elif bg:
+                img.put(bg, to=(start, y, x, y + 1))
+    return img
+
+
+def _icon(color, shape="square", size=16, master=None, bg=""):
     """Return a Tk PhotoImage for a small coloured icon (cached).
 
     Draws a simple but recognisable glyph so the toolbar/tree look like IDM
     instead of bare text buttons. Falls back to None if PIL is unavailable.
     """
-    key = (color, shape, size)
+    key = (color, shape, size, bg)
     if key in _ICON_CACHE:
         return _ICON_CACHE[key]
+    ph = None
+    # The standard library first. PIL gives smoother edges when it works, but
+    # it is the reason every icon once vanished without a word, so it can never
+    # be the only way to get one.
     try:
-        from PIL import ImageTk
-    except Exception:  # noqa: BLE001
-        _ICON_CACHE[key] = None
-        return None
-    try:
-        ph = ImageTk.PhotoImage(icon_image(color, shape, size), master=master)
+        ph = tk_glyph(color, shape, size, master=master, bg=bg)
+        _ICON_USED_PIL[0] = False
     except Exception:  # noqa: BLE001
         ph = None
+    if ph is None:
+        try:
+            from PIL import ImageTk
+            ph = ImageTk.PhotoImage(icon_image(color, shape, size), master=master)
+            _ICON_USED_PIL[0] = True
+        except Exception:  # noqa: BLE001
+            ph = None
     _ICON_CACHE[key] = ph
     return ph
 
@@ -1868,7 +2009,7 @@ def _dialog_category(parent, settings=None):
     from tkinter import ttk, filedialog
 
     s = _deep_merge(DEFAULT_SETTINGS, settings or {})
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Edit category")
     win.geometry("480x300")
 
@@ -2258,7 +2399,7 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir="", project=None):
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("IDM Grabber")
     win.geometry("720x520")
 
@@ -2621,7 +2762,7 @@ def _dialog_add_url(parent):
     import tkinter as tk
     from tkinter import ttk
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Add URL")
     win.geometry("460x170")
     ttk.Label(win, text="URL:").grid(row=0, column=0, sticky="w", padx=8, pady=8)
@@ -2661,7 +2802,7 @@ def _dialog_file_info(parent, url, folder, category, formats=None):
     import tkinter as tk
     from tkinter import ttk
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Download File Info")
     win.geometry("520x380")
     ttk.Label(win, text="File Description:").grid(row=0, column=0, sticky="w", padx=8, pady=6)
@@ -2737,7 +2878,7 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
     if not s["save_to"]["default_dir"] and out_dir:
         s["save_to"]["default_dir"] = out_dir
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Options")
     win.geometry("660x520")
     nb = ttk.Notebook(win)
@@ -3296,7 +3437,7 @@ def _dialog_scheduler(parent, api=None, queue_names=None, state_dir=""):
 
     queues = list(queue_names or DEFAULT_QUEUE_NAMES)
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Scheduler")
     win.geometry("620x430")
 
@@ -3479,7 +3620,7 @@ def _dialog_properties(parent, url, out, description="", on_ok=None):
     import tkinter as tk
     from tkinter import ttk
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Properties")
     win.geometry("460x220")
     ttk.Label(win, text="URL:").grid(row=0, column=0, sticky="w", padx=8, pady=6)
@@ -3574,6 +3715,104 @@ def format_labels(formats: list) -> list:
     return out
 
 
+# Classic (non-ttk) widgets ignore ttk styles completely, and half this
+# program is built from them: 46 tk.Button against 46 ttk.Button, 54 tk.Label,
+# 34 tk.Frame. That is why the dark theme stopped at the main window and every
+# dialog kept its platform grey. The table says what each class gets.
+_TK_WIDGET_ROLES = {
+    # content sits on "surface", chrome on "bg"
+    "Entry": "field",
+    "Text": "field",
+    "Listbox": "field",
+    "Spinbox": "field",
+    "Canvas": "field",
+    "Button": "button",
+    "Menubutton": "button",
+    "Menu": "menu",
+    "Scrollbar": "button",
+}
+
+
+def tk_widget_palette(cls_name: str, palette: dict) -> dict:
+    """Colour options for a classic tk widget of class `cls_name`.
+
+    Returned as a plain dict so it can be tested without a display and passed
+    straight to widget.configure(). An unknown class gets window chrome, which
+    is the safe default: wrong shade, never unreadable.
+    """
+    p = dict(palette)
+    role = _TK_WIDGET_ROLES.get(str(cls_name), "chrome")
+    if role == "field":
+        bg = p["surface"]
+    elif role in ("button", "menu"):
+        bg = p["surface"] if role == "field" else p["heading_bg"]
+    else:
+        bg = p["bg"]
+    opts = {"background": bg, "foreground": p["fg"]}
+    if role == "field":
+        # A black caret on a near-black entry is invisible, which is most of
+        # what makes a dark theme feel half-done.
+        opts["insertbackground"] = p["fg"]
+        opts["selectbackground"] = p["selection_bg"]
+        opts["selectforeground"] = p["selection_fg"]
+    if role in ("button", "menu"):
+        opts["activebackground"] = p["selection_bg"]
+        opts["activeforeground"] = p["selection_fg"]
+    return opts
+
+
+def theme_widget_tree(widget, palette: dict) -> int:
+    """Paint `widget` and everything under it. Returns how many were touched.
+
+    Walks the real widget tree rather than requiring every dialog to remember
+    to paint itself: there are thirteen Toplevels, and the one that forgets is
+    the one the user notices.
+    """
+    done = 0
+    try:
+        cls = widget.winfo_class()
+    except Exception:  # noqa: BLE001
+        return 0
+    # ttk widgets carry their own styling; configuring them raises.
+    if not cls.startswith("T"):
+        opts = tk_widget_palette(cls, palette)
+        for key, value in opts.items():
+            try:
+                widget.configure(**{key: value})
+                done += 1
+            except Exception:  # noqa: BLE001
+                pass
+    for child in widget.winfo_children():
+        done += theme_widget_tree(child, palette)
+    return done
+
+
+def themed_toplevel(parent, palette=None):
+    """A Toplevel that paints itself once it is on screen.
+
+    Binding <Map> rather than painting immediately means widgets added after
+    construction -- which is all of them -- are covered too.
+    """
+    import tkinter as tk
+    win = themed_toplevel(parent)
+    pal = palette or theme_palette(current_theme(parent))
+
+    def _paint(_e=None):
+        theme_widget_tree(win, pal)
+
+    win.bind("<Map>", _paint, add="+")
+    win.after(0, _paint)
+    return win
+
+
+def current_theme(widget) -> str:
+    """The theme the window is wearing, for dialogs that only have a parent."""
+    try:
+        return str(widget.winfo_toplevel().tk.call("set", "::idm_theme"))
+    except Exception:  # noqa: BLE001
+        return "light"
+
+
 def apply_theme(root, name: str) -> dict:
     """Paint the whole window in `name`. Returns the palette it applied.
 
@@ -3591,6 +3830,26 @@ def apply_theme(root, name: str) -> dict:
         pass
 
     root.configure(background=p["bg"])
+    # Remembered on the interpreter so a dialog that only has a parent widget
+    # can find out which theme it is being born into.
+    try:
+        root.tk.call("set", "::idm_theme", str(name or "light"))
+    except Exception:  # noqa: BLE001
+        pass
+    # Classic widgets are not reached by ttk styles. option_add covers the ones
+    # created from here on; theme_widget_tree() below catches those that exist
+    # already (a theme switch repaints a window that is fully built).
+    for cls, role in (("Button", "button"), ("Label", "chrome"),
+                      ("Frame", "chrome"), ("Toplevel", "chrome"),
+                      ("Checkbutton", "chrome"), ("Radiobutton", "chrome"),
+                      ("Entry", "field"), ("Text", "field"),
+                      ("Listbox", "field"), ("Menu", "menu"),
+                      ("Canvas", "field"), ("Scrollbar", "button")):
+        for key, value in tk_widget_palette(cls, p).items():
+            try:
+                root.option_add(f"*{cls}.{key}", value)
+            except Exception:  # noqa: BLE001
+                pass
     style.configure(".", background=p["bg"], foreground=p["fg"],
                     fieldbackground=p["surface"], bordercolor=p["grid"],
                     lightcolor=p["bg"], darkcolor=p["bg"])
@@ -3623,6 +3882,12 @@ def apply_theme(root, name: str) -> dict:
     style.map("Treeview",
               background=[("selected", p["selection_bg"])],
               foreground=[("selected", p["selection_fg"])])
+    # option_add only reaches widgets created afterwards, and a theme toggle
+    # happens on a window that is already built -- including any open dialog.
+    theme_widget_tree(root, p)
+    for child in root.winfo_children():
+        if str(child.winfo_class()) == "Toplevel":
+            theme_widget_tree(child, p)
     return p
 
 
@@ -3731,7 +3996,7 @@ def _dialog_complete(parent, path, state_dir: str = ""):
     import tkinter as tk
     from tkinter import ttk
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Download Complete")
     win.geometry("420x180")
     ttk.Label(win, text="Download complete:").pack(anchor="w", padx=10, pady=(12, 2))
@@ -3760,7 +4025,7 @@ def _dialog_about(parent):
     import tkinter as tk
     from tkinter import ttk
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("About Internet Download Manager")
     win.geometry("440x320")
     ttk.Label(win, text="Internet Download Manager",
@@ -3823,7 +4088,7 @@ def _dialog_drop_target(parent, on_urls=None, clipboard=None):
     import tkinter as tk
     from tkinter import ttk
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Drop target")
     win.geometry("210x120")
     win.resizable(False, False)
@@ -3887,7 +4152,7 @@ def _dialog_registration(parent):
     import tkinter as tk
     from tkinter import ttk
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Registration")
     win.geometry("420x160")
     ttk.Label(win, text="Registration", font=("", 11, "bold")).pack(
@@ -3947,7 +4212,7 @@ def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None,
     import tkinter as tk
     from tkinter import ttk
 
-    win = tk.Toplevel(parent)
+    win = themed_toplevel(parent)
     win.title("Download Progress")
     win.geometry("520x330")
 
@@ -4034,6 +4299,38 @@ def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None,
     return win, canvas, bars
 
 
+def assets_dir() -> str:
+    """Where idm.png lives: next to the gui/ directory in an install.
+
+    $IDM_DIR/gui/idm_gui.py and $IDM_DIR/assets/idm.png in a real install, and
+    the same relative shape in a checkout, so one rule covers both.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(os.path.dirname(here), "assets"),
+        os.path.join(here, "assets"),
+    ]
+    env = os.environ.get("IDM_DIR")
+    if env:
+        candidates.insert(0, os.path.join(env, "assets"))
+    for c in candidates:
+        if os.path.isdir(c):
+            return c
+    return ""
+
+
+def window_icon(master=None):
+    """The application icon as a Tk image, or None when it cannot be read."""
+    import tkinter as tk
+    path = os.path.join(assets_dir(), "idm.png")
+    if not os.path.isfile(path):
+        return None
+    try:
+        return tk.PhotoImage(file=path, master=master)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""):
     """Construct the main window and return (root, refresh_fn, widgets)."""
     import tkinter as tk
@@ -4043,6 +4340,16 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     root.title("Internet Download Manager")
     root.geometry("1040x560")
     root.minsize(820, 420)
+    # The title bar and the panel showed an empty placeholder because nothing
+    # ever set an icon. Tk 8.6 reads PNG itself, so assets/idm.png needs no
+    # third-party imaging library to become the window icon.
+    w_icon = window_icon(root)
+    if w_icon is not None:
+        try:
+            root.iconphoto(True, w_icon)
+            root._idm_icon = w_icon  # keep a reference; Tk does not own it
+        except Exception:  # noqa: BLE001
+            pass
 
     w = {}  # widget registry, used by --selftest-dump
 
@@ -4099,12 +4406,32 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         # does not reach them on its own.
         w["redraw_grid"]()
         save_theme(state_dir, nxt)
-        w["theme_button"].configure(text=_theme_label(nxt))
+        _paint_theme_button(nxt)
+
+    def _paint_theme_button(name):
+        """The toggle shows where the click leads: a moon for dark, a sun back.
+
+        It used to be the words "Tmavý motiv" / "Světlý motiv", which is a lot
+        of chrome for a switch and the only button in the row carrying prose.
+        """
+        glyph = theme_toggle_glyph(name)
+        pal = w["palette"]
+        img = _icon(pal["fg"], glyph, size=16, master=root, bg=pal["bg"])
+        btn = w.get("theme_button")
+        if btn is None:
+            return
+        if img is not None:
+            w["theme_icon"] = img  # Tk keeps no reference of its own
+            btn.configure(image=img, text="", compound="none", width=3)
+        else:
+            btn.configure(text=_theme_label(name), width=10)
 
     w["theme_button"] = ttk.Button(
-        search_row, text=_theme_label(theme_name), command=_toggle_theme, width=10
+        search_row, command=_toggle_theme, width=3
     )
     w["theme_button"].pack(side="left", padx=(8, 0))
+    _paint_theme_button(theme_name)
+    w["paint_theme_button"] = _paint_theme_button
 
     # --- body: category tree LEFT, download list RIGHT ---
     body = ttk.Panedwindow(root, orient="horizontal")
@@ -4129,6 +4456,7 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             img = _icon(spec[0], spec[1], 14, master=root) if spec else None
             if img is not None:
                 w["icons"].append(img)
+                w.setdefault("category_icons", []).append(img)
                 node = tree.insert("", "end", text=c, image=img)
             else:
                 node = tree.insert("", "end", text=c)
@@ -5888,6 +6216,32 @@ def _build_for_gridlines(state_dir: str = ""):
     return root, w
 
 
+def selftest_icons():
+    """Prove the icons exist, and say whether PIL had anything to do with it.
+
+    The bug this answers was invisible from the outside: a broken ImageTk made
+    every icon None, and a window with no icons looks like a window whose icons
+    were never designed. Counting them is the only way to tell the difference.
+    """
+    root, w = _build_for_gridlines()
+    buttons = w.get("buttons") or []
+    with_icons = sum(1 for _n, b in buttons if _button_has_icon(b))
+    icon = getattr(root, "_idm_icon", None)
+    cats = w.get("category_icons") or w.get("tree_icons") or []
+    out = {
+        "buttons": len(buttons),
+        "with_icons": with_icons,
+        "pil_used": bool(_ICON_USED_PIL[0]),
+        "window_icon": icon is not None,
+        "window_icon_size": int(icon.width()) if icon is not None else 0,
+        "category_icons": len(cats),
+        "theme_glyph": theme_toggle_glyph(w["theme"]),
+    }
+    root.destroy()
+    print("ICONS:" + json.dumps(out), flush=True)
+    return 0
+
+
 def selftest_gridlines():
     root, w = _build_for_gridlines()
     seps = _gridline_geometry(w)
@@ -6604,6 +6958,7 @@ def main(argv=None):
     p.add_argument("--selftest-properties-ok", action="store_true")
     p.add_argument("--selftest-row", action="store_true")
     p.add_argument("--selftest-scrollbars", action="store_true")
+    p.add_argument("--selftest-icons", action="store_true")
     p.add_argument("--selftest-gridlines", action="store_true")
     p.add_argument("--selftest-gridlines-resize", action="store_true")
     p.add_argument("--selftest-gridlines-theme", action="store_true")
@@ -6686,6 +7041,8 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
         return selftest_row()
     if args.selftest_scrollbars:
         return selftest_scrollbars()
+    if args.selftest_icons:
+        return selftest_icons()
     if args.selftest_gridlines:
         return selftest_gridlines()
     if args.selftest_gridlines_resize:
