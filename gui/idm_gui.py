@@ -5691,7 +5691,9 @@ def main(argv=None):
     p.add_argument("--addr", default=os.environ.get("IDM_ADDR", DEFAULT_ADDR))
     p.add_argument("--engine", default=os.environ.get("IDM_ENGINE_BIN", "idm"))
     p.add_argument("--out-dir", default=os.environ.get("IDM_DOWNLOADS_DIR", os.path.expanduser("~/Downloads")))
-    p.add_argument("--state-dir", default=os.environ.get("IDM_STATE_DIR", os.path.expanduser("~/.local/share/idm-gui")))
+    p.add_argument("--state-dir", default=os.environ.get(
+        "IDM_STATE_DIR",
+        os.path.join(os.environ.get("IDM_DIR") or os.path.expanduser("~/.idm"), "state")))
     p.add_argument("--autostart", action="store_true")
     p.add_argument(
         "--api-token",
