@@ -134,3 +134,75 @@ test('a stranger that refuses the token is listening but not authorized', async 
     srv.kill('SIGKILL');
   }
 });
+
+// --- what probe() does with each kind of failure ----------------------------
+//
+// probe() decides "is anybody listening" from the exception urlopen raises,
+// and getting that wrong is worse than not probing at all: a timeout
+// misreported as "somebody is listening" makes the GUI abandon the port and
+// never start an engine, which is a window that downloads nothing.
+//
+// The cases differ by platform -- a connection to a dead port is refused
+// quickly on Linux and can time out on Windows -- so each is forced here
+// rather than hoping the host produces it.
+
+function probeRaising(exc) {
+  const out = execFileSync('python3', ['-I', '-c',
+    `import importlib.util, json, urllib.request, urllib.error\n` +
+      `spec = importlib.util.spec_from_file_location("g", ${JSON.stringify(guiPy)})\n` +
+      `g = importlib.util.module_from_spec(spec)\n` +
+      `spec.loader.exec_module(g)\n` +
+      `def boom(*a, **k):\n    raise ${exc}\n` +
+      `urllib.request.urlopen = boom\n` +
+      `api = g.Api("127.0.0.1:1", token="t")\n` +
+      `print(json.dumps(api.probe()))`,
+  ], { encoding: 'utf8' });
+  return JSON.parse(out);
+}
+
+test('a connection timeout is nobody listening, not a stranger', () => {
+  // THE WINDOWS BUG. socket timeouts surface as TimeoutError, which is an
+  // OSError and NOT a URLError, so it fell through to the catch-all and was
+  // reported as "listening". The GUI then walked off to another port looking
+  // for a server that was never there, and started no engine at all.
+  const p = probeRaising('TimeoutError("timed out")');
+  assert.equal(p.listening, false,
+    'a timeout means nothing answered, so the port is still ours to use');
+});
+
+test('a refused connection is nobody listening', () => {
+  const p = probeRaising('ConnectionRefusedError(111, "refused")');
+  assert.equal(p.listening, false);
+});
+
+test('a reset connection is nobody listening', () => {
+  // Windows produces this where Linux refuses outright.
+  const p = probeRaising('ConnectionResetError(104, "reset")');
+  assert.equal(p.listening, false);
+});
+
+test('a host that cannot be reached is nobody listening', () => {
+  const p = probeRaising('OSError(113, "no route to host")');
+  assert.equal(p.listening, false);
+});
+
+test('a 403 is still a stranger', () => {
+  const p = probeRaising(
+    'urllib.error.HTTPError("http://x/", 403, "Forbidden", {}, None)');
+  assert.deepEqual(p, { listening: true, authorized: false });
+});
+
+test('a 500 is ours, just unhappy', () => {
+  // An engine that answers at all is our engine; only an auth refusal says
+  // the server belongs to somebody else.
+  const p = probeRaising(
+    'urllib.error.HTTPError("http://x/", 500, "Server Error", {}, None)');
+  assert.deepEqual(p, { listening: true, authorized: true });
+});
+
+test('garbage that is not HTTP counts as occupied', () => {
+  // Something is on the port and it is not an engine; refusing to fight over
+  // it is the safe reading.
+  const p = probeRaising('ValueError("not json")');
+  assert.deepEqual(p, { listening: true, authorized: false });
+});
