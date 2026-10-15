@@ -725,6 +725,37 @@ async fn kill_tree(child: &mut tokio::process::Child) {
     let _ = child.kill().await;
 }
 
+/// How many lines of a child's stderr are worth keeping.
+const STDERR_TAIL_LINES: usize = 5;
+
+/// The longest error we will put in an item -- it has to fit a table cell.
+const ERROR_MAX_CHARS: usize = 300;
+
+/// What to tell the user about a child that exited badly.
+///
+/// The exit status on its own ("exit status: 1") is the same sentence for a
+/// missing yt-dlp, an unwritable directory and a refused connection, so the
+/// child's own last words are what actually goes in. The status is kept as a
+/// suffix for the case where the child died saying nothing at all.
+async fn child_error(tail: &Arc<Mutex<Vec<String>>>, status: std::process::ExitStatus) -> String {
+    let lines = tail.lock().await;
+    let said = lines
+        .iter()
+        .rev()
+        .find(|l| !l.is_empty())
+        .cloned()
+        .unwrap_or_default();
+    if said.is_empty() {
+        return format!("engine exited with {}", status);
+    }
+    let mut msg = said;
+    if msg.chars().count() > ERROR_MAX_CHARS {
+        msg = msg.chars().take(ERROR_MAX_CHARS).collect::<String>() + "...";
+    }
+    msg
+}
+
+
 /// Run one download, watching for pause/remove requests and progress updates.
 async fn run_item(st: Arc<State>, id: u64) {
     // Belt and braces next to the /api/resume guard: never two engines per item.
@@ -858,8 +889,12 @@ async fn run_item(st: Arc<State>, id: u64) {
     cmd.arg("--report").arg(&report);
     // `--` so a URL starting with `-` is never parsed as a flag by the child.
     cmd.arg("--").arg(&url);
+    // stdout is progress noise and goes nowhere, but stderr is the only place
+    // the child ever says WHY it failed. Discarding it left every failure
+    // looking like "engine exited with exit status: 1" -- the same silence the
+    // GUI used to have about "address in use", one level down.
     cmd.stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
+        .stderr(std::process::Stdio::piped());
     // Own process group, so pause/remove can take down the whole tree
     // (the engine *and* an aria2c it may have spawned) instead of orphaning a
     // grandchild that keeps writing the same file.
@@ -873,6 +908,30 @@ async fn run_item(st: Arc<State>, id: u64) {
             return;
         }
     };
+
+    // Drain stderr as it arrives. A pipe nobody reads fills up and then the
+    // child blocks writing to it, so this is not optional once it is piped.
+    // Only the last few lines are kept: the error ends up in a table cell and
+    // in queue.json, and a wall of output is as unusable as none.
+    let tail: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    if let Some(err) = child.stderr.take() {
+        let tail = Arc::clone(&tail);
+        tokio::spawn(async move {
+            use tokio::io::{AsyncBufReadExt, BufReader};
+            let mut lines = BufReader::new(err).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let line = line.trim().to_string();
+                if line.is_empty() {
+                    continue;
+                }
+                let mut t = tail.lock().await;
+                if t.len() == STDERR_TAIL_LINES {
+                    t.remove(0);
+                }
+                t.push(line);
+            }
+        });
+    }
 
     let (ctx, mut crx) = mpsc::channel::<Ctrl>(4);
     st.ctrl.lock().await.insert(id, ctx);
@@ -922,7 +981,12 @@ async fn run_item(st: Arc<State>, id: u64) {
                                 &st,
                                 id,
                                 "pending",
-                                Some(format!("retry {}/{} after {}", attempt, total, status)),
+                                Some(format!(
+                                    "retry {}/{} after {}",
+                                    attempt,
+                                    total,
+                                    child_error(&tail, status).await
+                                )),
                             )
                             .await;
                             break;
@@ -931,7 +995,7 @@ async fn run_item(st: Arc<State>, id: u64) {
                             &st,
                             id,
                             "error",
-                            Some(format!("engine exited with {}", status)),
+                            Some(child_error(&tail, status).await),
                         )
                         .await;
                     }
