@@ -356,12 +356,39 @@ pub async fn download(
     }
     apply_auth(&mut cmd, cookie, referer);
     cmd.arg("-o").arg(out);
+    // One progress line per update instead of a carriage-returned bar, so it
+    // can be read line by line. Without this the whole bar arrives as a
+    // single enormous line and the queue learns nothing until the end.
+    cmd.arg("--newline");
     // `--` so a URL starting with `-` is never parsed as an option.
     cmd.arg("--").arg(url);
-    let status = cmd
-        .status()
-        .await
+    // yt-dlp's progress is the only thing that can tell the window how far
+    // along a media download is; sending it to /dev/null is what made a
+    // working download look identical to a hung one.
+    cmd.stdout(std::process::Stdio::piped());
+    let mut child = cmd
+        .spawn()
         .with_context(|| format!("running {}", yt_dlp.display()))?;
+    if let Some(stdout) = child.stdout.take() {
+        use tokio::io::{AsyncBufReadExt, BufReader};
+        let meta = progress_meta_path(out);
+        let mut lines = BufReader::new(stdout).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            // Pass it through: in a terminal this is the progress the user
+            // expects to see.
+            println!("{}", line);
+            if let Some(p) = parse_progress(&line) {
+                write_progress_meta(&meta, p);
+            }
+        }
+    }
+    let status = child
+        .wait()
+        .await
+        .with_context(|| format!("waiting for {}", yt_dlp.display()))?;
+    // The sidecar is the queue's view of a download in flight; once it has
+    // finished, the real file is the truth.
+    let _ = std::fs::remove_file(progress_meta_path(out));
     if !status.success() {
         bail!("yt-dlp exited with {}", status);
     }
@@ -511,5 +538,120 @@ mod tests {
         assert_eq!(filename_from_url("https://x.example"), "x.example");
         // A truly empty string still falls back safely.
         assert_eq!(filename_from_url(""), "download.bin");
+    }
+}
+
+/// Where the queue looks for a running download's progress.
+fn progress_meta_path(out: &Path) -> std::path::PathBuf {
+    let mut s = out.as_os_str().to_os_string();
+    s.push(".idmmeta");
+    std::path::PathBuf::from(s)
+}
+
+/// Write the sidecar the queue reads (total + one segment's downloaded).
+///
+/// The shape matches what the Range downloader writes, because gui.rs reads
+/// one format and should not have to learn a second.
+fn write_progress_meta(path: &Path, p: Progress) {
+    let downloaded = ((p.total as f64) * (p.percent / 100.0)) as u64;
+    let body = serde_json::json!({
+        "url": "",
+        "total": p.total,
+        "connections": 1,
+        "segments": [{"start": 0, "end": p.total, "downloaded": downloaded}],
+    })
+    .to_string();
+    // Written whole and renamed: a reader polling every 300 ms must never
+    // catch a half-written file.
+    let tmp = path.with_extension("idmmeta.tmp");
+    if std::fs::write(&tmp, body).is_ok() {
+        let _ = std::fs::rename(&tmp, path);
+    }
+}
+
+/// One line of yt-dlp progress, as the queue needs it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Progress {
+    pub percent: f64,
+    pub total: u64,
+}
+
+/// Parse a `[download] ... % of ... ` line, or None for anything else.
+///
+/// Without this a yt-dlp download shows no size, no speed and no ETA in the
+/// window for its whole duration, which is indistinguishable from a download
+/// that has hung -- and that is exactly how it was reported.
+pub fn parse_progress(line: &str) -> Option<Progress> {
+    let rest = line.trim().strip_prefix("[download]")?.trim_start();
+    let (pct_str, rest) = rest.split_once('%')?;
+    let percent: f64 = pct_str.trim().parse().ok()?;
+    // " of  100.00MiB at ..." -- the tilde appears when the size is an
+    // estimate, which it is for most fragmented formats.
+    let rest = rest.trim_start().strip_prefix("of")?.trim_start();
+    let size = rest.trim_start_matches('~');
+    let end = size
+        .find(|c: char| c.is_whitespace())
+        .unwrap_or(size.len());
+    let total = parse_size(&size[..end])?;
+    Some(Progress { percent, total })
+}
+
+/// "100.00MiB" -> bytes. yt-dlp uses binary units.
+fn parse_size(s: &str) -> Option<u64> {
+    let digits_end = s
+        .find(|c: char| !c.is_ascii_digit() && c != '.')
+        .unwrap_or(s.len());
+    let value: f64 = s[..digits_end].parse().ok()?;
+    let mult: f64 = match s[digits_end..].trim() {
+        "" | "B" => 1.0,
+        "KiB" | "K" => 1024.0,
+        "MiB" | "M" => 1024.0 * 1024.0,
+        "GiB" | "G" => 1024.0 * 1024.0 * 1024.0,
+        "TiB" | "T" => 1024.0_f64.powi(4),
+        _ => return None,
+    };
+    Some((value * mult) as u64)
+}
+
+#[cfg(test)]
+mod progress_tests {
+    use super::*;
+
+    #[test]
+    fn real_yt_dlp_lines_are_understood() {
+        let cases: &[(&str, f64, u64)] = &[
+            ("[download]   0.0% of  100.00MiB at  Unknown B/s ETA Unknown", 0.0, 104_857_600),
+            ("[download]  45.2% of  100.00MiB at   1.50MiB/s ETA 00:30", 45.2, 104_857_600),
+            // The tilde marks an estimated size, which fragmented formats give.
+            ("[download]  45.2% of ~100.00MiB at   1.50MiB/s ETA 00:30", 45.2, 104_857_600),
+            ("[download] 100% of  100.00MiB in 00:01:23", 100.0, 104_857_600),
+            ("[download]   3.1% of    1.50GiB at   5.00MiB/s ETA 05:00", 3.1, 1_610_612_736),
+            ("[download]  12.0% of  512.00KiB at 100.00KiB/s ETA 00:05", 12.0, 524_288),
+        ];
+        for (line, pct, total) in cases {
+            let got = parse_progress(line).unwrap_or_else(|| panic!("not parsed: {:?}", line));
+            assert!((got.percent - pct).abs() < 0.05, "{:?}: {}", line, got.percent);
+            assert_eq!(got.total, *total, "{:?}", line);
+        }
+    }
+
+    #[test]
+    fn everything_else_is_ignored() {
+        for line in [
+            "[youtube] Extracting URL: https://...",
+            "[info] Downloading 1 format(s): 299+140",
+            "[Merger] Merging formats into \"video.mp4\"",
+            "",
+            "[download] Destination: video.f299.mp4",
+            // A percentage with no size is no use to the queue.
+            "[download]  45.2%",
+        ] {
+            assert!(parse_progress(line).is_none(), "parsed: {:?}", line);
+        }
+    }
+
+    #[test]
+    fn an_unknown_unit_is_not_guessed_at() {
+        assert!(parse_size("100.00XiB").is_none());
     }
 }
