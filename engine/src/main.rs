@@ -1250,6 +1250,81 @@ async fn run_direct_dynamic(
     Ok(())
 }
 
+/// Make sure yt-dlp exists, installing it when it does not.
+///
+/// aria2c has had this since the beginning and yt-dlp had nothing, so a clean
+/// machine ended up with a downloader that could not download videos -- the
+/// single biggest cause of "it downloads nothing" on Windows. The helper
+/// script is looked for next to this binary, which is where install.sh and
+/// install.ps1 put it.
+async fn ensure_yt_dlp(args: &Args) -> anyhow::Result<PathBuf> {
+    if tokio::process::Command::new(&args.yt_dlp_path)
+        .hide_console()
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await
+        .map(|s| s.success())
+        .unwrap_or(false)
+    {
+        return Ok(args.yt_dlp_path.clone());
+    }
+
+    let here = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."));
+    let script = if cfg!(windows) {
+        here.join("ensure-ytdlp.ps1")
+    } else {
+        here.join("ensure-ytdlp.sh")
+    };
+    if !script.exists() {
+        anyhow::bail!(
+            "yt-dlp is needed for this URL but was not found ({}), and the \
+             installer script {} is missing. Install yt-dlp and try again, or \
+             point --yt-dlp-path at it.",
+            args.yt_dlp_path.display(),
+            script.display()
+        );
+    }
+
+    eprintln!("[*] yt-dlp chybi, instaluji ho...");
+    let mut cmd = if cfg!(windows) {
+        let mut c = tokio::process::Command::new("powershell");
+        c.arg("-ExecutionPolicy").arg("Bypass").arg("-File").arg(&script);
+        c
+    } else {
+        let mut c = tokio::process::Command::new("bash");
+        c.arg(&script);
+        c
+    };
+    cmd.hide_console();
+    cmd.arg(&here);
+    let out = cmd.output().await.map_err(|e| {
+        anyhow::anyhow!("running the yt-dlp installer {}: {}", script.display(), e)
+    })?;
+    if !out.status.success() {
+        anyhow::bail!(
+            "installing yt-dlp failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        );
+    }
+    // The script prints the path it ended up with.
+    let printed = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    let found = if printed.is_empty() {
+        here.join(if cfg!(windows) { "yt-dlp.exe" } else { "yt-dlp" })
+    } else {
+        PathBuf::from(printed.lines().last().unwrap_or_default())
+    };
+    if found.exists() {
+        eprintln!("[*] yt-dlp nainstalovan: {}", found.display());
+        return Ok(found);
+    }
+    anyhow::bail!("the yt-dlp installer finished but no yt-dlp was found")
+}
+
 /// aria2c, but only if it is already installed. Never installs anything.
 ///
 /// This is what `idm <URL>` uses on its own. Fetching and installing a
@@ -1445,12 +1520,15 @@ async fn media_speed(args: &Args) -> anyhow::Result<media::Speed> {
 }
 
 async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathBuf>) -> anyhow::Result<()> {
+    // Before anything else: this path cannot work without yt-dlp, and until
+    // now a machine without one simply failed. Install it rather than refuse.
+    let yt_dlp = ensure_yt_dlp(args).await?;
     let cookie = net.cookie.as_deref();
     let referer = net.referer.as_deref();
 
     // --list-formats: report what the backend offers and exit.
     if args.list_formats {
-        let meta = media::probe_json(&args.yt_dlp_path, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
+        let meta = media::probe_json(&yt_dlp, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
         println!("{}", serde_json::to_string_pretty(&media::summarize(&meta))?);
         return Ok(());
     }
@@ -1461,7 +1539,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
             // No explicit --output: name the file after the media title (not the
             // URL slug) and honour --category-dir / --output-dir, exactly like
             // the direct path does with filename_from_url.
-            let meta = media::probe_json(&args.yt_dlp_path, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
+            let meta = media::probe_json(&yt_dlp, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
             let name = media::output_name(&meta, args.format.as_deref());
             if let Some(base) = args.category_dir.as_deref() {
                 let n = name.file_name().map(|x| x.to_owned()).unwrap_or_default();
@@ -1475,7 +1553,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
     };
 
     println!("[*] url          : {}", url);
-    println!("[*] backend      : yt-dlp ({})", args.yt_dlp_path.display());
+    println!("[*] backend      : yt-dlp ({})", yt_dlp.display());
     println!("[*] format       : {}", args.format.as_deref().unwrap_or("best"));
     println!("[*] output       : {}", out.display());
 
@@ -1485,7 +1563,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
         }
     }
     let out = media::download(
-        &args.yt_dlp_path,
+        &yt_dlp,
         url,
         &out,
         args.format.as_deref(),

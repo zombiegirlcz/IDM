@@ -14,10 +14,11 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, statSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { readFileSync, existsSync, statSync, mkdtempSync, readdirSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..');
@@ -58,14 +59,20 @@ test('it can be told not to install, like the aria2 one', () => {
   assert.match(readFileSync(ps1, 'utf8'), /IDM_YTDLP_NO_INSTALL/);
 });
 
-test('check-only mode never writes anything', () => {
-  // Running the script must be safe even when yt-dlp is absent.
-  const out = execFileSync('bash', [sh], {
-    env: { ...process.env, IDM_YTDLP_NO_INSTALL: '1' },
+test('check-only mode installs nothing and says why', () => {
+  // A missing yt-dlp in check-only mode is a non-zero exit, not a crash, and
+  // it must not have created anything. execFileSync throws on a non-zero
+  // exit, so the status is read rather than assumed.
+  const target = mkdtempSync(join(tmpdir(), 'idm_ytdlp_check_'));
+  const res = spawnSync('bash', [sh, target], {
+    env: { ...process.env, IDM_YTDLP_NO_INSTALL: '1', PATH: '/usr/bin:/bin' },
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  }).toString();
-  assert.ok(out.length >= 0);
+  });
+  assert.equal(res.status, 1, 'a missing yt-dlp in check-only mode exits 1');
+  assert.match(res.stderr, /IDM_YTDLP_NO_INSTALL/,
+    'it has to say why it did nothing');
+  assert.deepEqual(readdirSync(target), [],
+    'check-only mode must not write into the target directory');
 });
 
 test('the installer ships both scripts', () => {

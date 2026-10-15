@@ -594,9 +594,19 @@ fn the_default_format_asks_for_mp4() {
         .unwrap();
     assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
     let argv = fs::read_to_string(&log).expect("the stub must have logged argv");
+    // Not just "contains mp4": the output path is video.mp4, so that would
+    // pass without a format ever being requested. The selector has to be
+    // there, after -f.
+    let after_f = argv
+        .split_whitespace()
+        .skip_while(|a| *a != "-f")
+        .nth(1)
+        .unwrap_or("")
+        .to_string();
     assert!(
-        argv.contains("mp4"),
-        "yt-dlp should be asked for mp4 by default: {}",
+        after_f.contains("mp4"),
+        "yt-dlp should be asked for an mp4 format by default; -f was {:?} in {}",
+        after_f,
         argv
     );
 }

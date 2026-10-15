@@ -123,7 +123,10 @@ fn a_missing_yt_dlp_is_installed_rather_than_refused() {
     // The engine must at least try, and say what it tried.
     let dir = std::env::temp_dir().join(format!("idm_noytdlp_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let missing = dir.join("not-installed-yt-dlp");
+    // NOT "not-installed-yt-dlp": the assertion below looks for the word
+    // "install", and a filename containing it would make this test pass
+    // while proving nothing.
+    let missing = dir.join("absent-media-helper");
     let (stdout, stderr, _) = run(&[
         "--yt-dlp",
         "--yt-dlp-path",
