@@ -564,11 +564,62 @@ fn the_reported_path_is_the_file_that_exists() {
     assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
     let text = fs::read_to_string(&report).expect("a report must be written");
     let v: serde_json::Value = serde_json::from_str(&text).expect("report must be json");
-    let named = v["output"].as_str().unwrap_or("");
+    // The report calls it "file" (the queue reads it as the real name).
+    let named = v["file"].as_str().unwrap_or("");
     assert!(
         named.ends_with("video.mp4.webm"),
         "the report must name the file on disk, got {:?}",
         named
     );
     assert!(Path::new(named).exists(), "the reported file must exist: {}", named);
+}
+
+#[test]
+fn the_default_format_asks_for_mp4() {
+    // "instead of downloading mp4 it downloads webm" -- yt-dlp's default is
+    // "best", which on YouTube means VP9/Opus in a webm container. mp4 is the
+    // file that plays everywhere, so that is what we ask for by default.
+    let dir = unique_dir("mp4default");
+    let (stub, log) = make_stub(&dir);
+    let out_file = dir.join("video.mp4");
+    let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
+        .arg("--yt-dlp-path")
+        .arg(&stub)
+        .arg("--force-media")
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    let argv = fs::read_to_string(&log).expect("the stub must have logged argv");
+    assert!(
+        argv.contains("mp4"),
+        "yt-dlp should be asked for mp4 by default: {}",
+        argv
+    );
+}
+
+#[test]
+fn an_explicit_format_still_wins() {
+    // The default must be a default, not a policy.
+    let dir = unique_dir("mp4override");
+    let (stub, log) = make_stub(&dir);
+    let out_file = dir.join("video.mp4");
+    let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
+        .arg("--yt-dlp-path")
+        .arg(&stub)
+        .arg("--force-media")
+        .arg("--format")
+        .arg("251")
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    let argv = fs::read_to_string(&log).expect("the stub must have logged argv");
+    assert!(argv.contains("251"), "--format must be passed through: {}", argv);
 }

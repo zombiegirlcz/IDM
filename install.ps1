@@ -210,7 +210,7 @@ if ((Test-Path $oldPrefix) -and ($oldPrefix -ne $Prefix)) {
     Remove-Item -Recurse -Force $oldPrefix -ErrorAction SilentlyContinue
 }
 
-foreach ($f in @("idm.exe", "idm-host.exe", "ensure-aria2.ps1", "ensure-aria2.sh")) {
+foreach ($f in @("idm.exe", "idm-host.exe", "ensure-aria2.ps1", "ensure-aria2.sh", "ensure-ytdlp.ps1", "ensure-ytdlp.sh")) {
     $srcFile = Join-Path $stage $f
     if (Test-Path $srcFile) { Move-Item $srcFile (Join-Path $binDir $f) -Force }
 }
@@ -410,6 +410,19 @@ Write-Host ""
 Write-Log "hotovo!"
 Write-Host "  Engine     : $engineInstalled"
 Write-Host "  Okno       : dvojklik na ikonu 'IDM' na plose (nebo v menu Start)"
+# yt-dlp is not optional the way aria2 is: without it no video page can be
+# downloaded at all, and nothing used to install it. A clean machine ended up
+# with a downloader that could not download videos.
+$ensureYtdlp = Join-Path $binDir "ensure-ytdlp.ps1"
+if (Test-Path $ensureYtdlp) {
+    Write-Log "kontroluji yt-dlp (potreba pro videa)"
+    try {
+        & powershell -ExecutionPolicy Bypass -File $ensureYtdlp $binDir | Out-Null
+    } catch {
+        Write-Warn "yt-dlp se nepodarilo pripravit (engine ho zkusi doinstalovat pri prvnim videu)"
+    }
+}
+
 Write-Host "  Stazeni    : $DownloadsDir"
 Write-Host "  Rozsireni  : chrome://extensions -> Load unpacked"
 if (Test-Path $ensurePs1) {
