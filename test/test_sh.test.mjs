@@ -55,7 +55,10 @@ test('WITH_RUST=1 runs the release build and the cargo suites', () => {
   const r = runScript({ WITH_RUST: '1' });
   assert.equal(r.status, 0, 'stdout: ' + r.stdout + '\nstderr: ' + r.stderr);
   assert.match(r.cargo, /build --release/, 'cargo log: ' + r.cargo);
-  assert.match(r.cargo, /^test$/m, 'cargo log: ' + r.cargo);
+  // --no-fail-fast is not decoration: cargo otherwise stops after the first
+  // failing test TARGET, so one flaky binary hides every suite alphabetically
+  // after it, and a whole new tests/*.rs can go unreported behind it.
+  assert.match(r.cargo, /^test --no-fail-fast$/m, 'cargo log: ' + r.cargo);
 });
 
 test('a decider that says nothing fails the run', () => {

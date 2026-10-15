@@ -17,7 +17,8 @@ use std::path::{Path, PathBuf};
 pub const AFTER_HELP: &str = "\
 Verbs (must be the first argument):
   idm --gui [ARGS…]        open the native window
-  idm update               check for a newer release
+  idm update [--check] [--rollback] [--progress-file PATH]
+                           install the newest release (--check only looks)
   idm uninstall [--yes] [--purge] [--dry-run]
                            remove the installation
   idm --version            print the installed version
@@ -40,7 +41,10 @@ pub fn idm_dir() -> PathBuf {
 }
 
 /// Handle a verb. `None` means "not a verb" — carry on into clap.
-pub fn dispatch() -> Option<i32> {
+///
+/// Async because `update` talks HTTP, and main is already inside the runtime;
+/// calling block_on from a runtime thread would panic.
+pub async fn dispatch() -> Option<i32> {
     let argv: Vec<String> = std::env::args().collect();
     let first = argv.get(1)?.as_str();
     let rest = &argv[2..];
@@ -50,7 +54,7 @@ pub fn dispatch() -> Option<i32> {
             Some(0)
         }
         "--gui" | "gui" => Some(run_gui(rest)),
-        "update" => Some(run_update()),
+        "update" => Some(run_update(rest).await),
         "uninstall" => Some(run_uninstall(rest)),
         _ => None,
     }
@@ -115,21 +119,64 @@ fn exe(name: &str) -> String {
 
 // --- update --------------------------------------------------------------------
 
-fn run_update() -> i32 {
+async fn run_update(flags: &[String]) -> i32 {
     let dir = idm_dir();
-    let installed = std::fs::read_to_string(dir.join("VERSION"))
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    println!("idm {}", env!("CARGO_PKG_VERSION"));
-    match installed {
-        Some(tag) => println!("nainstalováno z: {tag}  ({})", dir.display()),
-        None => println!("instalační složka: {}", dir.display()),
+    let check_only = flags.iter().any(|f| f == "--check");
+    let roll = flags.iter().any(|f| f == "--rollback");
+    let progress_file = flag_value(flags, "--progress-file").map(PathBuf::from);
+
+    if roll {
+        return match crate::update::rollback(&dir) {
+            Ok(v) => {
+                println!("vráceno na {v}");
+                0
+            }
+            Err(e) => {
+                eprintln!("[x] rollback selhal: {e:#}");
+                1
+            }
+        };
     }
-    // Fetching the release index and swapping the binaries is cycle B; the
-    // verb exists now so the GUI and the docs can rely on it.
-    println!("kontrola nové verze zatím není hotová (bude v příští verzi)");
-    0
+
+    if check_only {
+        return match crate::update::check(&dir).await {
+            Ok(c) if c.newer => {
+                println!("je nová verze: {} (máš {})", c.latest, c.installed);
+                println!("nainstaluj ji: idm update");
+                0
+            }
+            Ok(c) => {
+                println!("{} je aktuální", c.installed);
+                0
+            }
+            Err(e) => {
+                eprintln!("[x] kontrolu verze nelze provést: {e:#}");
+                1
+            }
+        };
+    }
+
+    let mut prog = crate::update::Progress::new(progress_file);
+    match crate::update::apply(&dir, &mut prog).await {
+        Ok(v) => {
+            println!("hotovo — {v}");
+            0
+        }
+        Err(e) => {
+            // The window reads the reason out of the progress file; a terminal
+            // reads it here. Both have to get it.
+            let msg = format!("{e:#}");
+            prog.failed(&msg);
+            eprintln!("[x] aktualizace selhala: {msg}");
+            1
+        }
+    }
+}
+
+/// `--flag VALUE` out of a flat argument list.
+fn flag_value(flags: &[String], name: &str) -> Option<String> {
+    let i = flags.iter().position(|f| f == name)?;
+    flags.get(i + 1).cloned()
 }
 
 // --- uninstall -------------------------------------------------------------------

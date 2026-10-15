@@ -31,8 +31,12 @@ fi
 
 echo
 echo "== [2/7] cargo test =="
+# --no-fail-fast: cargo stops after the first failing test TARGET, so one flaky
+# binary hides every suite alphabetically after it. That is how a brand-new
+# tests/update.rs went unreported behind a port race in tests/gui.rs -- the
+# run was red, but not for the reason being worked on.
 if [[ "$WITH_RUST" == "1" ]]; then
-  (cd engine && cargo test)
+  (cd engine && cargo test --no-fail-fast)
 else
   echo "  (skipped: WITH_RUST is not 1)"
 fi
