@@ -332,6 +332,53 @@ fn read_meta(out: &Path) -> Option<(u64, u64)> {
     Some((m.total, dl))
 }
 
+#[derive(Deserialize)]
+struct ReportLite {
+    #[serde(default)]
+    file: String,
+    #[serde(default)]
+    total: u64,
+}
+
+/// Where the child engine should write its report for item `id`.
+///
+/// Beside queue.json in the state dir, never in the download directory: it is
+/// bookkeeping, and the user's Downloads folder is not ours to litter.
+fn report_path(state_path: &Path, id: u64) -> PathBuf {
+    let dir = state_path.parent().unwrap_or(Path::new("."));
+    dir.join("reports").join(format!("{}.json", id))
+}
+
+/// The file a report may rename an item to, if any.
+///
+/// yt-dlp's merger picks the container, so the name we asked for and the name
+/// on disk legitimately differ — but only within the same directory. A report
+/// naming anything elsewhere is refused rather than trusted: the queue's
+/// output path is what later deletes, opens and reveals the file.
+fn accept_reported_file(asked: &Path, reported: &str) -> Option<PathBuf> {
+    if reported.is_empty() {
+        return None;
+    }
+    let got = PathBuf::from(reported);
+    if got == asked {
+        return None;
+    }
+    if got.parent() != asked.parent() {
+        return None;
+    }
+    if got.file_name().is_none() {
+        return None;
+    }
+    Some(got)
+}
+
+/// (real file, size) from a child's report, when it wrote one.
+fn read_report(path: &Path, asked: &Path) -> Option<(Option<PathBuf>, u64)> {
+    let raw = std::fs::read_to_string(path).ok()?;
+    let r: ReportLite = serde_json::from_str(&raw).ok()?;
+    Some((accept_reported_file(asked, &r.file), r.total))
+}
+
 /// File name for a URL, safe to join onto the output directory.
 ///
 /// The name comes from a remote URL, so it is sanitized: no path separators
@@ -494,7 +541,7 @@ async fn get_status(st: &State, id: u64) -> String {
         .unwrap_or_default()
 }
 
-async fn finish_item(st: &State, id: u64, size: u64) {
+async fn finish_item(st: &State, id: u64, size: u64, file: Option<PathBuf>) {
     {
         let mut g = st.items.lock().await;
         if let Some(i) = g.iter_mut().find(|i| i.id == id) {
@@ -502,6 +549,9 @@ async fn finish_item(st: &State, id: u64, size: u64) {
             i.error = None;
             i.total = size;
             i.downloaded = size;
+            if let Some(f) = file {
+                i.output = f;
+            }
         }
     }
     save(st).await;
@@ -759,6 +809,11 @@ async fn run_item(st: Arc<State>, id: u64) {
         cmd.arg("--force-media");
     }
     cmd.arg("--yt-dlp").arg(&st.yt_dlp);
+    // The child's stdout goes to /dev/null, so this file is the only way back:
+    // it says which file was really written (yt-dlp renames) and how big it is.
+    let report = report_path(&st.state_path, id);
+    let _ = std::fs::remove_file(&report);
+    cmd.arg("--report").arg(&report);
     // `--` so a URL starting with `-` is never parsed as a flag by the child.
     cmd.arg("--").arg(&url);
     cmd.stdout(std::process::Stdio::null())
@@ -784,8 +839,24 @@ async fn run_item(st: Arc<State>, id: u64) {
         match child.try_wait() {
             Ok(Some(status)) => {
                 if status.success() {
-                    let size = std::fs::metadata(&output).map(|m| m.len()).unwrap_or(0);
-                    finish_item(&st, id, size).await;
+                    // metadata(&output) was the old answer, and it is wrong
+                    // whenever the child wrote a different name: it reported
+                    // zero, so the queue showed "-" for the size of a finished
+                    // download. The report knows both; the stat stays as the
+                    // fallback for a child too old to write one.
+                    let (real, size) = match read_report(&report, &output) {
+                        Some((f, t)) if t > 0 => (f, t),
+                        Some((f, _)) => {
+                            let p = f.clone().unwrap_or_else(|| output.clone());
+                            (f, std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0))
+                        }
+                        None => (
+                            None,
+                            std::fs::metadata(&output).map(|m| m.len()).unwrap_or(0),
+                        ),
+                    };
+                    let _ = std::fs::remove_file(&report);
+                    finish_item(&st, id, size, real).await;
                 } else {
                     let cur = get_status(&st, id).await;
                     if cur != "paused" && cur != "done" {
@@ -1349,5 +1420,44 @@ pub async fn serve(
                 eprintln!("[!] accept: {}", e);
             }
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_report_may_rename_within_the_same_directory() {
+        // yt-dlp's merger picks the container: -o clip.mp4 legitimately
+        // produces clip.webm, and the queue has to follow it there.
+        let asked = Path::new("/dl/clip.mp4");
+        assert_eq!(
+            accept_reported_file(asked, "/dl/clip.webm"),
+            Some(PathBuf::from("/dl/clip.webm"))
+        );
+    }
+
+    #[test]
+    fn a_report_naming_the_same_file_changes_nothing() {
+        assert_eq!(accept_reported_file(Path::new("/dl/a.bin"), "/dl/a.bin"), None);
+        assert_eq!(accept_reported_file(Path::new("/dl/a.bin"), ""), None);
+    }
+
+    #[test]
+    fn a_report_cannot_move_an_item_out_of_its_directory() {
+        // The queue's output path is what later deletes, opens and reveals the
+        // file, so a report pointing elsewhere is refused rather than trusted.
+        let asked = Path::new("/dl/clip.mp4");
+        assert_eq!(accept_reported_file(asked, "/etc/passwd"), None);
+        assert_eq!(accept_reported_file(asked, "/dl/sub/clip.webm"), None);
+        assert_eq!(accept_reported_file(asked, "../clip.webm"), None);
+    }
+
+    #[test]
+    fn reports_live_beside_the_queue_not_in_the_download_dir() {
+        assert_eq!(
+            report_path(Path::new("/state/queue.json"), 7),
+            PathBuf::from("/state/reports/7.json")
+        );
     }
 }
