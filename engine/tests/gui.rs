@@ -237,6 +237,20 @@ fn start_server(out: &PathBuf, state: &PathBuf, extra: &[&str]) -> (Child, Strin
                 break; // lost the race for this port; take another
             }
             if TcpStream::connect(&addr).is_ok() {
+                // Something answers -- but a successful connect does not say
+                // WHOSE server it is. When another test in this binary drew
+                // the same number and won, our child is already dying on
+                // "address in use" while the winner happily answers us, and
+                // without this check we would adopt a stranger's server and
+                // lose it the moment its real owner killed it
+                // (ConnectionRefused halfway through a test).
+                //
+                // The loser exits within milliseconds of the failed bind, so
+                // settling before we commit is enough to tell the two apart.
+                thread::sleep(Duration::from_millis(250));
+                if matches!(child.try_wait(), Ok(Some(_))) {
+                    break; // it was not ours after all
+                }
                 return (child, addr);
             }
             if Instant::now() > deadline {
