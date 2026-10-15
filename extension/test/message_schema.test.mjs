@@ -256,11 +256,18 @@ test('the wrapper points the host at the GUI settings file', () => {
     `wrapper must point at the GUI's settings.json, got: ${wsrc}`,
   );
 
+  // The two halves must still agree about WHERE that file is. Since the
+  // one-directory layout there is a single answer, $IDM_DIR/state, and both
+  // sides have to be told it: install.sh hands IDM_STATE_DIR to the host
+  // installer, and `idm --gui` starts the window with the same directory.
   const installSh = readFileSync(join(repoRoot, 'install.sh'), 'utf8');
-  assert.ok(
-    /--state-dir\s+"\$DATA_HOME\/idm-gui"/.test(installSh),
-    'install.sh must still start the GUI with the state dir the wrapper assumes',
-  );
+  assert.match(installSh, /^STATE_DIR="\$IDM_DIR\/state"$/m,
+    'install.sh must derive the state dir from IDM_DIR');
+  assert.match(installSh, /IDM_STATE_DIR="\$STATE_DIR"/,
+    'install.sh must pass that state dir to the host installer');
+  const verbs = readFileSync(join(repoRoot, 'engine', 'src', 'verbs.rs'), 'utf8');
+  assert.match(verbs, /\.arg\("--state-dir"\)\s*\n\s*\.arg\(dir\.join\("state"\)\)/,
+    '`idm --gui` must start the window with $IDM_DIR/state');
 });
 
 test('content.js references the content->background opcodes', () => {

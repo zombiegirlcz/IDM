@@ -5,7 +5,8 @@ stahování s resume, native-messaging host pro prohlížeč, MV3 extension a
 nativní Tk okno.
 
 **Stav.** Verze 0.1.5, instalace přes `install.sh` / `install.ps1` stahuje
-hotové binárky z GitHub release.
+hotové binárky z GitHub release. Všechno leží v jedné složce `$IDM_DIR`
+(výchozí `~/.idm`, na Windows `%USERPROFILE%\.idm`).
 
 Co je **ověřené uživatelem**: CLI engine — stáhne video ze stránky (yt-dlp
 cesta), resume, `--aria2`, trezor na hesla.
@@ -29,6 +30,7 @@ Ruční průchod prohlížečem u sebe se nedělal. Netvrdit o nich, že funguj�
 | `engine/src/media.rs` | yt-dlp backend (video stránky, formáty) |
 | `engine/src/secrets.rs` | šifrovaný trezor na hesla (`secrets.json`) |
 | `gui/idm_gui.py` | nativní okno (Tk, stdlib-only — žádná nativní závislost) |
+| `engine/src/verbs.rs` | slovesa `--gui` / `update` / `uninstall` / `--version` + `uninstall_plan` |
 | `extension/` | MV3: `background.js`, `content.js`, `settings.js` (filtry záchytu) |
 | `extension/manifest.json` | **jeden manifest pro oba prohlížeče** — `service_worker` čte Chrome, `scripts` Firefox |
 | `extension/com.tonec.idm*.json` | manifesty hosta: Chrome (`allowed_origins`) a Firefox (`allowed_extensions`) |
@@ -122,8 +124,41 @@ ověřování změn.
 - **Firefox MV3 nebere `background.service_worker`** („currently disabled. Add
   background.scripts") a native messaging povoluje podle **gecko id**, ne podle
   `chrome-extension://` originu.
+- **`Icon=` v `.desktop` musí být absolutní cesta k souboru.** Dřív tam bylo
+  `Icon=download`, což je jméno ikony z tématu, a `assets/idm.png` se vůbec
+  neinstalovalo — proto se ikona na ploše nevykreslila. Na Windows totéž:
+  `shell32.dll,167` je index do cizí knihovny.
+- **Komentář spolkne pokračovací `\`.** V `install.sh` tak zmizel celý `curl`
+  a zbyl řádek začínající `-o "$PREFIX/bin/$f"`, který bash zkusil spustit.
+  `bash -n` to přijme; hlídá to test na tvar řádků v `test/install.test.mjs`.
 - `settings.json`, `queue.json` i `secrets.json` se píšou **atomicky
   (tmp + rename) s 0600**. Zápis na místo nechává čtenáře vidět torzo.
+
+## Instalační layout
+
+```
+$IDM_DIR/   bin/ (idm, idm-host, ensure-aria2.sh)  gui/  assets/
+            extension/  native/  state/  VERSION  install.sh
+```
+
+Mimo složku patří jen symlink `~/.local/bin/idm` a manifesty hostů
+v konfiguračních adresářích prohlížečů — jinde je prohlížeč nehledá. Do rc
+souborů jde **jeden ohraničený blok** (`# >>> IDM >>>`): `export IDM_DIR`
+a pojistka, která přidá `~/.local/bin` na PATH, jen když tam není.
+
+- **`idm-host` zůstává samostatnou binárkou.** Je to jediný článek, který
+  ověřuje reálný prohlížeč, a native-messaging manifesty neumějí argumenty —
+  sloučení do `idm` by znamenalo rozhodování podle `argv[0]`.
+- **Slovesa se dispatchují před `Args::parse()`** (`verbs::dispatch`). `url`
+  je nepovinný poziční argument, takže clap by `update` snědl jako URL.
+  První argument, který není přesně jedno z těch slov, propadne do dnešního
+  parseru beze změny. Daň: `--help` je musí vypsat ručně (`AFTER_HELP`).
+- **`install-host.sh` a `install-shell.sh` berou `IDM_STATE_DIR`
+  a `IDM_NATIVE_DIR`.** Bez toho si sáhnou na staré XDG cesty a rozmažou
+  instalaci zpátky do tří adresářů — a to **během téže instalace**, která
+  právě stav přestěhovala.
+- **Zástupce na Windows míří na `pythonw.exe`, ne na `idm.exe --gui`.**
+  `idm.exe` je konzolová binárka, takže by `.lnk` blikal konzolí.
 
 ## Hesla
 
