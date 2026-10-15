@@ -1258,6 +1258,12 @@ async fn run_direct_dynamic(
 /// script is looked for next to this binary, which is where install.sh and
 /// install.ps1 put it.
 async fn ensure_yt_dlp(args: &Args) -> anyhow::Result<PathBuf> {
+    // A path that points at a real file is the user's choice and is taken as
+    // given -- it may be a wrapper that does not answer --version, and
+    // second-guessing it would be rude as well as wrong.
+    if args.yt_dlp_path.is_file() {
+        return Ok(args.yt_dlp_path.clone());
+    }
     if tokio::process::Command::new(&args.yt_dlp_path)
         .hide_console()
         .arg("--version")
