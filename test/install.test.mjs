@@ -1,15 +1,24 @@
 // Tests for the Linux installer (`install.sh`).
 //
-// The user's complaint was that installing required Rust/git — real IDM doesn't.
-// So the default path must download a PREBUILT release archive and unpack it;
-// the build-from-source path is opt-in via IDM_LOCAL_SOURCE.
+// Two contracts live here. The old one: installing must not need git, Rust or
+// a compiler -- the default path downloads a PREBUILT release archive, and
+// building from source is opt-in via IDM_LOCAL_SOURCE.
+//
+// The new one: everything the installer writes lives under a single
+// $IDM_DIR. The shell gets one marked block (IDM_DIR plus a PATH guard),
+// `idm` is reachable through a symlink in ~/.local/bin, and the desktop entry
+// points at a real icon FILE -- `Icon=download` is a theme name, which is why
+// the icon never rendered.
 //
 // We can't hit GitHub from tests, so we drive the download path with a local
 // file:// archive (IDM_ARCHIVE_URL) and the source path with a fake checkout.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, statSync, mkdtempSync, mkdirSync, copyFileSync, writeFileSync } from 'node:fs';
+import {
+  readFileSync, existsSync, statSync, lstatSync, readlinkSync,
+  mkdtempSync, mkdirSync, copyFileSync, writeFileSync,
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -25,24 +34,29 @@ function freshHome() {
   return mkdtempSync(join(tmpdir(), 'idm_install_home_'));
 }
 
-/** Build a fake prebuilt archive (idm + idm-host + idm_gui.py). */
+/** Build a fake prebuilt archive, mirroring what release.yml packs. */
 function fakeArchive() {
   const dir = mkdtempSync(join(tmpdir(), 'idm_arch_'));
   for (const b of ['idm', 'idm-host']) {
     writeFileSync(join(dir, b), `#!/bin/sh\necho ${b}\n`, { mode: 0o755 });
   }
   writeFileSync(join(dir, 'idm_gui.py'), '# fake gui\n');
-  // The real release archive also ships the aria2 helper and the installer
-  // itself (the latter is what `--uninstall` is documented to run).
   writeFileSync(join(dir, 'ensure-aria2.sh'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
   copyFileSync(join(repoRoot, 'install.sh'), join(dir, 'install.sh'));
+  // The window needs a real icon file; a theme name does not render.
+  mkdirSync(join(dir, 'assets'), { recursive: true });
+  for (const a of ['idm.png', 'idm.ico']) {
+    copyFileSync(join(repoRoot, 'assets', a), join(dir, 'assets', a));
+  }
   const tar = join(dir, 'idm-linux-x64.tar.gz');
   execFileSync('tar', [
     '-czf', tar, '-C', dir,
-    'idm', 'idm-host', 'idm_gui.py', 'ensure-aria2.sh', 'install.sh',
+    'idm', 'idm-host', 'idm_gui.py', 'ensure-aria2.sh', 'install.sh', 'assets',
   ]);
   return tar;
 }
+
+const idmDir = (home) => join(home, '.idm');
 
 function baseEnv(home) {
   return {
@@ -50,7 +64,7 @@ function baseEnv(home) {
     HOME: home,
     XDG_DATA_HOME: join(home, '.local', 'share'),
     XDG_CONFIG_HOME: join(home, '.config'),
-    IDM_INSTALL_PREFIX: join(home, '.local', 'share', 'idm'),
+    IDM_DIR: idmDir(home),
     IDM_DOWNLOADS_DIR: join(home, 'Downloads'),
     // The tests must not try to apt-get install python3-tk on the host.
     IDM_SKIP_GUI_DEPS: '1',
@@ -58,7 +72,7 @@ function baseEnv(home) {
   };
 }
 
-function run(home, env, args = []) {
+function run(home, env = {}, args = []) {
   return execFileSync('bash', [installer, ...args], {
     env: { ...baseEnv(home), ...env },
     encoding: 'utf8',
@@ -66,14 +80,30 @@ function run(home, env, args = []) {
   });
 }
 
+function install(home, env = {}) {
+  return run(home, { IDM_ARCHIVE_URL: `file://${fakeArchive()}`, ...env });
+}
+
 test('install.sh exists and is executable', () => {
   assert.ok(existsSync(installer), `missing ${installer}`);
   assert.ok(statSync(installer).mode & 0o111, 'install.sh must be executable');
 });
 
+test('is syntactically valid bash', () => {
+  // A comment once swallowed a `curl` continuation, leaving a line that began
+  // with `-o "$PREFIX/bin/$f"` for bash to execute. `bash -n` would not catch
+  // that, so check for the shape directly as well.
+  execFileSync('bash', ['-n', installer], { stdio: 'pipe' });
+  for (const [i, line] of src().split('\n').entries()) {
+    assert.ok(
+      !/^\s*-[a-zA-Z]\s/.test(line),
+      `line ${i + 1} starts with a bare flag -- a continuation was lost: ${line}`,
+    );
+  }
+});
+
 test('does NOT require git or Rust on the default path', () => {
   const s = src();
-  // git clone must not be used at all; cargo only on the opt-in local path.
   assert.ok(!/git clone/.test(s), 'must not clone the source');
   assert.match(s, /IDM_LOCAL_SOURCE/, 'build-from-source must be opt-in');
   assert.match(s, /releases\/latest\/download/, 'must download the release asset');
@@ -81,65 +111,147 @@ test('does NOT require git or Rust on the default path', () => {
   assert.match(s, /tar -xzf/, 'must unpack the archive');
 });
 
-test('download path installs binaries, launcher, desktop icon', () => {
+test('everything lands in one IDM_DIR', () => {
   const home = freshHome();
-  const arch = fakeArchive();
-  run(home, { IDM_ARCHIVE_URL: `file://${arch}` });
+  install(home);
+  const d = idmDir(home);
 
-  const prefix = join(home, '.local', 'share', 'idm');
-  assert.ok(existsSync(join(prefix, 'bin', 'idm')), 'engine must be installed');
-  assert.ok(existsSync(join(prefix, 'bin', 'idm-host')), 'host must be installed');
-  assert.ok(existsSync(join(prefix, 'bin', 'idm-gui')), 'gui launcher must exist');
-  assert.ok(existsSync(join(prefix, 'gui', 'idm_gui.py')), 'gui script must be installed');
-
-  // The aria2 auto-installer must travel with the binaries, otherwise
-  // `--aria2` cannot install aria2c on a clean machine.
+  for (const p of [
+    'bin/idm', 'bin/idm-host', 'bin/ensure-aria2.sh',
+    'gui/idm_gui.py', 'assets/idm.png', 'VERSION',
+  ]) {
+    assert.ok(existsSync(join(d, p)), `missing ${p} under IDM_DIR`);
+  }
+  // The generated bash launcher is gone: the desktop entry runs `idm --gui`.
+  assert.ok(!existsSync(join(d, 'bin', 'idm-gui')), 'the idm-gui launcher must be gone');
+  // Nothing outside IDM_DIR except the symlink and the browser manifests.
   assert.ok(
-    existsSync(join(prefix, 'bin', 'ensure-aria2.sh')),
-    'ensure-aria2.sh must be installed on the release path',
+    !existsSync(join(home, '.local', 'share', 'idm')),
+    'the old prefix must not be created',
   );
-  // The documented uninstall command is `bash $PREFIX/install.sh --uninstall`.
-  assert.ok(existsSync(join(prefix, 'install.sh')), 'install.sh must be kept in the prefix');
+});
 
+test('defaults IDM_DIR to $HOME/.idm when unset', () => {
+  const home = freshHome();
+  const env = { ...baseEnv(home), IDM_ARCHIVE_URL: `file://${fakeArchive()}` };
+  delete env.IDM_DIR;
+  execFileSync('bash', [installer], { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.ok(existsSync(join(home, '.idm', 'bin', 'idm')), 'default must be $HOME/.idm');
+});
+
+test('symlinks idm into ~/.local/bin', () => {
+  const home = freshHome();
+  install(home);
+  const link = join(home, '.local', 'bin', 'idm');
+  assert.ok(lstatSync(link).isSymbolicLink(), `${link} must be a symlink`);
+  assert.equal(readlinkSync(link), join(idmDir(home), 'bin', 'idm'));
+  // idm-host is NOT linked: the browser calls it by the absolute path in the
+  // native-messaging manifest, and nobody types it.
+  assert.ok(!existsSync(join(home, '.local', 'bin', 'idm-host')), 'idm-host must not be linked');
+});
+
+test('writes one marked block into the shell rc, and only IDM_DIR plus a PATH guard', () => {
+  const home = freshHome();
+  writeFileSync(join(home, '.zshrc'), '# mine\n');
+  writeFileSync(join(home, '.bashrc'), '# mine\n');
+  install(home);
+
+  for (const rc of ['.zshrc', '.bashrc']) {
+    const text = readFileSync(join(home, rc), 'utf8');
+    assert.match(text, /# >>> IDM >>>/, `${rc} must carry the start marker`);
+    assert.match(text, /# <<< IDM <<</, `${rc} must carry the end marker`);
+    assert.match(
+      text,
+      new RegExp(`export IDM_DIR="${idmDir(home)}"`),
+      `${rc} must export IDM_DIR`,
+    );
+    assert.match(text, /\$HOME\/\.local\/bin/, `${rc} must guard ~/.local/bin onto PATH`);
+    assert.ok(
+      !new RegExp(`export PATH="${idmDir(home)}/bin:`).test(text),
+      `${rc} must not export IDM_DIR/bin onto PATH -- that is what the symlink is for`,
+    );
+    assert.ok(text.includes('# mine'), `${rc} must keep what was already there`);
+  }
+});
+
+test('the rc block is idempotent', () => {
+  const home = freshHome();
+  writeFileSync(join(home, '.bashrc'), '# mine\n');
+  install(home);
+  install(home);
+  const text = readFileSync(join(home, '.bashrc'), 'utf8');
+  assert.equal(text.match(/# >>> IDM >>>/g).length, 1, 'blocks must not stack');
+});
+
+test('the desktop entry points at a real icon file and runs `idm --gui`', () => {
+  const home = freshHome();
+  install(home);
   const icon = join(home, 'Desktop', 'idm.desktop');
   assert.ok(existsSync(icon), `desktop icon missing: ${icon}`);
+  const text = readFileSync(icon, 'utf8');
+
+  const iconPath = join(idmDir(home), 'assets', 'idm.png');
+  assert.match(
+    text,
+    new RegExp(`^Icon=${iconPath}$`, 'm'),
+    'Icon= must be an absolute path; a theme name like `download` does not render',
+  );
+  assert.ok(existsSync(iconPath), 'the icon the entry names must exist');
+  assert.match(text, /^Exec=.*\/idm --gui$/m, 'Exec must run the binary, not a generated launcher');
   execFileSync('desktop-file-validate', [icon], { stdio: 'pipe' });
 });
 
-test('uninstall works through the copy kept in the prefix (curl | bash case)', () => {
+test('migrates the old split install into IDM_DIR/state', () => {
   const home = freshHome();
-  const arch = fakeArchive();
-  // stdin-piped install: BASH_SOURCE is not a readable file, exactly like
-  // `curl -fsSL ... | bash`.
-  execFileSync('bash', ['-s'], {
-    env: { ...baseEnv(home), IDM_ARCHIVE_URL: `file://${arch}` },
-    input: readFileSync(installer),
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  // What 0.1.5 left behind: program in one place, state in another.
+  const oldState = join(home, '.local', 'share', 'idm-gui');
+  const oldPrefix = join(home, '.local', 'share', 'idm', 'bin');
+  mkdirSync(oldState, { recursive: true });
+  mkdirSync(oldPrefix, { recursive: true });
+  writeFileSync(join(oldState, 'queue.json'), '[{"id":"old"}]');
+  writeFileSync(join(oldState, 'secrets.json'), '{"v":1}');
+  writeFileSync(join(oldState, 'secrets.key'), 'k', { mode: 0o600 });
+  writeFileSync(join(oldPrefix, 'idm'), '#!/bin/sh\n', { mode: 0o755 });
+  writeFileSync(join(home, '.bashrc'), `# IDM (added by install.sh)\nexport PATH="${join(home, '.local', 'share', 'idm', 'bin')}:$PATH"\n# mine\n`);
 
-  const prefix = join(home, '.local', 'share', 'idm');
-  const kept = join(prefix, 'install.sh');
-  assert.ok(existsSync(kept), 'install.sh must be available for --uninstall');
+  install(home);
 
-  execFileSync('bash', [kept, '--uninstall'], {
-    env: { ...baseEnv(home), IDM_ARCHIVE_URL: `file://${arch}` },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  assert.ok(!existsSync(prefix), 'prefix should be gone after --uninstall');
+  const state = join(idmDir(home), 'state');
+  assert.equal(readFileSync(join(state, 'queue.json'), 'utf8'), '[{"id":"old"}]');
+  assert.ok(existsSync(join(state, 'secrets.json')), 'the vault must come along');
+  assert.equal(
+    lstatSync(join(state, 'secrets.key')).mode & 0o777, 0o600,
+    'the key file must keep its 0600 mode',
+  );
+  assert.ok(!existsSync(oldState), 'the old state dir must be moved, not copied');
+  assert.ok(!existsSync(join(home, '.local', 'share', 'idm')), 'the old prefix must be removed');
+
+  const rc = readFileSync(join(home, '.bashrc'), 'utf8');
+  assert.ok(!rc.includes('added by install.sh'), 'the old rc line must be cleaned up');
+  assert.ok(rc.includes('# mine'), 'cleanup must not eat unrelated lines');
+});
+
+test('migration is idempotent and never overwrites newer state', () => {
+  const home = freshHome();
+  const oldState = join(home, '.local', 'share', 'idm-gui');
+  mkdirSync(oldState, { recursive: true });
+  writeFileSync(join(oldState, 'queue.json'), 'OLD');
+  install(home);
+  const state = join(idmDir(home), 'state');
+  writeFileSync(join(state, 'queue.json'), 'NEW');
+  // A second old dir appearing (e.g. an old build ran again) must not win.
+  mkdirSync(oldState, { recursive: true });
+  writeFileSync(join(oldState, 'queue.json'), 'OLD');
+  install(home);
+  assert.equal(readFileSync(join(state, 'queue.json'), 'utf8'), 'NEW');
 });
 
 test('ensures the GUI runtime (python3 + tkinter) on the default path', () => {
   const s = src();
-  // The desktop icon runs a Python/Tk window; without python3 or tkinter the
-  // icon silently does nothing (Terminal=false hides the error). The installer
-  // must provide them, like real IDM ships everything.
   assert.match(s, /install_gui_deps/, 'must have a GUI dependency step');
   assert.match(s, /python3-tk/, 'must install tkinter on apt systems');
   assert.match(s, /python3-tkinter/, 'must cover dnf/yum naming');
-  assert.match(s, /install_gui_deps\n/, 'the step must actually be called');
   assert.match(s, /IDM_SKIP_GUI_DEPS/, 'must offer an escape hatch');
-  // The launcher must log why it failed instead of dying silently.
-  assert.match(s, /launcher\.log/, 'launcher must write a log');
 });
 
 test('refuses a plain-http archive URL', () => {
@@ -151,16 +263,49 @@ test('refuses a plain-http archive URL', () => {
   );
 });
 
-test('--uninstall removes the icon and prefix', () => {
+test('--uninstall removes the directory, the symlink and the rc block', () => {
   const home = freshHome();
-  const arch = fakeArchive();
-  run(home, { IDM_ARCHIVE_URL: `file://${arch}` });
+  writeFileSync(join(home, '.bashrc'), '# mine\n');
+  install(home);
+  assert.ok(existsSync(join(home, 'Desktop', 'idm.desktop')));
 
-  const prefix = join(home, '.local', 'share', 'idm');
-  const icon = join(home, 'Desktop', 'idm.desktop');
-  assert.ok(existsSync(icon));
+  run(home, {}, ['--uninstall', '--yes', '--purge']);
 
-  run(home, { IDM_ARCHIVE_URL: `file://${arch}` }, ['--uninstall']);
-  assert.ok(!existsSync(icon), 'desktop icon should be gone');
-  assert.ok(!existsSync(prefix), 'prefix should be gone');
+  assert.ok(!existsSync(idmDir(home)), 'IDM_DIR should be gone');
+  assert.ok(!existsSync(join(home, 'Desktop', 'idm.desktop')), 'desktop icon should be gone');
+  assert.ok(!existsSync(join(home, '.local', 'bin', 'idm')), 'the symlink should be gone');
+  const rc = readFileSync(join(home, '.bashrc'), 'utf8');
+  assert.ok(!rc.includes('>>> IDM >>>'), 'the rc block should be gone');
+  assert.ok(rc.includes('# mine'), 'unrelated rc lines must survive');
+});
+
+test('--uninstall without --purge keeps the state', () => {
+  // Losing saved passwords is worse than leaving a directory behind.
+  const home = freshHome();
+  install(home);
+  const state = join(idmDir(home), 'state');
+  mkdirSync(state, { recursive: true });
+  writeFileSync(join(state, 'secrets.json'), '{"v":1}');
+
+  run(home, {}, ['--uninstall', '--yes']);
+
+  assert.ok(existsSync(join(state, 'secrets.json')), 'state must survive');
+  assert.ok(!existsSync(join(idmDir(home), 'bin')), 'the program must be gone');
+});
+
+test('uninstall works through the copy kept in IDM_DIR (curl | bash case)', () => {
+  const home = freshHome();
+  // stdin-piped install: BASH_SOURCE is not a readable file.
+  execFileSync('bash', ['-s'], {
+    env: { ...baseEnv(home), IDM_ARCHIVE_URL: `file://${fakeArchive()}` },
+    input: readFileSync(installer),
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const kept = join(idmDir(home), 'install.sh');
+  assert.ok(existsSync(kept), 'install.sh must be available for --uninstall');
+  execFileSync('bash', [kept, '--uninstall', '--yes', '--purge'], {
+    env: baseEnv(home),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  assert.ok(!existsSync(idmDir(home)), 'IDM_DIR should be gone after --uninstall');
 });
