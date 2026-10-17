@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarVaults
+        android:id="@+id/screenRecyclerNavbarVaultsActionFooter_navBar"
+        android:fitsSystemWindows="true"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/screenRecyclerNavbarVaultsActionFooter_recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.views.buttons.ActionFooterView
+        android:layout_gravity="bottom"
+        android:id="@+id/screenRecyclerNavbarVaultsActionFooter_actionFooterView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_behavior="com.revolut.core.ui_kit.views.buttons.CollapsibleButtonBehavior"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

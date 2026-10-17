@@ -1,0 +1,367 @@
+package com.revolut.feature.wealth.ui.impl.transfer_picker;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+import com.revolut.feature.wealth.api.domain.model.WealthAccount;
+import com.revolut.feature.wealth.models.robo.RoboPortfolioInfo;
+import com.revolut.shared.feature.wealth.models.config.TradingLegalEntityInformation;
+import ip0.v7;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes10.dex */
+@Metadata(d1 = {"\u0000\u001c\n\u0000\n\u0002\u0018\u0002\n\u0002\b\u0004\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0000\bw\u0018\u00002\u00020\u0001:\u0004\u0002\u0003\u0004\u0005\u0082\u0001\u0004\u0006\u0007\b\t¨\u0006\nÀ\u0006\u0003"}, d2 = {"com/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount", "Landroid/os/Parcelable;", "Securities", "TaxAdvantageAccount", "Robo", "Margin", "Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount$Margin;", "Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount$Robo;", "Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount$Securities;", "Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount$TaxAdvantageAccount;", "feature_wealth_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public interface WealthTransferPickerControllerContract$TransferAccount extends Parcelable {
+
+    @Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0086\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount$Margin;", "Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount;", "", "toString", "()Ljava/lang/String;", "feature_wealth_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final /* data */ class Margin implements WealthTransferPickerControllerContract$TransferAccount {
+
+        @NotNull
+        public static final Parcelable.Creator<Margin> CREATOR = new a();
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public final kel.b f96072a;
+
+        /* JADX INFO: renamed from: b, reason: collision with root package name */
+        public final TradingLegalEntityInformation f96073b;
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                return new Margin((kel.b) parcel.readSerializable(), (TradingLegalEntityInformation) parcel.readParcelable(Margin.class.getClassLoader()));
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new Margin[i];
+            }
+        }
+
+        public Margin(kel.b cashHolding, TradingLegalEntityInformation tradingLegalEntityInformation) {
+            Intrinsics.checkNotNullParameter(cashHolding, "cashHolding");
+            Intrinsics.checkNotNullParameter(tradingLegalEntityInformation, "tradingLegalEntityInformation");
+            this.f96072a = cashHolding;
+            this.f96073b = tradingLegalEntityInformation;
+        }
+
+        @Override // com.revolut.feature.wealth.ui.impl.transfer_picker.WealthTransferPickerControllerContract$TransferAccount
+        /* JADX INFO: renamed from: B0 */
+        public final String getE() {
+            return "MARGIN";
+        }
+
+        @Override // com.revolut.feature.wealth.ui.impl.transfer_picker.WealthTransferPickerControllerContract$TransferAccount
+        /* JADX INFO: renamed from: L1, reason: from getter */
+        public final TradingLegalEntityInformation getD() {
+            return this.f96073b;
+        }
+
+        @Override // android.os.Parcelable
+        public final int describeContents() {
+            return 0;
+        }
+
+        public final boolean equals(Object obj2) {
+            if (this == obj2) {
+                return true;
+            }
+            if (!(obj2 instanceof Margin)) {
+                return false;
+            }
+            Margin margin = (Margin) obj2;
+            return Intrinsics.f(this.f96072a, margin.f96072a) && Intrinsics.f(this.f96073b, margin.f96073b);
+        }
+
+        public final int hashCode() {
+            return this.f96073b.hashCode() + (this.f96072a.hashCode() * 31);
+        }
+
+        @Override // android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            dest.writeSerializable(this.f96072a);
+            dest.writeParcelable(this.f96073b, i);
+        }
+    }
+
+    @Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0086\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount$Robo;", "Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount;", "", "toString", "()Ljava/lang/String;", "feature_wealth_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final /* data */ class Robo implements WealthTransferPickerControllerContract$TransferAccount {
+
+        @NotNull
+        public static final Parcelable.Creator<Robo> CREATOR = new a();
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public final RoboPortfolioInfo f96074a;
+
+        /* JADX INFO: renamed from: b, reason: collision with root package name */
+        public final dj0.d f96075b;
+
+        /* JADX INFO: renamed from: c, reason: collision with root package name */
+        public final dj0.d f96076c;
+        public final TradingLegalEntityInformation d;
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                return new Robo((RoboPortfolioInfo) parcel.readParcelable(Robo.class.getClassLoader()), (dj0.d) parcel.readSerializable(), (dj0.d) parcel.readSerializable(), (TradingLegalEntityInformation) parcel.readParcelable(Robo.class.getClassLoader()));
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new Robo[i];
+            }
+        }
+
+        public Robo(RoboPortfolioInfo portfolio, dj0.d minimumBalanceAfterWithdraw, dj0.d minimumAmountToWithdraw, TradingLegalEntityInformation tradingLegalEntityInformation) {
+            Intrinsics.checkNotNullParameter(portfolio, "portfolio");
+            Intrinsics.checkNotNullParameter(minimumBalanceAfterWithdraw, "minimumBalanceAfterWithdraw");
+            Intrinsics.checkNotNullParameter(minimumAmountToWithdraw, "minimumAmountToWithdraw");
+            Intrinsics.checkNotNullParameter(tradingLegalEntityInformation, "tradingLegalEntityInformation");
+            this.f96074a = portfolio;
+            this.f96075b = minimumBalanceAfterWithdraw;
+            this.f96076c = minimumAmountToWithdraw;
+            this.d = tradingLegalEntityInformation;
+        }
+
+        @Override // com.revolut.feature.wealth.ui.impl.transfer_picker.WealthTransferPickerControllerContract$TransferAccount
+        /* JADX INFO: renamed from: B0 */
+        public final String getE() {
+            return "ROBO";
+        }
+
+        @Override // com.revolut.feature.wealth.ui.impl.transfer_picker.WealthTransferPickerControllerContract$TransferAccount
+        /* JADX INFO: renamed from: L1, reason: from getter */
+        public final TradingLegalEntityInformation getD() {
+            return this.d;
+        }
+
+        @Override // android.os.Parcelable
+        public final int describeContents() {
+            return 0;
+        }
+
+        public final boolean equals(Object obj2) {
+            if (this == obj2) {
+                return true;
+            }
+            if (!(obj2 instanceof Robo)) {
+                return false;
+            }
+            Robo robo = (Robo) obj2;
+            return Intrinsics.f(this.f96074a, robo.f96074a) && Intrinsics.f(this.f96075b, robo.f96075b) && Intrinsics.f(this.f96076c, robo.f96076c) && Intrinsics.f(this.d, robo.d);
+        }
+
+        public final int hashCode() {
+            return this.d.hashCode() + v7.c(v7.c(this.f96074a.hashCode() * 31, 31, this.f96075b), 31, this.f96076c);
+        }
+
+        @Override // android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            dest.writeParcelable(this.f96074a, i);
+            dest.writeSerializable(this.f96075b);
+            dest.writeSerializable(this.f96076c);
+            dest.writeParcelable(this.d, i);
+        }
+    }
+
+    @Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0086\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount$Securities;", "Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount;", "", "toString", "()Ljava/lang/String;", "feature_wealth_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final /* data */ class Securities implements WealthTransferPickerControllerContract$TransferAccount {
+
+        @NotNull
+        public static final Parcelable.Creator<Securities> CREATOR = new a();
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public final String f96077a;
+
+        /* JADX INFO: renamed from: b, reason: collision with root package name */
+        public final List f96078b;
+
+        /* JADX INFO: renamed from: c, reason: collision with root package name */
+        public final WealthAccount.Securities f96079c;
+        public final TradingLegalEntityInformation d;
+        public final String e;
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                String string = parcel.readString();
+                int i = parcel.readInt();
+                ArrayList arrayList = new ArrayList(i);
+                int iE = 0;
+                while (iE != i) {
+                    iE = j6.a.e(Securities.class, parcel, arrayList, iE, 1);
+                }
+                return new Securities(string, arrayList, (WealthAccount.Securities) parcel.readParcelable(Securities.class.getClassLoader()), (TradingLegalEntityInformation) parcel.readParcelable(Securities.class.getClassLoader()));
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new Securities[i];
+            }
+        }
+
+        public Securities(String portfolioId, List cashHoldingsAvailability, WealthAccount.Securities account, TradingLegalEntityInformation tradingLegalEntityInformation) {
+            Intrinsics.checkNotNullParameter(portfolioId, "portfolioId");
+            Intrinsics.checkNotNullParameter(cashHoldingsAvailability, "cashHoldingsAvailability");
+            Intrinsics.checkNotNullParameter(account, "account");
+            Intrinsics.checkNotNullParameter(tradingLegalEntityInformation, "tradingLegalEntityInformation");
+            this.f96077a = portfolioId;
+            this.f96078b = cashHoldingsAvailability;
+            this.f96079c = account;
+            this.d = tradingLegalEntityInformation;
+            this.e = jjh.b.c(account);
+        }
+
+        @Override // com.revolut.feature.wealth.ui.impl.transfer_picker.WealthTransferPickerControllerContract$TransferAccount
+        /* JADX INFO: renamed from: B0, reason: from getter */
+        public final String getE() {
+            return this.e;
+        }
+
+        @Override // com.revolut.feature.wealth.ui.impl.transfer_picker.WealthTransferPickerControllerContract$TransferAccount
+        /* JADX INFO: renamed from: L1, reason: from getter */
+        public final TradingLegalEntityInformation getD() {
+            return this.d;
+        }
+
+        @Override // android.os.Parcelable
+        public final int describeContents() {
+            return 0;
+        }
+
+        public final boolean equals(Object obj2) {
+            if (this == obj2) {
+                return true;
+            }
+            if (!(obj2 instanceof Securities)) {
+                return false;
+            }
+            Securities securities = (Securities) obj2;
+            return Intrinsics.f(this.f96077a, securities.f96077a) && Intrinsics.f(this.f96078b, securities.f96078b) && Intrinsics.f(this.f96079c, securities.f96079c) && Intrinsics.f(this.d, securities.d);
+        }
+
+        public final int hashCode() {
+            return this.d.hashCode() + ((this.f96079c.hashCode() + p.a.d(this.f96077a.hashCode() * 31, 31, this.f96078b)) * 31);
+        }
+
+        @Override // android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            dest.writeString(this.f96077a);
+            Iterator itV = p.a.v(this.f96078b, dest);
+            while (itV.hasNext()) {
+                dest.writeParcelable((Parcelable) itV.next(), i);
+            }
+            dest.writeParcelable(this.f96079c, i);
+            dest.writeParcelable(this.d, i);
+        }
+    }
+
+    @Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0086\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount$TaxAdvantageAccount;", "Lcom/revolut/feature/wealth/ui/impl/transfer_picker/WealthTransferPickerControllerContract$TransferAccount;", "", "toString", "()Ljava/lang/String;", "feature_wealth_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final /* data */ class TaxAdvantageAccount implements WealthTransferPickerControllerContract$TransferAccount {
+
+        @NotNull
+        public static final Parcelable.Creator<TaxAdvantageAccount> CREATOR = new a();
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public final String f96080a;
+
+        /* JADX INFO: renamed from: b, reason: collision with root package name */
+        public final List f96081b;
+
+        /* JADX INFO: renamed from: c, reason: collision with root package name */
+        public final WealthAccount.TaxAdvantageWealthAccount f96082c;
+        public final TradingLegalEntityInformation d;
+        public final String e;
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                String string = parcel.readString();
+                int i = parcel.readInt();
+                ArrayList arrayList = new ArrayList(i);
+                int iE = 0;
+                while (iE != i) {
+                    iE = j6.a.e(TaxAdvantageAccount.class, parcel, arrayList, iE, 1);
+                }
+                return new TaxAdvantageAccount(string, arrayList, (WealthAccount.TaxAdvantageWealthAccount) parcel.readParcelable(TaxAdvantageAccount.class.getClassLoader()), (TradingLegalEntityInformation) parcel.readParcelable(TaxAdvantageAccount.class.getClassLoader()));
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new TaxAdvantageAccount[i];
+            }
+        }
+
+        public TaxAdvantageAccount(String portfolioId, List cashHoldingsAvailability, WealthAccount.TaxAdvantageWealthAccount account, TradingLegalEntityInformation tradingLegalEntityInformation) {
+            Intrinsics.checkNotNullParameter(portfolioId, "portfolioId");
+            Intrinsics.checkNotNullParameter(cashHoldingsAvailability, "cashHoldingsAvailability");
+            Intrinsics.checkNotNullParameter(account, "account");
+            Intrinsics.checkNotNullParameter(tradingLegalEntityInformation, "tradingLegalEntityInformation");
+            this.f96080a = portfolioId;
+            this.f96081b = cashHoldingsAvailability;
+            this.f96082c = account;
+            this.d = tradingLegalEntityInformation;
+            this.e = jjh.b.c(account);
+        }
+
+        @Override // com.revolut.feature.wealth.ui.impl.transfer_picker.WealthTransferPickerControllerContract$TransferAccount
+        /* JADX INFO: renamed from: B0, reason: from getter */
+        public final String getE() {
+            return this.e;
+        }
+
+        @Override // com.revolut.feature.wealth.ui.impl.transfer_picker.WealthTransferPickerControllerContract$TransferAccount
+        /* JADX INFO: renamed from: L1, reason: from getter */
+        public final TradingLegalEntityInformation getD() {
+            return this.d;
+        }
+
+        @Override // android.os.Parcelable
+        public final int describeContents() {
+            return 0;
+        }
+
+        public final boolean equals(Object obj2) {
+            if (this == obj2) {
+                return true;
+            }
+            if (!(obj2 instanceof TaxAdvantageAccount)) {
+                return false;
+            }
+            TaxAdvantageAccount taxAdvantageAccount = (TaxAdvantageAccount) obj2;
+            return Intrinsics.f(this.f96080a, taxAdvantageAccount.f96080a) && Intrinsics.f(this.f96081b, taxAdvantageAccount.f96081b) && Intrinsics.f(this.f96082c, taxAdvantageAccount.f96082c) && Intrinsics.f(this.d, taxAdvantageAccount.d);
+        }
+
+        public final int hashCode() {
+            return this.d.hashCode() + ((this.f96082c.hashCode() + p.a.d(this.f96080a.hashCode() * 31, 31, this.f96081b)) * 31);
+        }
+
+        @Override // android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            dest.writeString(this.f96080a);
+            Iterator itV = p.a.v(this.f96081b, dest);
+            while (itV.hasNext()) {
+                dest.writeParcelable((Parcelable) itV.next(), i);
+            }
+            dest.writeParcelable(this.f96082c, i);
+            dest.writeParcelable(this.d, i);
+        }
+    }
+
+    /* JADX INFO: renamed from: B0 */
+    String getE();
+
+    /* JADX INFO: renamed from: L1 */
+    TradingLegalEntityInformation getD();
+}

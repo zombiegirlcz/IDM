@@ -1,0 +1,83 @@
+package com.revolut.retail.feature.plan_gifting.impl;
+
+/* JADX INFO: loaded from: classes11.dex */
+public final class R$string {
+    public static int plan_gifting_claiming_confirmation_action = 2131990903;
+    public static int plan_gifting_claiming_confirmation_refund = 2131990904;
+    public static int plan_gifting_claiming_decline_action_negative = 2131990905;
+    public static int plan_gifting_claiming_decline_action_positive = 2131990906;
+    public static int plan_gifting_claiming_decline_subtitle = 2131990907;
+    public static int plan_gifting_claiming_decline_success_title = 2131990908;
+    public static int plan_gifting_claiming_decline_title = 2131990909;
+    public static int plan_gifting_claiming_dialog_success_after_expiration_subtitle = 2131990910;
+    public static int plan_gifting_claiming_dialog_success_generic_title = 2131990911;
+    public static int plan_gifting_claiming_dialog_success_subtitle = 2131990912;
+    public static int plan_gifting_claiming_dialog_success_subtitle_annual = 2131990913;
+    public static int plan_gifting_claiming_dialog_success_subtitle_monthly = 2131990914;
+    public static int plan_gifting_claiming_dialog_success_title = 2131990915;
+    public static int plan_gifting_dialog_error_subtitle = 2131990916;
+    public static int plan_gifting_dialog_kyc_not_passed_subtitle = 2131990917;
+    public static int plan_gifting_dialog_kyc_not_passed_title = 2131990918;
+    public static int plan_gifting_dialog_not_trusted_subtitle = 2131990919;
+    public static int plan_gifting_dialog_not_trusted_title = 2131990920;
+    public static int plan_gifting_dialog_pending_gift_subtitle = 2131990921;
+    public static int plan_gifting_dialog_pending_gift_title = 2131990922;
+    public static int plan_gifting_dialog_plan_revealing_disabled_subtitle = 2131990923;
+    public static int plan_gifting_dialog_plan_revealing_disabled_title = 2131990924;
+    public static int plan_gifting_dialog_too_many_gifts_subtitle = 2131990925;
+    public static int plan_gifting_dialog_unavailable_blocked_subtitle = 2131990926;
+    public static int plan_gifting_dialog_unavailable_blocked_title = 2131990927;
+    public static int plan_gifting_dialog_unavailable_disabled_subtitle = 2131990928;
+    public static int plan_gifting_dialog_unavailable_disabled_title = 2131990929;
+    public static int plan_gifting_insufficient_funds_subtitle = 2131990930;
+    public static int plan_gifting_insufficient_funds_title = 2131990931;
+    public static int plan_gifting_insufficient_funds_top_up_button = 2131990932;
+    public static int plan_gifting_receiver_plan_terms_title = 2131990933;
+    public static int plan_gifting_search_empty_data_subtitle = 2131990934;
+    public static int plan_gifting_search_empty_data_title = 2131990935;
+    public static int plan_gifting_search_hint = 2131990936;
+    public static int plan_gifting_search_title = 2131990937;
+    public static int plan_gifting_sending_dialog_confirmation_action_confirm = 2131990938;
+    public static int plan_gifting_sending_dialog_confirmation_description = 2131990939;
+    public static int plan_gifting_sending_dialog_confirmation_description_delayed = 2131990940;
+    public static int plan_gifting_sending_dialog_confirmation_description_instant = 2131990941;
+    public static int plan_gifting_sending_dialog_confirmation_title = 2131990942;
+    public static int plan_gifting_sending_dialog_success_annual = 2131990943;
+    public static int plan_gifting_sending_dialog_success_monthly = 2131990944;
+    public static int premium_birthday_gifting_payments_search_turn_on_birthday_sharing_subtitle = 2131991320;
+    public static int premium_birthday_gifting_payments_search_turn_on_birthday_sharing_title = 2131991321;
+    public static int premium_birthday_gifting_payments_search_view_upcoming_birthdays_title = 2131991322;
+    public static int premium_birthday_sharing_prompt_actions_enable = 2131991323;
+    public static int premium_birthday_sharing_prompt_onboarding_title = 2131991324;
+    public static int premium_birthday_sharing_prompt_subtitle = 2131991325;
+    public static int premium_birthday_sharing_prompt_title = 2131991326;
+    public static int premium_birthday_sharing_success_dialog_friends_birthdays_action = 2131991327;
+    public static int premium_birthday_sharing_success_dialog_friends_birthdays_subtitle = 2131991328;
+    public static int premium_birthday_sharing_success_dialog_notify_future_birthdays_action = 2131991329;
+    public static int premium_birthday_sharing_success_dialog_notify_future_birthdays_subtitle = 2131991330;
+    public static int premium_birthday_sharing_success_dialog_title = 2131991331;
+    public static int premium_gift_recipient_all_upcoming_birthdays_subtitle = 2131991370;
+    public static int premium_gift_recipient_all_upcoming_birthdays_title = 2131991371;
+    public static int premium_gift_recipient_birthdays_section_disclaimer_action = 2131991372;
+    public static int premium_gift_recipient_birthdays_section_disclaimer_description = 2131991373;
+    public static int premium_gift_recipient_birthdays_section_disclaimer_title = 2131991374;
+    public static int premium_gift_recipient_birthdays_section_reveal_action = 2131991375;
+    public static int premium_gift_recipient_birthdays_section_see_all_action = 2131991376;
+    public static int premium_gift_recipient_birthdays_section_send_gift_action = 2131991377;
+    public static int premium_gift_recipient_birthdays_section_title = 2131991378;
+    public static int premium_gift_recipient_birthdays_section_today = 2131991379;
+    public static int premium_gift_recipient_empty_state_action = 2131991380;
+    public static int premium_gift_recipient_empty_state_subtitle = 2131991381;
+    public static int premium_gift_recipient_empty_state_title = 2131991382;
+    public static int premium_gift_recipient_enable_birthday_sharing_banner_subtitle = 2131991383;
+    public static int premium_gift_recipient_enable_birthday_sharing_banner_title = 2131991384;
+    public static int premium_gift_recipient_enable_contacts_permissions_banner_subtitle = 2131991385;
+    public static int premium_gift_recipient_enable_contacts_permissions_banner_title = 2131991386;
+    public static int premium_gift_recipient_friends_section_title = 2131991387;
+    public static int premium_gift_recipient_general_title = 2131991388;
+    public static int premium_gift_recipient_search_empty_result_clear_action = 2131991389;
+    public static int premium_gift_recipient_search_empty_result_title = 2131991390;
+
+    private R$string() {
+    }
+}

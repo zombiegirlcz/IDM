@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/screenEsimPlanSelection_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.background.AnimatedBackgroundView
+        android:id="@+id/screenEsimPlanSelection_animatedBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/screenEsimPlanSelection_navBarWithToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.Tabs
+            android:id="@+id/screenEsimPlanSelection_tabs"
+            android:visibility="gone"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="?attr/uikit_dp12"
+            android:layout_marginStart="?attr/uikit_dp16"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar>
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/screenEsimPlanSelection_viewPager"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.views.buttons.TwinVerticalButton
+        android:layout_gravity="bottom"
+        android:id="@+id/screenEsimPlanSelection_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

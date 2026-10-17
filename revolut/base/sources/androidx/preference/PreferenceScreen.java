@@ -1,0 +1,25 @@
+package androidx.preference;
+
+import android.R;
+import android.content.Context;
+import android.util.AttributeSet;
+import androidx.annotation.NonNull;
+import androidx.core.content.res.TypedArrayUtils;
+
+/* JADX INFO: loaded from: classes23.dex */
+public final class PreferenceScreen extends PreferenceGroup {
+    private boolean mShouldUseGeneratedIds;
+
+    public PreferenceScreen(@NonNull Context context, AttributeSet attributeSet) {
+        super(context, attributeSet, TypedArrayUtils.getAttr(context, R$attr.preferenceScreenStyle, R.attr.preferenceScreenStyle));
+        this.mShouldUseGeneratedIds = true;
+    }
+
+    @Override // androidx.preference.Preference
+    public void onClick() {
+        if (getIntent() == null && getFragment() == null && getPreferenceCount() != 0) {
+            getPreferenceManager();
+            throw null;
+        }
+    }
+}

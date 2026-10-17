@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/richVideoPlayerControls_buttonPlay"
+        android:background="@null"
+        android:layout_width="@dimen/internal_dp24"
+        android:layout_height="@dimen/internal_dp24"
+        android:tint="?attr/uikit_colorWhite"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/uikit_icn_24_pause"/>
+    <androidx.appcompat.widget.AppCompatSeekBar
+        android:id="@+id/richVideoPlayerControls_seekBar"
+        android:layout_width="@dimen/internal_dp0"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="@dimen/internal_dp8"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/richVideoPlayerControls_time"
+        app:layout_constraintStart_toEndOf="@+id/richVideoPlayerControls_buttonPlay"
+        app:layout_constraintTop_toTopOf="parent"
+        style="@style/InternalFullscreenPlayerSeekBar"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorWhite"
+        android:id="@+id/richVideoPlayerControls_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="00:00"
+        android:lines="1"
+        android:layout_marginEnd="@dimen/internal_dp8"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/richVideoPlayerControls_buttonCaptions"
+        app:layout_constraintTop_toTopOf="parent"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/richVideoPlayerControls_buttonCaptions"
+        android:background="@null"
+        android:layout_width="@dimen/internal_dp24"
+        android:layout_height="@dimen/internal_dp24"
+        android:tint="?attr/uikit_colorWhite"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/uikit_icn_24_captions"/>
+</merge>

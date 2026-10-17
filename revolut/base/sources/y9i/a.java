@@ -1,0 +1,5 @@
+package y9i;
+
+/* JADX INFO: loaded from: classes10.dex */
+public interface a extends qji.a {
+}

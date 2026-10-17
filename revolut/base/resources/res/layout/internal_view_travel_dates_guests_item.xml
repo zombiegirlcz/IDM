@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.views.InputTravelView
+        android:id="@+id/inputTravelSearchDatesGuests_primary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="?attr/uikit_dp16"
+        android:layout_marginStart="?attr/uikit_dp16"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/inputTravelSearchDatesGuests_guideline"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.InputTravelView
+        android:id="@+id/inputTravelSearchDatesGuests_secondary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="?attr/uikit_dp16"
+        android:layout_marginStart="?attr/uikit_dp8"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@+id/inputTravelSearchDatesGuests_guideline"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <androidx.constraintlayout.widget.Guideline
+        android:orientation="vertical"
+        android:id="@+id/inputTravelSearchDatesGuests_guideline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.69"/>
+</merge>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.chat.ChatBubbleContainer xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/contextualChart_bubbleView"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/contextualChart_recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:overScrollMode="never"
+        android:nestedScrollingEnabled="false"/>
+</com.revolut.core.ui_kit.internal.views.chat.ChatBubbleContainer>

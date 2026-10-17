@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_gravity="end"
+    android:orientation="vertical"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:ellipsize="end"
+        android:gravity="end"
+        android:layout_gravity="center_horizontal"
+        android:id="@+id/row_valueTagTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        android:maxWidth="130dp"
+        android:maxLines="1"
+        style="?attr/internal_textAppearanceBody3"/>
+    <com.revolut.core.ui_kit.internal.views.tag.TagView
+        android:layout_gravity="end"
+        android:id="@+id/row_valueTagView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+</LinearLayout>

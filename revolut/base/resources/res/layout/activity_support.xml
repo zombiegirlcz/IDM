@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:orientation="vertical"
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:id="@+id/chatButton"
+        android:visibility="invisible"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="?attr/uikit_dp24"
+        android:layout_marginStart="?attr/uikit_dp16"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_anchor="@+id/recyclerView"
+        app:layout_anchorGravity="bottom"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/navBarWithToolbar"
+        android:background="?attr/uikit_windowBackground"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <FrameLayout
+        android:id="@+id/container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:translationZ="9dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

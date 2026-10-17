@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:ellipsize="end"
+        android:id="@+id/FingerPrintView_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/internal_dp16"
+        android:layout_marginBottom="@dimen/internal_dp16"
+        android:maxLines="1"
+        android:layout_marginStart="@dimen/internal_dp16"
+        android:layout_marginEnd="@dimen/internal_dp16"
+        style="?attr/internal_textAppearanceBody1"/>
+    <com.airbnb.lottie.LottieAnimationView
+        android:id="@+id/FingerPrintView_image"
+        android:layout_width="78dp"
+        android:layout_height="78dp"
+        app:lottie_autoPlay="true"
+        app:lottie_loop="true"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:id="@+id/FingerPrintView_backAction"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:uikit_LargeActionButtonStyle="FlatButton"/>
+</merge>

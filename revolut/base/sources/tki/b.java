@@ -1,0 +1,166 @@
+package tki;
+
+import android.content.Intent;
+import android.os.Bundle;
+import androidx.recyclerview.widget.RecyclerView;
+import java.util.List;
+import kotlin.jvm.functions.Function0;
+import kotlin.jvm.functions.Function1;
+import kotlin.jvm.internal.Intrinsics;
+import zhm.v;
+
+/* JADX INFO: loaded from: classes10.dex */
+public final class b implements a, pki.a {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final /* synthetic */ rki.a f271958a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final dli.e f271959b;
+
+    public b(c controller, d model, List delegates, int i, Function1 layoutManagerProvider, koi.h listAdapter, Function0 function0) {
+        dli.e uiListStatesModelBinding = new dli.e(controller, model, function0, i, layoutManagerProvider, delegates, listAdapter);
+        Intrinsics.checkNotNullParameter(controller, "controller");
+        Intrinsics.checkNotNullParameter(model, "model");
+        Intrinsics.checkNotNullParameter(delegates, "delegates");
+        Intrinsics.checkNotNullParameter(layoutManagerProvider, "layoutManagerProvider");
+        Intrinsics.checkNotNullParameter(listAdapter, "listAdapter");
+        Intrinsics.checkNotNullParameter(uiListStatesModelBinding, "uiListStatesModelBinding");
+        this.f271958a = new rki.a(v.k(uiListStatesModelBinding, new zki.e(controller, model)));
+        this.f271959b = uiListStatesModelBinding;
+    }
+
+    @Override // pki.a
+    public final void J() {
+        this.f271958a.J();
+    }
+
+    @Override // pki.a
+    public final void J0(boolean z) {
+        this.f271958a.J0(z);
+    }
+
+    @Override // pki.a
+    public final void J1(os2.g token) {
+        Intrinsics.checkNotNullParameter(token, "token");
+        this.f271958a.J1(token);
+    }
+
+    @Override // pki.a
+    public final void L1(yii.c stateStorage) {
+        Intrinsics.checkNotNullParameter(stateStorage, "stateStorage");
+        this.f271958a.L1(stateStorage);
+    }
+
+    @Override // pki.a
+    public final void R0() {
+        this.f271958a.R0();
+    }
+
+    @Override // pki.a
+    public final void W() {
+        this.f271958a.W();
+    }
+
+    @Override // pki.a
+    public final void b0(yii.c stateStorage) {
+        Intrinsics.checkNotNullParameter(stateStorage, "stateStorage");
+        this.f271958a.b0(stateStorage);
+    }
+
+    @Override // dli.c
+    public final RecyclerView.LayoutManager b2() {
+        return this.f271959b.b2();
+    }
+
+    @Override // pki.a
+    public final void c2() {
+        this.f271958a.getClass();
+    }
+
+    @Override // yji.r
+    public final void e(Bundle state) {
+        Intrinsics.checkNotNullParameter(state, "state");
+        this.f271958a.e(state);
+    }
+
+    @Override // pki.a
+    public final void e0(os2.g token) {
+        Intrinsics.checkNotNullParameter(token, "token");
+        this.f271958a.e0(token);
+    }
+
+    @Override // yji.r
+    public final void g(Bundle outState) {
+        Intrinsics.checkNotNullParameter(outState, "outState");
+        this.f271958a.g(outState);
+    }
+
+    @Override // pki.a
+    public final void g1(boolean z) {
+        this.f271958a.g1(z);
+    }
+
+    @Override // dli.c
+    public final RecyclerView h() {
+        return this.f271959b.h();
+    }
+
+    @Override // pki.a
+    public final void i1(boolean z) {
+        this.f271958a.i1(z);
+    }
+
+    @Override // pki.a
+    public final boolean l0(boolean z) {
+        return this.f271958a.l0(z);
+    }
+
+    @Override // pki.a
+    public final void n() {
+        this.f271958a.n();
+    }
+
+    @Override // pki.a
+    public final void o(int i, String[] permissions, int[] grantResults) {
+        Intrinsics.checkNotNullParameter(permissions, "permissions");
+        Intrinsics.checkNotNullParameter(grantResults, "grantResults");
+        this.f271958a.o(i, permissions, grantResults);
+    }
+
+    @Override // pki.a
+    public final void onActivityResult(int i, int i2, Intent intent) {
+        this.f271958a.onActivityResult(i, i2, intent);
+    }
+
+    @Override // pki.a
+    public final void onCreate() {
+        this.f271958a.onCreate();
+    }
+
+    @Override // pki.a
+    public final void onDestroy() {
+        this.f271958a.onDestroy();
+    }
+
+    @Override // pki.a
+    public final void u(boolean z) {
+        this.f271958a.u(z);
+    }
+
+    @Override // pki.a
+    public final boolean u1(oki.d defaultHandler) {
+        Intrinsics.checkNotNullParameter(defaultHandler, "defaultHandler");
+        return this.f271958a.u1(defaultHandler);
+    }
+
+    @Override // dli.c
+    public final koi.a w() {
+        return this.f271959b.f;
+    }
+
+    @Override // pki.a
+    public final void z() {
+        this.f271958a.z();
+    }
+}

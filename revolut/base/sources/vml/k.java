@@ -1,0 +1,7 @@
+package vml;
+
+/* JADX INFO: loaded from: classes12.dex */
+public final class k {
+    private k() {
+    }
+}

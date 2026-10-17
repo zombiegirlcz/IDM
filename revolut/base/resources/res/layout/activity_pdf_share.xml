@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.views.legacy.LegacyContentContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/webview_container"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:gravity="center"
+        android:id="@+id/pdfShare_basicNavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/pdfShare_basicNavBar"/>
+</com.revolut.core.ui_kit.views.legacy.LegacyContentContainerConstraintLayout>

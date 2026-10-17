@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:height="26dp"
+    android:width="40dp"
+    android:viewportWidth="40"
+    android:viewportHeight="26">
+    <path
+        android:fillColor="@drawable/_uikit_icn_40_revolut_card_chromatic__0_res_0x7f080094"
+        android:pathData="M2 0h36a2 2 0 0 1 2 2v22a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"/>
+</vector>

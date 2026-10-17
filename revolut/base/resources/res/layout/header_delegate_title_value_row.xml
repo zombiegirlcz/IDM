@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="16dp"
+        android:paddingTop="16dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="16dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core_ui_custom_font.TypefaceTextView
+            android:gravity="left"
+            android:id="@+id/delegate_title_value_row_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            app:ttv_typeface="medium"
+            style="@style/SubtitleText"/>
+        <com.revolut.core_ui_custom_font.TypefaceTextView
+            android:gravity="right"
+            android:id="@+id/delegate_title_value_row_value"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            app:ttv_typeface="medium"
+            style="@style/SubtitleText"/>
+    </LinearLayout>
+</FrameLayout>

@@ -1,0 +1,294 @@
+package kotlin.reflect.jvm.internal.impl.types.error;
+
+import kotlin.enums.EnumEntries;
+import org.jetbrains.annotations.NotNull;
+import vc.s;
+
+/* JADX WARN: Failed to restore enum class, 'enum' modifier and super class removed */
+/* JADX WARN: Unknown enum class pattern. Please report as an issue! */
+/* JADX INFO: loaded from: classes13.dex */
+public final class ErrorTypeKind {
+    private static final /* synthetic */ EnumEntries $ENTRIES;
+    private static final /* synthetic */ ErrorTypeKind[] $VALUES;
+    public static final ErrorTypeKind AD_HOC_ERROR_TYPE_FOR_LIGHTER_CLASSES_RESOLVE;
+    public static final ErrorTypeKind CANNOT_COMPUTE_ERASED_BOUND;
+    public static final ErrorTypeKind CANNOT_LOAD_DESERIALIZE_TYPE_PARAMETER;
+    public static final ErrorTypeKind CANNOT_LOAD_DESERIALIZE_TYPE_PARAMETER_BY_NAME;
+    public static final ErrorTypeKind CYCLIC_SUPERTYPES;
+    public static final ErrorTypeKind CYCLIC_UPPER_BOUNDS;
+    public static final ErrorTypeKind DONT_CARE;
+    public static final ErrorTypeKind EMPTY_CALLABLE_REFERENCE;
+    public static final ErrorTypeKind ERROR_CLASS;
+    public static final ErrorTypeKind ERROR_CONSTANT_VALUE;
+    public static final ErrorTypeKind ERROR_DATA_FLOW_TYPE;
+    public static final ErrorTypeKind ERROR_ENUM_TYPE;
+    public static final ErrorTypeKind ERROR_EXPECTED_TYPE;
+    public static final ErrorTypeKind ERROR_EXPRESSION_TYPE;
+    public static final ErrorTypeKind ERROR_FLEXIBLE_TYPE;
+    public static final ErrorTypeKind ERROR_PROPERTY_TYPE;
+    public static final ErrorTypeKind ERROR_RAW_TYPE;
+    public static final ErrorTypeKind ERROR_RECEIVER_TYPE;
+    public static final ErrorTypeKind ERROR_SUPER_TYPE;
+    public static final ErrorTypeKind ERROR_TYPE_FOR_DESTRUCTURING_COMPONENT;
+    public static final ErrorTypeKind ERROR_TYPE_PARAMETER;
+    public static final ErrorTypeKind ERROR_TYPE_PROJECTION;
+    public static final ErrorTypeKind ERROR_WHILE_RECONSTRUCTING_BARE_TYPE;
+    public static final ErrorTypeKind FUNCTION_PLACEHOLDER_TYPE;
+    public static final ErrorTypeKind ILLEGAL_TYPE_RANGE_FOR_DYNAMIC;
+    public static final ErrorTypeKind IMPLICIT_RETURN_TYPE_FOR_FUNCTION;
+    public static final ErrorTypeKind IMPLICIT_RETURN_TYPE_FOR_PROPERTY;
+    public static final ErrorTypeKind IMPLICIT_RETURN_TYPE_FOR_PROPERTY_ACCESSOR;
+    public static final ErrorTypeKind INCONSISTENT_SUSPEND_FUNCTION;
+    public static final ErrorTypeKind INTERSECTION_OF_ERROR_TYPES;
+    public static final ErrorTypeKind KAPT_ERROR_TYPE;
+    public static final ErrorTypeKind MISSED_TYPE_ARGUMENT_FOR_TYPE_PARAMETER;
+    public static final ErrorTypeKind MISSED_TYPE_FOR_PARAMETER;
+    public static final ErrorTypeKind NOT_ANNOTATION_TYPE_IN_ANNOTATION_CONTEXT;
+    public static final ErrorTypeKind NOT_FOUND_DESCRIPTOR_FOR_CLASS;
+    public static final ErrorTypeKind NOT_FOUND_DESCRIPTOR_FOR_FUNCTION;
+    public static final ErrorTypeKind NOT_FOUND_DESCRIPTOR_FOR_TYPE_PARAMETER;
+    public static final ErrorTypeKind NOT_FOUND_FQNAME;
+    public static final ErrorTypeKind NOT_FOUND_FQNAME_FOR_JAVA_ANNOTATION;
+    public static final ErrorTypeKind NOT_FOUND_UNSIGNED_TYPE;
+    public static final ErrorTypeKind NO_RECORDED_TYPE;
+    public static final ErrorTypeKind NO_TYPE_FOR_LOOP_PARAMETER;
+    public static final ErrorTypeKind NO_TYPE_FOR_LOOP_RANGE;
+    public static final ErrorTypeKind NO_TYPE_SPECIFIED;
+    public static final ErrorTypeKind PARSE_ERROR_ARGUMENT;
+    public static final ErrorTypeKind PROHIBITED_DYNAMIC_TYPE;
+    public static final ErrorTypeKind RECURSIVE_ANNOTATION_TYPE;
+    public static final ErrorTypeKind RECURSIVE_TYPE;
+    public static final ErrorTypeKind RECURSIVE_TYPE_ALIAS;
+    public static final ErrorTypeKind RESOLUTION_ERROR_TYPE;
+    public static final ErrorTypeKind RETURN_NOT_ALLOWED;
+    public static final ErrorTypeKind RETURN_TYPE;
+    public static final ErrorTypeKind RETURN_TYPE_FOR_CONSTRUCTOR;
+    public static final ErrorTypeKind RETURN_TYPE_FOR_FUNCTION;
+    public static final ErrorTypeKind RETURN_TYPE_FOR_PROPERTY;
+    public static final ErrorTypeKind STAR_PROJECTION_IN_CALL;
+    public static final ErrorTypeKind STUB_TYPE;
+    public static final ErrorTypeKind SUPER_TYPE_FOR_ERROR_TYPE;
+    public static final ErrorTypeKind SYNTHETIC_ELEMENT_ERROR_TYPE;
+    public static final ErrorTypeKind TYPE_FOR_COMPILER_EXCEPTION;
+    public static final ErrorTypeKind TYPE_FOR_DELEGATION;
+    public static final ErrorTypeKind TYPE_FOR_ERROR_TYPE_CONSTRUCTOR;
+    public static final ErrorTypeKind TYPE_FOR_GENERATED_ERROR_EXPRESSION;
+    public static final ErrorTypeKind TYPE_WITH_MISMATCHED_TYPE_ARGUMENTS_AND_PARAMETERS;
+    public static final ErrorTypeKind UNABLE_TO_SUBSTITUTE_TYPE;
+    public static final ErrorTypeKind UNAVAILABLE_TYPE_FOR_DECLARATION;
+    public static final ErrorTypeKind UNEXPECTED_FLEXIBLE_TYPE_ID;
+    public static final ErrorTypeKind UNINFERRED_LAMBDA_CONTEXT_RECEIVER_TYPE;
+    public static final ErrorTypeKind UNINFERRED_LAMBDA_PARAMETER_TYPE;
+    public static final ErrorTypeKind UNINFERRED_TYPE_VARIABLE;
+    public static final ErrorTypeKind UNIT_RETURN_TYPE_FOR_INC_DEC;
+    public static final ErrorTypeKind UNKNOWN_ARRAY_ELEMENT_TYPE_OF_ANNOTATION_ARGUMENT;
+    public static final ErrorTypeKind UNKNOWN_TYPE;
+    public static final ErrorTypeKind UNMAPPED_ANNOTATION_TARGET_TYPE;
+    public static final ErrorTypeKind UNRESOLVED_CLASS_TYPE;
+    public static final ErrorTypeKind UNRESOLVED_DECLARATION;
+    public static final ErrorTypeKind UNRESOLVED_JAVA_CLASS;
+    public static final ErrorTypeKind UNRESOLVED_KCLASS_CONSTANT_VALUE;
+    public static final ErrorTypeKind UNRESOLVED_PARCEL_TYPE;
+    public static final ErrorTypeKind UNRESOLVED_TYPE;
+    public static final ErrorTypeKind UNRESOLVED_TYPE_ALIAS;
+    public static final ErrorTypeKind UNRESOLVED_TYPE_PARAMETER_TYPE;
+    public static final ErrorTypeKind UNSUPPORTED_CALLABLE_REFERENCE_TYPE;
+
+    @NotNull
+    private final String debugMessage;
+    private final boolean isUnresolved;
+
+    static {
+        ErrorTypeKind errorTypeKind = new ErrorTypeKind(0, "UNRESOLVED_TYPE", true, "Unresolved type for %s");
+        UNRESOLVED_TYPE = errorTypeKind;
+        ErrorTypeKind errorTypeKind2 = new ErrorTypeKind(1, "UNRESOLVED_TYPE_PARAMETER_TYPE", true, "Unresolved type parameter type");
+        UNRESOLVED_TYPE_PARAMETER_TYPE = errorTypeKind2;
+        ErrorTypeKind errorTypeKind3 = new ErrorTypeKind(2, "UNRESOLVED_CLASS_TYPE", true, "Unresolved class %s");
+        UNRESOLVED_CLASS_TYPE = errorTypeKind3;
+        ErrorTypeKind errorTypeKind4 = new ErrorTypeKind(3, "UNRESOLVED_JAVA_CLASS", true, "Unresolved java class %s");
+        UNRESOLVED_JAVA_CLASS = errorTypeKind4;
+        ErrorTypeKind errorTypeKind5 = new ErrorTypeKind(4, "UNRESOLVED_DECLARATION", true, "Unresolved declaration %s");
+        UNRESOLVED_DECLARATION = errorTypeKind5;
+        ErrorTypeKind errorTypeKind6 = new ErrorTypeKind(5, "UNRESOLVED_KCLASS_CONSTANT_VALUE", true, "Unresolved type for %s (arrayDimensions=%s)");
+        UNRESOLVED_KCLASS_CONSTANT_VALUE = errorTypeKind6;
+        ErrorTypeKind errorTypeKind7 = new ErrorTypeKind(6, "UNRESOLVED_TYPE_ALIAS", false, "Unresolved type alias %s");
+        UNRESOLVED_TYPE_ALIAS = errorTypeKind7;
+        ErrorTypeKind errorTypeKind8 = new ErrorTypeKind(7, "RETURN_TYPE", false, "Return type for %s cannot be resolved");
+        RETURN_TYPE = errorTypeKind8;
+        ErrorTypeKind errorTypeKind9 = new ErrorTypeKind(8, "RETURN_TYPE_FOR_FUNCTION", false, "Return type for function cannot be resolved");
+        RETURN_TYPE_FOR_FUNCTION = errorTypeKind9;
+        ErrorTypeKind errorTypeKind10 = new ErrorTypeKind(9, "RETURN_TYPE_FOR_PROPERTY", false, "Return type for property %s cannot be resolved");
+        RETURN_TYPE_FOR_PROPERTY = errorTypeKind10;
+        ErrorTypeKind errorTypeKind11 = new ErrorTypeKind(10, "RETURN_TYPE_FOR_CONSTRUCTOR", false, "Return type for constructor %s cannot be resolved");
+        RETURN_TYPE_FOR_CONSTRUCTOR = errorTypeKind11;
+        ErrorTypeKind errorTypeKind12 = new ErrorTypeKind(11, "IMPLICIT_RETURN_TYPE_FOR_FUNCTION", false, "Implicit return type for function %s cannot be resolved");
+        IMPLICIT_RETURN_TYPE_FOR_FUNCTION = errorTypeKind12;
+        ErrorTypeKind errorTypeKind13 = new ErrorTypeKind(12, "IMPLICIT_RETURN_TYPE_FOR_PROPERTY", false, "Implicit return type for property %s cannot be resolved");
+        IMPLICIT_RETURN_TYPE_FOR_PROPERTY = errorTypeKind13;
+        ErrorTypeKind errorTypeKind14 = new ErrorTypeKind(13, "IMPLICIT_RETURN_TYPE_FOR_PROPERTY_ACCESSOR", false, "Implicit return type for property accessor %s cannot be resolved");
+        IMPLICIT_RETURN_TYPE_FOR_PROPERTY_ACCESSOR = errorTypeKind14;
+        ErrorTypeKind errorTypeKind15 = new ErrorTypeKind(14, "ERROR_TYPE_FOR_DESTRUCTURING_COMPONENT", false, "%s() return type");
+        ERROR_TYPE_FOR_DESTRUCTURING_COMPONENT = errorTypeKind15;
+        ErrorTypeKind errorTypeKind16 = new ErrorTypeKind(15, "RECURSIVE_TYPE", false, "Recursive type");
+        RECURSIVE_TYPE = errorTypeKind16;
+        ErrorTypeKind errorTypeKind17 = new ErrorTypeKind(16, "RECURSIVE_TYPE_ALIAS", false, "Recursive type alias %s");
+        RECURSIVE_TYPE_ALIAS = errorTypeKind17;
+        ErrorTypeKind errorTypeKind18 = new ErrorTypeKind(17, "RECURSIVE_ANNOTATION_TYPE", false, "Recursive annotation's type");
+        RECURSIVE_ANNOTATION_TYPE = errorTypeKind18;
+        ErrorTypeKind errorTypeKind19 = new ErrorTypeKind(18, "CYCLIC_UPPER_BOUNDS", false, "Cyclic upper bounds");
+        CYCLIC_UPPER_BOUNDS = errorTypeKind19;
+        ErrorTypeKind errorTypeKind20 = new ErrorTypeKind(19, "CYCLIC_SUPERTYPES", false, "Cyclic supertypes");
+        CYCLIC_SUPERTYPES = errorTypeKind20;
+        ErrorTypeKind errorTypeKind21 = new ErrorTypeKind(20, "UNINFERRED_LAMBDA_CONTEXT_RECEIVER_TYPE", false, "Cannot infer a lambda context receiver type");
+        UNINFERRED_LAMBDA_CONTEXT_RECEIVER_TYPE = errorTypeKind21;
+        ErrorTypeKind errorTypeKind22 = new ErrorTypeKind(21, "UNINFERRED_LAMBDA_PARAMETER_TYPE", false, "Cannot infer a lambda parameter type");
+        UNINFERRED_LAMBDA_PARAMETER_TYPE = errorTypeKind22;
+        ErrorTypeKind errorTypeKind23 = new ErrorTypeKind(22, "UNINFERRED_TYPE_VARIABLE", false, "Cannot infer a type variable %s");
+        UNINFERRED_TYPE_VARIABLE = errorTypeKind23;
+        ErrorTypeKind errorTypeKind24 = new ErrorTypeKind(23, "RESOLUTION_ERROR_TYPE", false, "Resolution error type (%s)");
+        RESOLUTION_ERROR_TYPE = errorTypeKind24;
+        ErrorTypeKind errorTypeKind25 = new ErrorTypeKind(24, "ERROR_EXPECTED_TYPE", false, "Error expected type");
+        ERROR_EXPECTED_TYPE = errorTypeKind25;
+        ErrorTypeKind errorTypeKind26 = new ErrorTypeKind(25, "ERROR_DATA_FLOW_TYPE", false, "Error type for data flow");
+        ERROR_DATA_FLOW_TYPE = errorTypeKind26;
+        ErrorTypeKind errorTypeKind27 = new ErrorTypeKind(26, "ERROR_WHILE_RECONSTRUCTING_BARE_TYPE", false, "Failed to reconstruct type %s");
+        ERROR_WHILE_RECONSTRUCTING_BARE_TYPE = errorTypeKind27;
+        ErrorTypeKind errorTypeKind28 = new ErrorTypeKind(27, "UNABLE_TO_SUBSTITUTE_TYPE", false, "Unable to substitute type (%s)");
+        UNABLE_TO_SUBSTITUTE_TYPE = errorTypeKind28;
+        ErrorTypeKind errorTypeKind29 = new ErrorTypeKind(28, "DONT_CARE", false, "Special DONT_CARE type");
+        DONT_CARE = errorTypeKind29;
+        ErrorTypeKind errorTypeKind30 = new ErrorTypeKind(29, "STUB_TYPE", false, "Stub type %s");
+        STUB_TYPE = errorTypeKind30;
+        ErrorTypeKind errorTypeKind31 = new ErrorTypeKind(30, "FUNCTION_PLACEHOLDER_TYPE", false, "Function placeholder type (arguments: %s)");
+        FUNCTION_PLACEHOLDER_TYPE = errorTypeKind31;
+        ErrorTypeKind errorTypeKind32 = new ErrorTypeKind(31, "TYPE_FOR_COMPILER_EXCEPTION", false, "Error type for a compiler exception while analyzing %s");
+        TYPE_FOR_COMPILER_EXCEPTION = errorTypeKind32;
+        ErrorTypeKind errorTypeKind33 = new ErrorTypeKind(32, "ERROR_FLEXIBLE_TYPE", false, "Error java flexible type with id %s. (%s..%s)");
+        ERROR_FLEXIBLE_TYPE = errorTypeKind33;
+        ErrorTypeKind errorTypeKind34 = new ErrorTypeKind(33, "ERROR_RAW_TYPE", false, "Error raw type %s");
+        ERROR_RAW_TYPE = errorTypeKind34;
+        ErrorTypeKind errorTypeKind35 = new ErrorTypeKind(34, "TYPE_WITH_MISMATCHED_TYPE_ARGUMENTS_AND_PARAMETERS", false, "Inconsistent type %s (parameters.size = %s, arguments.size = %s)");
+        TYPE_WITH_MISMATCHED_TYPE_ARGUMENTS_AND_PARAMETERS = errorTypeKind35;
+        ErrorTypeKind errorTypeKind36 = new ErrorTypeKind(35, "ILLEGAL_TYPE_RANGE_FOR_DYNAMIC", false, "Illegal type range for dynamic type %s..%s");
+        ILLEGAL_TYPE_RANGE_FOR_DYNAMIC = errorTypeKind36;
+        ErrorTypeKind errorTypeKind37 = new ErrorTypeKind(36, "CANNOT_LOAD_DESERIALIZE_TYPE_PARAMETER", false, "Unknown type parameter %s. Please try recompiling module containing \"%s\"");
+        CANNOT_LOAD_DESERIALIZE_TYPE_PARAMETER = errorTypeKind37;
+        ErrorTypeKind errorTypeKind38 = new ErrorTypeKind(37, "CANNOT_LOAD_DESERIALIZE_TYPE_PARAMETER_BY_NAME", false, "Couldn't deserialize type parameter %s in %s");
+        CANNOT_LOAD_DESERIALIZE_TYPE_PARAMETER_BY_NAME = errorTypeKind38;
+        ErrorTypeKind errorTypeKind39 = new ErrorTypeKind(38, "INCONSISTENT_SUSPEND_FUNCTION", false, "Inconsistent suspend function type in metadata with constructor %s");
+        INCONSISTENT_SUSPEND_FUNCTION = errorTypeKind39;
+        ErrorTypeKind errorTypeKind40 = new ErrorTypeKind(39, "UNEXPECTED_FLEXIBLE_TYPE_ID", false, "Unexpected id of a flexible type %s. (%s..%s)");
+        UNEXPECTED_FLEXIBLE_TYPE_ID = errorTypeKind40;
+        ErrorTypeKind errorTypeKind41 = new ErrorTypeKind(40, "UNKNOWN_TYPE", false, "Unknown type");
+        UNKNOWN_TYPE = errorTypeKind41;
+        ErrorTypeKind errorTypeKind42 = new ErrorTypeKind(41, "NO_TYPE_SPECIFIED", false, "No type specified for %s");
+        NO_TYPE_SPECIFIED = errorTypeKind42;
+        ErrorTypeKind errorTypeKind43 = new ErrorTypeKind(42, "NO_TYPE_FOR_LOOP_RANGE", false, "Loop range has no type");
+        NO_TYPE_FOR_LOOP_RANGE = errorTypeKind43;
+        ErrorTypeKind errorTypeKind44 = new ErrorTypeKind(43, "NO_TYPE_FOR_LOOP_PARAMETER", false, "Loop parameter has no type");
+        NO_TYPE_FOR_LOOP_PARAMETER = errorTypeKind44;
+        ErrorTypeKind errorTypeKind45 = new ErrorTypeKind(44, "MISSED_TYPE_FOR_PARAMETER", false, "Missed a type for a value parameter %s");
+        MISSED_TYPE_FOR_PARAMETER = errorTypeKind45;
+        ErrorTypeKind errorTypeKind46 = new ErrorTypeKind(45, "MISSED_TYPE_ARGUMENT_FOR_TYPE_PARAMETER", false, "Missed a type argument for a type parameter %s");
+        MISSED_TYPE_ARGUMENT_FOR_TYPE_PARAMETER = errorTypeKind46;
+        ErrorTypeKind errorTypeKind47 = new ErrorTypeKind(46, "PARSE_ERROR_ARGUMENT", false, "Error type for parse error argument %s");
+        PARSE_ERROR_ARGUMENT = errorTypeKind47;
+        ErrorTypeKind errorTypeKind48 = new ErrorTypeKind(47, "STAR_PROJECTION_IN_CALL", false, "Error type for star projection directly passing as a call type argument");
+        STAR_PROJECTION_IN_CALL = errorTypeKind48;
+        ErrorTypeKind errorTypeKind49 = new ErrorTypeKind(48, "PROHIBITED_DYNAMIC_TYPE", false, "Dynamic type in a not allowed context");
+        PROHIBITED_DYNAMIC_TYPE = errorTypeKind49;
+        ErrorTypeKind errorTypeKind50 = new ErrorTypeKind(49, "NOT_ANNOTATION_TYPE_IN_ANNOTATION_CONTEXT", false, "Not an annotation type %s in the annotation context");
+        NOT_ANNOTATION_TYPE_IN_ANNOTATION_CONTEXT = errorTypeKind50;
+        ErrorTypeKind errorTypeKind51 = new ErrorTypeKind(50, "UNIT_RETURN_TYPE_FOR_INC_DEC", false, "Unit type returned by inc or dec");
+        UNIT_RETURN_TYPE_FOR_INC_DEC = errorTypeKind51;
+        ErrorTypeKind errorTypeKind52 = new ErrorTypeKind(51, "RETURN_NOT_ALLOWED", false, "Return not allowed");
+        RETURN_NOT_ALLOWED = errorTypeKind52;
+        ErrorTypeKind errorTypeKind53 = new ErrorTypeKind(52, "UNRESOLVED_PARCEL_TYPE", true, "Unresolved 'Parcel' type");
+        UNRESOLVED_PARCEL_TYPE = errorTypeKind53;
+        ErrorTypeKind errorTypeKind54 = new ErrorTypeKind(53, "KAPT_ERROR_TYPE", false, "Kapt error type");
+        KAPT_ERROR_TYPE = errorTypeKind54;
+        ErrorTypeKind errorTypeKind55 = new ErrorTypeKind(54, "SYNTHETIC_ELEMENT_ERROR_TYPE", false, "Error type for synthetic element");
+        SYNTHETIC_ELEMENT_ERROR_TYPE = errorTypeKind55;
+        ErrorTypeKind errorTypeKind56 = new ErrorTypeKind(55, "AD_HOC_ERROR_TYPE_FOR_LIGHTER_CLASSES_RESOLVE", false, "Error type in ad hoc resolve for lighter classes");
+        AD_HOC_ERROR_TYPE_FOR_LIGHTER_CLASSES_RESOLVE = errorTypeKind56;
+        ErrorTypeKind errorTypeKind57 = new ErrorTypeKind(56, "ERROR_EXPRESSION_TYPE", false, "Error expression type");
+        ERROR_EXPRESSION_TYPE = errorTypeKind57;
+        ErrorTypeKind errorTypeKind58 = new ErrorTypeKind(57, "ERROR_RECEIVER_TYPE", false, "Error receiver type for %s");
+        ERROR_RECEIVER_TYPE = errorTypeKind58;
+        ErrorTypeKind errorTypeKind59 = new ErrorTypeKind(58, "ERROR_CONSTANT_VALUE", false, "Error constant value %s");
+        ERROR_CONSTANT_VALUE = errorTypeKind59;
+        ErrorTypeKind errorTypeKind60 = new ErrorTypeKind(59, "EMPTY_CALLABLE_REFERENCE", false, "Empty callable reference");
+        EMPTY_CALLABLE_REFERENCE = errorTypeKind60;
+        ErrorTypeKind errorTypeKind61 = new ErrorTypeKind(60, "UNSUPPORTED_CALLABLE_REFERENCE_TYPE", false, "Unsupported callable reference type %s");
+        UNSUPPORTED_CALLABLE_REFERENCE_TYPE = errorTypeKind61;
+        ErrorTypeKind errorTypeKind62 = new ErrorTypeKind(61, "TYPE_FOR_DELEGATION", false, "Error delegation type for %s");
+        TYPE_FOR_DELEGATION = errorTypeKind62;
+        ErrorTypeKind errorTypeKind63 = new ErrorTypeKind(62, "UNAVAILABLE_TYPE_FOR_DECLARATION", false, "Type is unavailable for declaration %s");
+        UNAVAILABLE_TYPE_FOR_DECLARATION = errorTypeKind63;
+        ErrorTypeKind errorTypeKind64 = new ErrorTypeKind(63, "ERROR_TYPE_PARAMETER", false, "Error type parameter");
+        ERROR_TYPE_PARAMETER = errorTypeKind64;
+        ErrorTypeKind errorTypeKind65 = new ErrorTypeKind(64, "ERROR_TYPE_PROJECTION", false, "Error type projection");
+        ERROR_TYPE_PROJECTION = errorTypeKind65;
+        ErrorTypeKind errorTypeKind66 = new ErrorTypeKind(65, "ERROR_SUPER_TYPE", false, "Error super type");
+        ERROR_SUPER_TYPE = errorTypeKind66;
+        ErrorTypeKind errorTypeKind67 = new ErrorTypeKind(66, "SUPER_TYPE_FOR_ERROR_TYPE", false, "Supertype of error type %s");
+        SUPER_TYPE_FOR_ERROR_TYPE = errorTypeKind67;
+        ErrorTypeKind errorTypeKind68 = new ErrorTypeKind(67, "ERROR_PROPERTY_TYPE", false, "Error property type");
+        ERROR_PROPERTY_TYPE = errorTypeKind68;
+        ErrorTypeKind errorTypeKind69 = new ErrorTypeKind(68, "ERROR_CLASS", false, "Error class");
+        ERROR_CLASS = errorTypeKind69;
+        ErrorTypeKind errorTypeKind70 = new ErrorTypeKind(69, "TYPE_FOR_ERROR_TYPE_CONSTRUCTOR", false, "Type for error type constructor (%s)");
+        TYPE_FOR_ERROR_TYPE_CONSTRUCTOR = errorTypeKind70;
+        ErrorTypeKind errorTypeKind71 = new ErrorTypeKind(70, "INTERSECTION_OF_ERROR_TYPES", false, "Intersection of error types %s");
+        INTERSECTION_OF_ERROR_TYPES = errorTypeKind71;
+        ErrorTypeKind errorTypeKind72 = new ErrorTypeKind(71, "CANNOT_COMPUTE_ERASED_BOUND", false, "Cannot compute erased upper bound of a type parameter %s");
+        CANNOT_COMPUTE_ERASED_BOUND = errorTypeKind72;
+        ErrorTypeKind errorTypeKind73 = new ErrorTypeKind(72, "NOT_FOUND_UNSIGNED_TYPE", false, "Unsigned type %s not found");
+        NOT_FOUND_UNSIGNED_TYPE = errorTypeKind73;
+        ErrorTypeKind errorTypeKind74 = new ErrorTypeKind(73, "ERROR_ENUM_TYPE", false, "Not found the corresponding enum class for given enum entry %s.%s");
+        ERROR_ENUM_TYPE = errorTypeKind74;
+        ErrorTypeKind errorTypeKind75 = new ErrorTypeKind(74, "NO_RECORDED_TYPE", false, "Not found recorded type for %s");
+        NO_RECORDED_TYPE = errorTypeKind75;
+        ErrorTypeKind errorTypeKind76 = new ErrorTypeKind(75, "NOT_FOUND_DESCRIPTOR_FOR_FUNCTION", false, "Descriptor not found for function %s");
+        NOT_FOUND_DESCRIPTOR_FOR_FUNCTION = errorTypeKind76;
+        ErrorTypeKind errorTypeKind77 = new ErrorTypeKind(76, "NOT_FOUND_DESCRIPTOR_FOR_CLASS", false, "Cannot build class type, descriptor not found for builder %s");
+        NOT_FOUND_DESCRIPTOR_FOR_CLASS = errorTypeKind77;
+        ErrorTypeKind errorTypeKind78 = new ErrorTypeKind(77, "NOT_FOUND_DESCRIPTOR_FOR_TYPE_PARAMETER", false, "Cannot build type parameter type, descriptor not found for builder %s");
+        NOT_FOUND_DESCRIPTOR_FOR_TYPE_PARAMETER = errorTypeKind78;
+        ErrorTypeKind errorTypeKind79 = new ErrorTypeKind(78, "UNMAPPED_ANNOTATION_TARGET_TYPE", false, "Type for unmapped Java annotation target to Kotlin one");
+        UNMAPPED_ANNOTATION_TARGET_TYPE = errorTypeKind79;
+        ErrorTypeKind errorTypeKind80 = new ErrorTypeKind(79, "UNKNOWN_ARRAY_ELEMENT_TYPE_OF_ANNOTATION_ARGUMENT", false, "Unknown type for an array element of a java annotation argument");
+        UNKNOWN_ARRAY_ELEMENT_TYPE_OF_ANNOTATION_ARGUMENT = errorTypeKind80;
+        ErrorTypeKind errorTypeKind81 = new ErrorTypeKind(80, "NOT_FOUND_FQNAME_FOR_JAVA_ANNOTATION", false, "No fqName for annotation %s");
+        NOT_FOUND_FQNAME_FOR_JAVA_ANNOTATION = errorTypeKind81;
+        ErrorTypeKind errorTypeKind82 = new ErrorTypeKind(81, "NOT_FOUND_FQNAME", false, "No fqName for %s");
+        NOT_FOUND_FQNAME = errorTypeKind82;
+        ErrorTypeKind errorTypeKind83 = new ErrorTypeKind(82, "TYPE_FOR_GENERATED_ERROR_EXPRESSION", false, "Type for generated error expression");
+        TYPE_FOR_GENERATED_ERROR_EXPRESSION = errorTypeKind83;
+        ErrorTypeKind[] errorTypeKindArr = {errorTypeKind, errorTypeKind2, errorTypeKind3, errorTypeKind4, errorTypeKind5, errorTypeKind6, errorTypeKind7, errorTypeKind8, errorTypeKind9, errorTypeKind10, errorTypeKind11, errorTypeKind12, errorTypeKind13, errorTypeKind14, errorTypeKind15, errorTypeKind16, errorTypeKind17, errorTypeKind18, errorTypeKind19, errorTypeKind20, errorTypeKind21, errorTypeKind22, errorTypeKind23, errorTypeKind24, errorTypeKind25, errorTypeKind26, errorTypeKind27, errorTypeKind28, errorTypeKind29, errorTypeKind30, errorTypeKind31, errorTypeKind32, errorTypeKind33, errorTypeKind34, errorTypeKind35, errorTypeKind36, errorTypeKind37, errorTypeKind38, errorTypeKind39, errorTypeKind40, errorTypeKind41, errorTypeKind42, errorTypeKind43, errorTypeKind44, errorTypeKind45, errorTypeKind46, errorTypeKind47, errorTypeKind48, errorTypeKind49, errorTypeKind50, errorTypeKind51, errorTypeKind52, errorTypeKind53, errorTypeKind54, errorTypeKind55, errorTypeKind56, errorTypeKind57, errorTypeKind58, errorTypeKind59, errorTypeKind60, errorTypeKind61, errorTypeKind62, errorTypeKind63, errorTypeKind64, errorTypeKind65, errorTypeKind66, errorTypeKind67, errorTypeKind68, errorTypeKind69, errorTypeKind70, errorTypeKind71, errorTypeKind72, errorTypeKind73, errorTypeKind74, errorTypeKind75, errorTypeKind76, errorTypeKind77, errorTypeKind78, errorTypeKind79, errorTypeKind80, errorTypeKind81, errorTypeKind82, errorTypeKind83};
+        $VALUES = errorTypeKindArr;
+        $ENTRIES = s.n(errorTypeKindArr);
+    }
+
+    public ErrorTypeKind(int i, String str, boolean z, String str2) {
+        this.debugMessage = str2;
+        this.isUnresolved = z;
+    }
+
+    public static ErrorTypeKind valueOf(String str) {
+        return (ErrorTypeKind) Enum.valueOf(ErrorTypeKind.class, str);
+    }
+
+    public static ErrorTypeKind[] values() {
+        return (ErrorTypeKind[]) $VALUES.clone();
+    }
+
+    @NotNull
+    public final String getDebugMessage() {
+        return this.debugMessage;
+    }
+
+    public final boolean isUnresolved() {
+        return this.isUnresolved;
+    }
+}

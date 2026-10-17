@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="@drawable/internal_box_background"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.chart.HorizontalChartLegendView
+        android:id="@+id/gaugeSteppedHorizontal_legend"
+        android:paddingTop="@dimen/internal_dp16"
+        android:paddingBottom="@dimen/internal_dp24"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="@dimen/internal_dp16"
+        android:paddingEnd="@dimen/internal_dp16"/>
+    <com.revolut.core.ui_kit.internal.views.gaugechart.bullethorizontal.ProgressStepHorizontalView
+        android:id="@+id/gaugeSteppedHorizontal_progress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</LinearLayout>

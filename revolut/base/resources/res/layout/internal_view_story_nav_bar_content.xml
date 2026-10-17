@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.internal.views.framelayout.NestedScrollableHost
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/storyNavBarContent_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+    </com.revolut.core.ui_kit.internal.views.framelayout.NestedScrollableHost>
+    <com.revolut.core.ui_kit.internal.views.stories.StoriesHorizontalStepsProgressView
+        android:layout_gravity="bottom"
+        android:id="@+id/storyNavBarContent_progressView"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"/>
+</merge>

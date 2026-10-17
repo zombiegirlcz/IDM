@@ -1,0 +1,11 @@
+package d5h;
+
+/* JADX INFO: loaded from: classes9.dex */
+public final class b {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final b f111418a = new b();
+
+    private b() {
+    }
+}

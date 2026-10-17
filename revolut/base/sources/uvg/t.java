@@ -1,0 +1,68 @@
+package uvg;
+
+import ip0.v7;
+import java.util.List;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+import org.joda.time.DateTime;
+
+/* JADX INFO: loaded from: classes9.dex */
+@Metadata(d1 = {"\u00004\n\u0002\u0018\u0002\n\u0002\u0010\u0000\n\u0002\u0010\u000e\n\u0002\b\u0002\n\u0002\u0018\u0002\n\u0002\b\u0005\n\u0002\u0010\u0007\n\u0002\b\u0005\n\u0002\u0018\u0002\n\u0002\b\u0003\n\u0002\u0010 \n\u0002\u0018\u0002\n\u0002\b\u0004\b\u0080\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004R\u001a\u0010\n\u001a\u00020\u00058\u0006X\u0087\u0004¢\u0006\f\n\u0004\b\u0006\u0010\u0007\u001a\u0004\b\b\u0010\tR\u001a\u0010\u0010\u001a\u00020\u000b8\u0006X\u0087\u0004¢\u0006\f\n\u0004\b\f\u0010\r\u001a\u0004\b\u000e\u0010\u000fR\u001a\u0010\u0014\u001a\u00020\u00118\u0006X\u0087\u0004¢\u0006\f\n\u0004\b\u000e\u0010\u0012\u001a\u0004\b\f\u0010\u0013R\"\u0010\u0019\u001a\n\u0012\u0004\u0012\u00020\u0016\u0018\u00010\u00158\u0006X\u0087\u0004¢\u0006\f\n\u0004\b\b\u0010\u0017\u001a\u0004\b\u0006\u0010\u0018¨\u0006\u001a"}, d2 = {"Luvg/t;", "", "", "toString", "()Ljava/lang/String;", "Lorg/joda/time/DateTime;", "a", "Lorg/joda/time/DateTime;", "d", "()Lorg/joda/time/DateTime;", "timestamp", "", "b", "F", "c", "()F", "returns", "Ljo3/a;", "Ljo3/a;", "()Ljo3/a;", "pnl", "", "Luvg/e;", "Ljava/util/List;", "()Ljava/util/List;", "benchmarks", "feature_wealth_analytics_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public final /* data */ class t {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name and from kotlin metadata */
+    @lg.b("timestamp")
+    @NotNull
+    private final DateTime timestamp;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name and from kotlin metadata */
+    @lg.b("returns")
+    private final float returns;
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name and from kotlin metadata */
+    @lg.b("pnl")
+    @NotNull
+    private final jo3.a pnl;
+
+    /* JADX INFO: renamed from: d, reason: from kotlin metadata */
+    @lg.b("benchmarks")
+    private final List<e> benchmarks;
+
+    /* JADX INFO: renamed from: a, reason: from getter */
+    public final List getBenchmarks() {
+        return this.benchmarks;
+    }
+
+    /* JADX INFO: renamed from: b, reason: from getter */
+    public final jo3.a getPnl() {
+        return this.pnl;
+    }
+
+    /* JADX INFO: renamed from: c, reason: from getter */
+    public final float getReturns() {
+        return this.returns;
+    }
+
+    /* JADX INFO: renamed from: d, reason: from getter */
+    public final DateTime getTimestamp() {
+        return this.timestamp;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        if (!(obj2 instanceof t)) {
+            return false;
+        }
+        t tVar = (t) obj2;
+        return Intrinsics.f(this.timestamp, tVar.timestamp) && Float.compare(this.returns, tVar.returns) == 0 && Intrinsics.f(this.pnl, tVar.pnl) && Intrinsics.f(this.benchmarks, tVar.benchmarks);
+    }
+
+    public final int hashCode() {
+        int iJ = v7.j(this.pnl, m72.b.b(this.returns, this.timestamp.hashCode() * 31, 31), 31);
+        List<e> list = this.benchmarks;
+        return iJ + (list == null ? 0 : list.hashCode());
+    }
+}

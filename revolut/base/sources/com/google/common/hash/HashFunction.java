@@ -1,0 +1,30 @@
+package com.google.common.hash;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+
+/* JADX INFO: loaded from: classes17.dex */
+@ElementTypesAreNonnullByDefault
+public interface HashFunction {
+    int bits();
+
+    HashCode hashBytes(ByteBuffer byteBuffer);
+
+    HashCode hashBytes(byte[] bArr);
+
+    HashCode hashBytes(byte[] bArr, int i, int i2);
+
+    HashCode hashInt(int i);
+
+    HashCode hashLong(long j2);
+
+    <T> HashCode hashObject(@ParametricNullness T t2, Funnel<? super T> funnel);
+
+    HashCode hashString(CharSequence charSequence, Charset charset);
+
+    HashCode hashUnencodedChars(CharSequence charSequence);
+
+    Hasher newHasher();
+
+    Hasher newHasher(int i);
+}

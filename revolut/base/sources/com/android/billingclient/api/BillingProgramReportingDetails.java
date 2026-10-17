@@ -1,0 +1,24 @@
+package com.android.billingclient.api;
+
+import androidx.annotation.NonNull;
+
+/* JADX INFO: loaded from: classes16.dex */
+@zzh
+public final class BillingProgramReportingDetails {
+    private final int billingProgram;
+    private final String externalTransactionToken;
+
+    public BillingProgramReportingDetails(String str, int i) {
+        this.externalTransactionToken = str;
+        this.billingProgram = i;
+    }
+
+    public int getBillingProgram() {
+        return this.billingProgram;
+    }
+
+    @NonNull
+    public String getExternalTransactionToken() {
+        return this.externalTransactionToken;
+    }
+}

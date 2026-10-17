@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.framelayout.UIKitFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="?attr/uikit_colorTransparent"
+    android:focusable="true"
+    android:clickable="true"
+    android:layout_width="74dp"
+    android:layout_height="74dp">
+    <com.revolut.core.ui_kit.views.AvatarView
+        android:layout_gravity="center"
+        android:id="@+id/avatarPicker_avatar"
+        android:layout_width="64dp"
+        android:layout_height="64dp"/>
+    <View
+        android:id="@+id/avatarPicker_selectionView"
+        android:layout_width="74dp"
+        android:layout_height="74dp"/>
+</com.revolut.core.ui_kit.internal.views.framelayout.UIKitFrameLayout>

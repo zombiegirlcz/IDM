@@ -1,0 +1,70 @@
+package omf;
+
+import cmf.p;
+import go.g;
+import kkf.o1;
+import kkf.v2;
+import klf.h0;
+import kotlin.jvm.internal.Intrinsics;
+import kotlinx.coroutines.flow.Flow;
+import ukf.l;
+import zhm.f0;
+import zhm.u;
+import zhm.v;
+
+/* JADX INFO: loaded from: classes8.dex */
+public final class d extends hmf.a {
+    public final h0 e;
+    public final jt0.b f;
+
+    /* JADX INFO: renamed from: g, reason: collision with root package name */
+    public final amf.c f226832g;
+
+    /* JADX INFO: renamed from: h, reason: collision with root package name */
+    public final l f226833h;
+    public final v2 i;
+
+    /* JADX INFO: renamed from: j, reason: collision with root package name */
+    public final o1 f226834j;
+
+    public d(h0 commonDataSource, jt0.b commonHeaderProvider, amf.c hideTransactionMenuOptionProvider, l futuresTradingFeeBlockProvider, v2 linkedOrderBlockProvider, o1 getHelpBlockProvider) {
+        Intrinsics.checkNotNullParameter(commonDataSource, "commonDataSource");
+        Intrinsics.checkNotNullParameter(commonHeaderProvider, "commonHeaderProvider");
+        Intrinsics.checkNotNullParameter(hideTransactionMenuOptionProvider, "hideTransactionMenuOptionProvider");
+        Intrinsics.checkNotNullParameter(futuresTradingFeeBlockProvider, "futuresTradingFeeBlockProvider");
+        Intrinsics.checkNotNullParameter(linkedOrderBlockProvider, "linkedOrderBlockProvider");
+        Intrinsics.checkNotNullParameter(getHelpBlockProvider, "getHelpBlockProvider");
+        this.e = commonDataSource;
+        this.f = commonHeaderProvider;
+        this.f226832g = hideTransactionMenuOptionProvider;
+        this.f226833h = futuresTradingFeeBlockProvider;
+        this.i = linkedOrderBlockProvider;
+        this.f226834j = getHelpBlockProvider;
+    }
+
+    @Override // hmf.b0
+    public final Flow a() {
+        l lVar = this.f226833h;
+        return h(v.k(new p(new tse.c(lVar.f280745a.d(), lVar, 20), new ujb.v(14), f0.f322471a, "FuturesTradingFee"), this.f226834j.a(), this.i.Z2()));
+    }
+
+    @Override // hmf.b0
+    public final Flow b() {
+        return this.f.A0(false);
+    }
+
+    @Override // hmf.b0
+    public final Flow d() {
+        return new g(f0.f322471a, 2);
+    }
+
+    @Override // hmf.b0
+    public final Flow e() {
+        return g(u.c(this.f226832g.a()));
+    }
+
+    @Override // hmf.a
+    public final h0 i() {
+        return this.e;
+    }
+}

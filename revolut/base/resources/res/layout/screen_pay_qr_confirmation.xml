@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/payQrConfirmation_container"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithAvatar
+        android:id="@+id/payQrConfirmation_navigationBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/payQrConfirmation_recyclerView"
+        android:paddingBottom="@dimen/dp_160"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/payQrConfirmation_navigationBar"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:id="@+id/payQrConfirmation_submitButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/dp_24"
+        android:layout_marginStart="@dimen/dp_16"
+        android:layout_marginEnd="@dimen/dp_16"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

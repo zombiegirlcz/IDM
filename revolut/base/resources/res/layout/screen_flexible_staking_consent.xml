@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:theme="@style/UiKitThemeOverlay.DefaultWindowBackground"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithBigTile
+        android:id="@+id/flexibleStaking_navBarWithBigTile"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/flexibleStaking_recyclerView"
+        android:background="?attr/uikit_windowBackground"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.views.buttons.ActionFooterView
+        android:layout_gravity="bottom"
+        android:id="@+id/flexibleStaking_actionFooterView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

@@ -1,0 +1,5 @@
+package a0l;
+
+/* JADX INFO: loaded from: classes12.dex */
+public interface a extends dli.b {
+}

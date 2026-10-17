@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #rollee {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+<div id="rollee"></div>
+<script>
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isIOS = !!(window.webkit && window.webkit.messageHandlers);
+
+    function hasIOSHandler(name) {
+        return isIOS &&
+            typeof window.webkit !== 'undefined' &&
+            typeof window.webkit.messageHandlers !== 'undefined' &&
+            typeof window.webkit.messageHandlers[name] === 'object';
+    }
+
+    function hasAndroidHandler(name) {
+        return isAndroid &&
+            typeof window.AndroidJSReceiver !== 'undefined' &&
+            typeof window.AndroidJSReceiver[name] === 'function';
+    }
+
+    function initRollee(sessionToken, customizationId, theme, debug, isProdEnvironment) {
+        console.log(`TEST MODE: initRollee called with sessionToken=${sessionToken}, customizationId=${customizationId}`);
+
+        setTimeout(() => {
+            console.log('[Test] Triggering _onInit');
+            _onInit("Login");
+
+            setTimeout(() => {
+                console.log('[Test] Triggering _onFetchLoading: connection');
+                const connectionPayload = {
+                   fetchLoading: true,
+                   isLoading: true,
+                   status: "connection"
+                };
+                _onFetchLoading(connectionPayload);
+
+                setTimeout(() => {
+                    const encryptionPayload = {
+                       fetchLoading: true,
+                       isLoading: true,
+                       status: "encryption"
+                    };
+                    console.log('[Test] Triggering _onFetchLoading: encryption');
+                    _onFetchLoading(encryptionPayload);
+
+                    setTimeout(() => {
+                        const authenticationPayload = {
+                           fetchLoading: true,
+                           isLoading: true,
+                           status: "authentication"
+                        };
+                        console.log('[Test] Triggering _onFetchLoading: authentication');
+                        _onFetchLoading(authenticationPayload);
+
+                        setTimeout(() => {
+                            console.log('[Test] Triggering _onFetchError');
+                            const customError = { "error-std": "account-block-protection-error" };
+                            _onFetchError(customError);
+                        }, 5000);
+
+                    }, 5000);
+
+                }, 5000);
+
+            }, 1000);
+
+        }, 1000);
+    }
+
+    function _onInit(screen) {
+        console.log('_onInit called with payload:', screen);
+        if (hasIOSHandler("didInit")) {
+            window.webkit.messageHandlers.didInit.postMessage(screen);
+        } else if (hasAndroidHandler("didInit")) {
+            window.AndroidJSReceiver.didInit(screen);
+        } else {
+            console.warn('_onInit: Unknown platform or handler not defined');
+        }
+    }
+
+    function _onFetchLoading(payload) {
+        console.log('_onFetchLoading called with payload:', payload);
+        if (hasIOSHandler("didFetchLoading")) {
+            window.webkit.messageHandlers.didFetchLoading.postMessage(payload);
+        } else if (hasAndroidHandler("didFetchLoading")) {
+            window.AndroidJSReceiver.didFetchLoading(JSON.stringify(payload));
+        } else {
+            console.warn('_onFetchLoading: Unknown platform or handler not defined');
+        }
+    }
+
+    function _onFetchError(customError) {
+        const payload = customError || { "error-std": "account-block-protection-error" };
+        console.error('_onFetchError called with error:', customError);
+        if (hasIOSHandler("didFetchError")) {
+            window.webkit.messageHandlers.didFetchError.postMessage(payload);
+        } else if (hasAndroidHandler("didFetchError")) {
+            window.AndroidJSReceiver.didFetchError(JSON.stringify(payload));
+        } else {
+            console.warn('_onFetchError: Unknown platform or handler not defined');
+        }
+    }
+</script>
+</body>
+</html>

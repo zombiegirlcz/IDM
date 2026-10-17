@@ -1,0 +1,26 @@
+package vmi;
+
+import ymi.e;
+
+/* JADX INFO: loaded from: classes10.dex */
+public final class b extends gim.c {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ d v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public int f290597w;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public b(d dVar, gim.c cVar) {
+        super(cVar);
+        this.v = dVar;
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        this.u = obj2;
+        this.f290597w |= Integer.MIN_VALUE;
+        Object objB = this.v.b(null, this);
+        return objB == fim.a.COROUTINE_SUSPENDED ? objB : new e((String) objB);
+    }
+}

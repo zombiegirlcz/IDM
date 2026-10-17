@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="internal_H1Medium_line_height">36sp</dimen>
+    <dimen name="internal_H1Medium_text_size">32sp</dimen>
+    <dimen name="internal_H1_line_height">40sp</dimen>
+    <dimen name="internal_H1_text_size">34sp</dimen>
+    <dimen name="internal_H2_line_height">44sp</dimen>
+    <dimen name="internal_H2_text_size">32sp</dimen>
+    <dimen name="internal_card_16dp_padding_size">16dp</dimen>
+    <dimen name="internal_card_24dp_padding_size">24dp</dimen>
+    <dimen name="internal_card_8dp_padding_size">8dp</dimen>
+    <dimen name="internal_extra_small_text_top_padding">12dp</dimen>
+    <dimen name="internal_extra_small_vertical_padding">16dp</dimen>
+    <dimen name="internal_nav_bar_menu_area_width">160dp</dimen>
+    <dimen name="internal_nav_bar_menu_item_action_width">56dp</dimen>
+    <dimen name="internal_nav_bar_menu_item_width">48dp</dimen>
+    <dimen name="internal_primary_text_line_height">22sp</dimen>
+    <dimen name="internal_primary_text_size">16sp</dimen>
+    <dimen name="internal_prompt_image_size">250dp</dimen>
+    <dimen name="internal_sticker_bottom_text_margin_bottom">16dp</dimen>
+    <dimen name="internal_sticker_title_gone_margin_top">16dp</dimen>
+    <dimen name="internal_sticker_title_margin_top">4dp</dimen>
+    <dimen name="internal_sticker_value_gone_margin_bottom">16dp</dimen>
+    <dimen name="internal_stories_title_autoSizeMinTextSize">20sp</dimen>
+    <dimen name="internal_story_button_bottom_margin">24dp</dimen>
+    <dimen name="internal_story_circle_max_height">200dp</dimen>
+    <dimen name="internal_story_multibar_height">220dp</dimen>
+    <dimen name="internal_story_subtitle_top_margin">16dp</dimen>
+    <dimen name="internal_story_title_top_margin">16dp</dimen>
+</resources>

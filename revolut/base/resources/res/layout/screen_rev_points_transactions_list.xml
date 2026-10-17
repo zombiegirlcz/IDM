@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/revPointsTransactionsList_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/revPointsTransactionsList_recyclerView"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.views.navbar.SlidingFromTopViewContainer
+        android:id="@+id/revPointsTransactionsList_slidingContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/actionBarSize">
+        <com.revolut.core.ui_kit.views.Tabs
+            android:id="@+id/revPointsTransactionsList_monthTabs"
+            android:background="?attr/uikit_windowBackground"
+            android:paddingTop="@dimen/dp_8"
+            android:paddingBottom="@dimen/dp_8"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="@dimen/dp_16"
+            android:paddingEnd="@dimen/dp_16"/>
+    </com.revolut.core.ui_kit.views.navbar.SlidingFromTopViewContainer>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

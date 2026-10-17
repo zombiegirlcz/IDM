@@ -1,0 +1,31 @@
+package jgk;
+
+import kotlin.enums.EnumEntries;
+
+/* JADX WARN: Failed to restore enum class, 'enum' modifier and super class removed */
+/* JADX WARN: Unknown enum class pattern. Please report as an issue! */
+/* JADX INFO: loaded from: classes11.dex */
+public final class y {
+    private static final /* synthetic */ EnumEntries $ENTRIES;
+    private static final /* synthetic */ y[] $VALUES;
+    public static final y FEATURES_FOR_YOU;
+    public static final y TOP_FEATURES;
+
+    static {
+        y yVar = new y("FEATURES_FOR_YOU", 0);
+        FEATURES_FOR_YOU = yVar;
+        y yVar2 = new y("TOP_FEATURES", 1);
+        TOP_FEATURES = yVar2;
+        y[] yVarArr = {yVar, yVar2};
+        $VALUES = yVarArr;
+        $ENTRIES = vc.s.n(yVarArr);
+    }
+
+    public static y valueOf(String str) {
+        return (y) Enum.valueOf(y.class, str);
+    }
+
+    public static y[] values() {
+        return (y[]) $VALUES.clone();
+    }
+}

@@ -1,0 +1,61 @@
+package d73;
+
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlinx.coroutines.CoroutineScope;
+import zhm.d0;
+
+/* JADX INFO: loaded from: classes21.dex */
+public final class q extends gim.i implements Function2 {
+    public final /* synthetic */ int u;
+    public final /* synthetic */ u v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public /* synthetic */ q(u uVar, Continuation continuation, int i) {
+        super(2, continuation);
+        this.u = i;
+        this.v = uVar;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        switch (this.u) {
+            case 0:
+                return new q(this.v, continuation, 0);
+            case 1:
+                return new q(this.v, continuation, 1);
+            default:
+                return new q(this.v, continuation, 2);
+        }
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        CoroutineScope coroutineScope = (CoroutineScope) obj2;
+        Continuation continuation = (Continuation) obj3;
+        switch (this.u) {
+        }
+        return ((q) create(coroutineScope, continuation)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        int i = this.u;
+        u uVar = this.v;
+        switch (i) {
+            case 0:
+                fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+                yhm.o.b(obj2);
+                return d0.i1(((e73.a) uVar.f111803a.v0(new e73.a(0), "HIDDEN_AUTO_RENEWAL_BANNER_STATE", e73.a.class)).getCardIds());
+            case 1:
+                fim.a aVar2 = fim.a.COROUTINE_SUSPENDED;
+                yhm.o.b(obj2);
+                return d0.i1(((e73.b) uVar.f111803a.v0(new e73.b(0), "HIDDEN_REISSUED_PHYSICAL_CARD_BANNER_STATE", e73.b.class)).getCardIds());
+            default:
+                fim.a aVar3 = fim.a.COROUTINE_SUSPENDED;
+                yhm.o.b(obj2);
+                return d0.i1(((e73.c) uVar.f111803a.v0(new e73.c(0), "HIDDEN_RENEWED_BANNER_STATE", e73.c.class)).getCardIds());
+        }
+    }
+}

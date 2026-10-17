@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="40dp"
+    android:width="40dp"
+    android:viewportWidth="40"
+    android:viewportHeight="40">
+    <path
+        android:fillColor="?attr/uikit_colorBackground"
+        android:pathData="M40 20c0 11.05-8.95 20-20 20S0 31.05 0 20 8.95 0 20 0s20 8.95 20 20zm-23-8v15c0 0.55 0.45 1 1 1h3c0.55 0 1-0.45 1-1V12c0-0.55-0.45-1-1-1h-3c-0.55 0-1 0.45-1 1zm-7 10v5c0 0.55 0.45 1 1 1h3c0.55 0 1-0.45 1-1v-5c0-0.55-0.45-1-1-1h-3c-0.55 0-1 0.45-1 1zm18-5h-3c-0.55 0-1 0.45-1 1v9c0 0.55 0.45 1 1 1h3c0.55 0 1-0.45 1-1v-9c0-0.55-0.45-1-1-1z"/>
+</vector>

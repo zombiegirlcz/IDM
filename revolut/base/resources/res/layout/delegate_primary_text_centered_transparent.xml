@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="?attr/uikit_colorGreyTone5"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:gravity="center"
+        android:id="@+id/styled_text_view"
+        android:background="@drawable/deprecated_background_selectable_transparent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="80dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        style="@style/MainText.Primary"/>
+</LinearLayout>

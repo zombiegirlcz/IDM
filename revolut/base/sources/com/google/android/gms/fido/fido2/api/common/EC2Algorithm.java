@@ -1,0 +1,25 @@
+package com.google.android.gms.fido.fido2.api.common;
+
+/* JADX INFO: loaded from: classes16.dex */
+public enum EC2Algorithm implements Algorithm {
+    ED256(-260),
+    ED512(-261),
+    ED25519(-8),
+    ES256(-7),
+    ECDH_HKDF_256(-25),
+    ES384(-35),
+    ES512(-36);
+
+
+    /* JADX INFO: renamed from: zzb, reason: collision with root package name */
+    private final int f38509zzb;
+
+    EC2Algorithm(int i) {
+        this.f38509zzb = i;
+    }
+
+    @Override // com.google.android.gms.fido.fido2.api.common.Algorithm
+    public int getAlgoValue() {
+        return this.f38509zzb;
+    }
+}

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <com.revolut.core.ui_kit.internal.views.LimitProgressBar
+        android:id="@+id/limitProgressBar_progressView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:internal_limitProgressBarThickness="12dp"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_max="320dp"/>
+    <com.revolut.core.ui_kit.internal.views.chart.ChartButtonHeaderView
+        android:id="@+id/limitProgressBar_header"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="48dp"
+        android:layout_marginEnd="48dp"
+        app:layout_constraintBottom_toBottomOf="@+id/limitProgressBar_progressView"
+        app:layout_constraintEnd_toEndOf="@+id/limitProgressBar_progressView"
+        app:layout_constraintStart_toStartOf="@+id/limitProgressBar_progressView"
+        app:layout_constraintTop_toTopOf="@+id/limitProgressBar_progressView"/>
+    <com.revolut.core.ui_kit.views.LabelButtonView
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:id="@+id/limitProgressBar_labelButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        app:layout_constraintBottom_toBottomOf="@+id/limitProgressBar_progressView"
+        app:layout_constraintEnd_toEndOf="@+id/limitProgressBar_progressView"
+        app:layout_constraintStart_toStartOf="@+id/limitProgressBar_progressView"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:gravity="center"
+        android:id="@+id/limitProgressBar_bottomDescription"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="@+id/limitProgressBar_progressView"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="@+id/limitProgressBar_progressView"
+        app:layout_constraintTop_toBottomOf="@+id/limitProgressBar_progressView"
+        style="?attr/internal_textAppearanceBody2"/>
+</merge>

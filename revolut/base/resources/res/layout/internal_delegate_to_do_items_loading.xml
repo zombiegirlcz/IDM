@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.facebook.shimmer.ShimmerLinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <View
+        android:id="@+id/toDoItemsLoading_shimmeringItem1"
+        android:background="?attr/uikit_shimmerBackgroundRect"
+        android:layout_width="72dp"
+        android:layout_height="16dp"/>
+    <View
+        android:id="@+id/toDoItemsLoading_shimmeringItem2"
+        android:background="?attr/uikit_shimmerBackgroundRect"
+        android:layout_width="72dp"
+        android:layout_height="16dp"
+        android:layout_marginTop="12dp"/>
+    <View
+        android:id="@+id/toDoItemsLoading_shimmeringItem3"
+        android:background="?attr/uikit_shimmerBackgroundRect"
+        android:layout_width="72dp"
+        android:layout_height="16dp"
+        android:layout_marginTop="12dp"/>
+</com.facebook.shimmer.ShimmerLinearLayout>

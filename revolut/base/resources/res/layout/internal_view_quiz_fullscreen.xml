@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <com.revolut.core.ui_kit.internal.views.fullscreenheader.InternalFullscreenHeaderView
+        android:id="@+id/quizFullscreen_header"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/internal_dp32"
+        android:layout_marginTop="@dimen/internal_dp8"
+        android:layout_marginStart="@dimen/internal_dp8"
+        android:layout_marginEnd="@dimen/internal_dp8"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.internal.views.quiz.QuizView
+        android:theme="@style/UiKitTheme"
+        android:id="@+id/quizFullscreen_quiz"
+        android:paddingTop="@dimen/internal_dp8"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="@dimen/internal_dp16"
+        android:paddingStart="@dimen/internal_dp16"
+        android:paddingEnd="@dimen/internal_dp16"
+        app:layout_constraintBottom_toTopOf="@+id/quizFullscreen_twinHorizontalButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/quizFullscreen_header"/>
+    <com.revolut.core.ui_kit.views.buttons.TwinHorizontalButton
+        android:theme="@style/UiKitTheme"
+        android:id="@+id/quizFullscreen_twinHorizontalButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+</merge>

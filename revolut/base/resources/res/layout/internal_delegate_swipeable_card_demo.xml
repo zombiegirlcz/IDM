@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.swipeablecards.container.SwipeableCardContainerView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <FrameLayout
+        android:background="@drawable/internal_background_swipeable_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <androidx.appcompat.widget.AppCompatTextView
+            android:textColor="?attr/uikit_colorGreyTone20"
+            android:layout_gravity="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Placeholder"/>
+    </FrameLayout>
+</com.revolut.core.ui_kit.internal.views.swipeablecards.container.SwipeableCardContainerView>

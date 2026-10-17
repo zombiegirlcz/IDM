@@ -1,0 +1,23 @@
+package p0l;
+
+/* JADX INFO: loaded from: classes12.dex */
+public final class m extends gim.c {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ v v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public int f231562w;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public m(v vVar, gim.c cVar) {
+        super(cVar);
+        this.v = vVar;
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        this.u = obj2;
+        this.f231562w |= Integer.MIN_VALUE;
+        return v.y2(this.v, this);
+    }
+}

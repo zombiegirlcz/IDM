@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.views.NewRevolutCardView
+        android:id="@+id/internalDelegateNewRevolutCard_cardView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <ViewStub
+        android:layout_gravity="center"
+        android:id="@+id/internalDelegateNewRevolutCard_designChangeOverlayStub"
+        android:layout="@layout/internal_delegate_new_revolut_card_design_change_overlay"
+        android:inflatedId="@+id/internalDelegateNewRevolutCard_designChangeOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</FrameLayout>

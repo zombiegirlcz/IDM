@@ -1,0 +1,72 @@
+package com.revolut.feature.payments.recipients.settings.impl.data.db;
+
+import androidx.room.InvalidationTracker;
+import androidx.room.RoomOpenDelegateMarker;
+import cy9.b;
+import cy9.f;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/* JADX INFO: loaded from: classes5.dex */
+public final class RecipientSettingsDatabase_Impl extends RecipientSettingsDatabase {
+
+    /* JADX INFO: renamed from: j, reason: collision with root package name */
+    public static final /* synthetic */ int f79671j = 0;
+    public volatile b f;
+
+    @Override // androidx.room.RoomDatabase
+    public final void clearAllTables() {
+        performClear(false, "recipient_settings");
+    }
+
+    @Override // androidx.room.RoomDatabase
+    public final InvalidationTracker createInvalidationTracker() {
+        return new InvalidationTracker(this, new HashMap(0), new HashMap(0), "recipient_settings");
+    }
+
+    @Override // androidx.room.RoomDatabase
+    public final RoomOpenDelegateMarker createOpenDelegate() {
+        return new f(this);
+    }
+
+    @Override // com.revolut.feature.payments.recipients.settings.impl.data.db.RecipientSettingsDatabase
+    public final b g() {
+        b bVar;
+        if (this.f != null) {
+            return this.f;
+        }
+        synchronized (this) {
+            try {
+                if (this.f == null) {
+                    this.f = new b(this);
+                }
+                bVar = this.f;
+            } catch (Throwable th10) {
+                throw th10;
+            }
+        }
+        return bVar;
+    }
+
+    @Override // androidx.room.RoomDatabase
+    public final List getAutoMigrations(Map map) {
+        return new ArrayList();
+    }
+
+    @Override // androidx.room.RoomDatabase
+    public final Set getRequiredAutoMigrationSpecs() {
+        return new HashSet();
+    }
+
+    @Override // androidx.room.RoomDatabase
+    public final Map getRequiredTypeConverters() {
+        HashMap map = new HashMap();
+        map.put(b.class, Collections.EMPTY_LIST);
+        return map;
+    }
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:id="@+id/root"
+    android:background="?attr/uikit_colorPink"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent">
+    <ImageView
+        android:id="@+id/action_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        app:srcCompat="@drawable/uikit_icn_24_back_button_arrow"/>
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:textSize="@dimen/material_text_size_ss"
+        android:textColor="?attr/uikit_colorBackground"
+        android:gravity="center"
+        android:id="@+id/action_text"
+        android:layout_width="@dimen/transaction_action_button_width"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        app:ttv_typeface="bold"/>
+</merge>

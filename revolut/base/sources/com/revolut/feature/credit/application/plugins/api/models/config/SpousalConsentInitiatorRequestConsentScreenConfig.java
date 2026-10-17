@@ -1,0 +1,152 @@
+package com.revolut.feature.credit.application.plugins.api.models.config;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+import com.revolut.core.ui_kit.models.Clause;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes22.dex */
+@Metadata(d1 = {"\u0000\u0012\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\b\u0003\n\u0002\u0018\u0002\n\u0000\b6\u0018\u00002\u00020\u0001:\u0001\u0004B\t\b\u0004¢\u0006\u0004\b\u0002\u0010\u0003\u0082\u0001\u0001\u0005¨\u0006\u0006"}, d2 = {"Lcom/revolut/feature/credit/application/plugins/api/models/config/SpousalConsentInitiatorRequestConsentScreenConfig;", "Lcom/revolut/feature/credit/application/plugins/api/models/config/ScreenConfig;", "<init>", "()V", "HowItWorks", "Lcom/revolut/feature/credit/application/plugins/api/models/config/SpousalConsentInitiatorRequestConsentScreenConfig$HowItWorks;", "feature_credit_application_plugins_api_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public abstract class SpousalConsentInitiatorRequestConsentScreenConfig extends ScreenConfig {
+
+    @Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0004\b\u0087\b\u0018\u00002\u00020\u0001:\u0001\u0005J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0006"}, d2 = {"Lcom/revolut/feature/credit/application/plugins/api/models/config/SpousalConsentInitiatorRequestConsentScreenConfig$HowItWorks;", "Lcom/revolut/feature/credit/application/plugins/api/models/config/SpousalConsentInitiatorRequestConsentScreenConfig;", "", "toString", "()Ljava/lang/String;", "ErrorDialog", "feature_credit_application_plugins_api_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final /* data */ class HowItWorks extends SpousalConsentInitiatorRequestConsentScreenConfig {
+
+        @NotNull
+        public static final Parcelable.Creator<HowItWorks> CREATOR = new a();
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public final Clause f66412a;
+
+        /* JADX INFO: renamed from: b, reason: collision with root package name */
+        public final Clause f66413b;
+
+        /* JADX INFO: renamed from: c, reason: collision with root package name */
+        public final ErrorDialog f66414c;
+
+        @Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0087\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"Lcom/revolut/feature/credit/application/plugins/api/models/config/SpousalConsentInitiatorRequestConsentScreenConfig$HowItWorks$ErrorDialog;", "Landroid/os/Parcelable;", "", "toString", "()Ljava/lang/String;", "feature_credit_application_plugins_api_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+        public static final /* data */ class ErrorDialog implements Parcelable {
+
+            @NotNull
+            public static final Parcelable.Creator<ErrorDialog> CREATOR = new a();
+
+            /* JADX INFO: renamed from: a, reason: collision with root package name */
+            public final Clause f66415a;
+
+            /* JADX INFO: renamed from: b, reason: collision with root package name */
+            public final Clause f66416b;
+
+            /* JADX INFO: renamed from: c, reason: collision with root package name */
+            public final Clause f66417c;
+            public final Clause d;
+
+            public static final class a implements Parcelable.Creator {
+                @Override // android.os.Parcelable.Creator
+                public final Object createFromParcel(Parcel parcel) {
+                    Intrinsics.checkNotNullParameter(parcel, "parcel");
+                    return new ErrorDialog((Clause) parcel.readParcelable(ErrorDialog.class.getClassLoader()), (Clause) parcel.readParcelable(ErrorDialog.class.getClassLoader()), (Clause) parcel.readParcelable(ErrorDialog.class.getClassLoader()), (Clause) parcel.readParcelable(ErrorDialog.class.getClassLoader()));
+                }
+
+                @Override // android.os.Parcelable.Creator
+                public final Object[] newArray(int i) {
+                    return new ErrorDialog[i];
+                }
+            }
+
+            public ErrorDialog(Clause title, Clause description, Clause primaryButtonText, Clause secondaryButtonText) {
+                Intrinsics.checkNotNullParameter(title, "title");
+                Intrinsics.checkNotNullParameter(description, "description");
+                Intrinsics.checkNotNullParameter(primaryButtonText, "primaryButtonText");
+                Intrinsics.checkNotNullParameter(secondaryButtonText, "secondaryButtonText");
+                this.f66415a = title;
+                this.f66416b = description;
+                this.f66417c = primaryButtonText;
+                this.d = secondaryButtonText;
+            }
+
+            @Override // android.os.Parcelable
+            public final int describeContents() {
+                return 0;
+            }
+
+            public final boolean equals(Object obj2) {
+                if (this == obj2) {
+                    return true;
+                }
+                if (!(obj2 instanceof ErrorDialog)) {
+                    return false;
+                }
+                ErrorDialog errorDialog = (ErrorDialog) obj2;
+                return Intrinsics.f(this.f66415a, errorDialog.f66415a) && Intrinsics.f(this.f66416b, errorDialog.f66416b) && Intrinsics.f(this.f66417c, errorDialog.f66417c) && Intrinsics.f(this.d, errorDialog.d);
+            }
+
+            public final int hashCode() {
+                return this.d.hashCode() + p.a.a(p.a.a(this.f66415a.hashCode() * 31, 31, this.f66416b), 31, this.f66417c);
+            }
+
+            @Override // android.os.Parcelable
+            public final void writeToParcel(Parcel dest, int i) {
+                Intrinsics.checkNotNullParameter(dest, "dest");
+                dest.writeParcelable(this.f66415a, i);
+                dest.writeParcelable(this.f66416b, i);
+                dest.writeParcelable(this.f66417c, i);
+                dest.writeParcelable(this.d, i);
+            }
+        }
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                return new HowItWorks((Clause) parcel.readParcelable(HowItWorks.class.getClassLoader()), (Clause) parcel.readParcelable(HowItWorks.class.getClassLoader()), ErrorDialog.CREATOR.createFromParcel(parcel));
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new HowItWorks[i];
+            }
+        }
+
+        public HowItWorks(Clause title, Clause description, ErrorDialog errorDialog) {
+            Intrinsics.checkNotNullParameter(title, "title");
+            Intrinsics.checkNotNullParameter(description, "description");
+            Intrinsics.checkNotNullParameter(errorDialog, "errorDialog");
+            this.f66412a = title;
+            this.f66413b = description;
+            this.f66414c = errorDialog;
+        }
+
+        @Override // android.os.Parcelable
+        public final int describeContents() {
+            return 0;
+        }
+
+        public final boolean equals(Object obj2) {
+            if (this == obj2) {
+                return true;
+            }
+            if (!(obj2 instanceof HowItWorks)) {
+                return false;
+            }
+            HowItWorks howItWorks = (HowItWorks) obj2;
+            return Intrinsics.f(this.f66412a, howItWorks.f66412a) && Intrinsics.f(this.f66413b, howItWorks.f66413b) && Intrinsics.f(this.f66414c, howItWorks.f66414c);
+        }
+
+        public final int hashCode() {
+            return this.f66414c.hashCode() + p.a.a(this.f66412a.hashCode() * 31, 31, this.f66413b);
+        }
+
+        @Override // android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            dest.writeParcelable(this.f66412a, i);
+            dest.writeParcelable(this.f66413b, i);
+            this.f66414c.writeToParcel(dest, i);
+        }
+    }
+
+    private SpousalConsentInitiatorRequestConsentScreenConfig() {
+    }
+}

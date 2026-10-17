@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="@drawable/internal_box_background"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/expandableCellLoading_layoutShimmer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <TextView
+                android:id="@+id/expandableCellLoading_viewTitle"
+                android:background="@drawable/internal_rectangle_gradient_grey"
+                android:layout_width="72dp"
+                android:layout_height="wrap_content"
+                style="?attr/internal_textAppearanceEmphasis2"/>
+            <TextView
+                android:id="@+id/expandableCellLoading_viewDescription"
+                android:background="@drawable/internal_rectangle_gradient_grey"
+                android:layout_width="144dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/internal_dp16"
+                style="?attr/textAppearanceCaption"/>
+        </LinearLayout>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+</FrameLayout>

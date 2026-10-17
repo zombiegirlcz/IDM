@@ -1,0 +1,7 @@
+package dwi;
+
+/* JADX INFO: loaded from: classes10.dex */
+public final class p0 {
+    private p0() {
+    }
+}

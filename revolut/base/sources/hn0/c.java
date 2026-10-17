@@ -1,0 +1,5 @@
+package hn0;
+
+/* JADX INFO: loaded from: classes19.dex */
+public interface c extends i {
+}

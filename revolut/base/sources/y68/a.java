@@ -1,0 +1,7 @@
+package y68;
+
+import csh.e;
+
+/* JADX INFO: loaded from: classes4.dex */
+public interface a extends e {
+}

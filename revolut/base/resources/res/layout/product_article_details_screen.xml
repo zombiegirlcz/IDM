@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/productArticleDetails_root"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.lightprompt.LightPromptFullScreenView
+        android:id="@+id/productArticleDetails_prompt"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</com.revolut.kompot.view.ControllerContainerFrameLayout>

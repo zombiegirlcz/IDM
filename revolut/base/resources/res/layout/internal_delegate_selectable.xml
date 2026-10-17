@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.SecondaryBackgroundConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/row_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.ChildTouchGuardFrameLayout
+        android:id="@+id/innerContainer"
+        android:clickable="false"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/tickIcon"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/tickIcon"
+        android:clickable="false"
+        android:layout_width="@dimen/internal_dp24"
+        android:layout_height="@dimen/internal_dp24"
+        android:layout_marginTop="@dimen/internal_dp24"
+        android:layout_marginBottom="@dimen/internal_dp24"
+        android:layout_marginStart="@dimen/internal_dp16"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.5"/>
+</com.revolut.core.ui_kit.internal.views.SecondaryBackgroundConstraintLayout>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/login_splash_revolut_bank_avd_vector">
+    <target
+        android:name="logo_motion"
+        android:animation="@animator/login_splash_revolut_bank_motion"/>
+    <target
+        android:name="logo_scale"
+        android:animation="@animator/login_splash_revolut_bank_scale"/>
+    <target
+        android:name="bank_reveal"
+        android:animation="@animator/login_splash_revolut_bank_reveal"/>
+    <target
+        android:name="bank_path"
+        android:animation="@animator/login_splash_revolut_bank_reveal_alpha"/>
+</animated-vector>

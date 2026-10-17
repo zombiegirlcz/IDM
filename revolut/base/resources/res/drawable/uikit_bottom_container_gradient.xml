@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:gravity="top"
+        android:height="32dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="@android:color/transparent"
+                android:endColor="?attr/uikit_colorGroupedBackground"
+                android:angle="270"
+                android:type="linear"
+                android:centerColor="?attr/uikit_colorGroupedBackground_90"/>
+        </shape>
+    </item>
+    <item android:top="32dp">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/uikit_colorGroupedBackground"/>
+        </shape>
+    </item>
+</layer-list>

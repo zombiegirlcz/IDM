@@ -1,0 +1,80 @@
+package com.revolut.feature.pay_with_smile.impl;
+
+/* JADX INFO: loaded from: classes5.dex */
+public final class R$string {
+    public static int revolut_pay_biometric_payments_create_passcode_action_primary = 2131995788;
+    public static int revolut_pay_biometric_payments_create_passcode_action_secondary = 2131995789;
+    public static int revolut_pay_biometric_payments_create_passcode_subtitle = 2131995790;
+    public static int revolut_pay_biometric_payments_create_passcode_success_title = 2131995791;
+    public static int revolut_pay_biometric_payments_create_passcode_title = 2131995792;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_confirm = 2131995793;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_description = 2131995794;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_device = 2131995795;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_no_call = 2131995796;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_reject = 2131995797;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_success_title = 2131995798;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_timeout_action = 2131995799;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_timeout_description = 2131995800;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_timeout_title = 2131995801;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_title = 2131995802;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_when = 2131995803;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_where = 2131995804;
+    public static int revolut_pay_biometric_payments_fallback_confirmation_with_app = 2131995805;
+    public static int revolut_pay_biometric_payments_skip_passcode_action_primary = 2131995806;
+    public static int revolut_pay_biometric_payments_skip_passcode_action_secondary = 2131995807;
+    public static int revolut_pay_biometric_payments_skip_passcode_description = 2131995808;
+    public static int revolut_pay_biometric_payments_skip_passcode_title = 2131995809;
+    public static int revolut_pay_enable_pay_with_smile_action_enable = 2131995922;
+    public static int revolut_pay_enable_pay_with_smile_action_enable_and_pay = 2131995923;
+    public static int revolut_pay_enable_pay_with_smile_consent = 2131995924;
+    public static int revolut_pay_enable_pay_with_smile_enrollment_accepted_action_create_passcode = 2131995925;
+    public static int revolut_pay_enable_pay_with_smile_enrollment_accepted_description = 2131995926;
+    public static int revolut_pay_enable_pay_with_smile_enrollment_accepted_title = 2131995927;
+    public static int revolut_pay_enable_pay_with_smile_highlight_earn_revpoints = 2131995928;
+    public static int revolut_pay_enable_pay_with_smile_privacy_notice_link = 2131995929;
+    public static int revolut_pay_enable_pay_with_smile_privacy_notice_prefix = 2131995930;
+    public static int revolut_pay_enable_pay_with_smile_rev_points_offer_suffix = 2131995931;
+    public static int revolut_pay_enable_pay_with_smile_row_earn_x_points = 2131995932;
+    public static int revolut_pay_enable_pay_with_smile_row_free_for_merchant = 2131995933;
+    public static int revolut_pay_enable_pay_with_smile_row_security = 2131995934;
+    public static int revolut_pay_enable_pay_with_smile_subtitle_enable = 2131995935;
+    public static int revolut_pay_enable_pay_with_smile_subtitle_enable_and_pay = 2131995936;
+    public static int revolut_pay_enable_pay_with_smile_title = 2131995937;
+    public static int revolut_pay_management_home_pay_with_smile_banner_description = 2131996025;
+    public static int revolut_pay_management_home_pay_with_smile_banner_title = 2131996026;
+    public static int revolut_pay_management_home_pay_with_smile_subtitle_disabled = 2131996027;
+    public static int revolut_pay_management_home_pay_with_smile_subtitle_enabled = 2131996028;
+    public static int revolut_pay_management_home_pay_with_smile_title = 2131996029;
+    public static int revolut_pay_pay_with_smile_change_passcode_subtitle = 2131996354;
+    public static int revolut_pay_pay_with_smile_change_passcode_title = 2131996355;
+    public static int revolut_pay_pay_with_smile_confirm_change_passcode_title = 2131996356;
+    public static int revolut_pay_pay_with_smile_confirm_passcode_title = 2131996357;
+    public static int revolut_pay_pay_with_smile_confirm_set_passcode_title = 2131996358;
+    public static int revolut_pay_pay_with_smile_create_passcode_title = 2131996359;
+    public static int revolut_pay_pay_with_smile_processing_description = 2131996360;
+    public static int revolut_pay_pay_with_smile_processing_title = 2131996361;
+    public static int revolut_pay_pay_with_smile_set_passcode_subtitle = 2131996362;
+    public static int revolut_pay_pay_with_smile_set_passcode_title = 2131996363;
+    public static int revolut_pay_pay_with_smile_settings_change_passcode_not_set_subtitle = 2131996366;
+    public static int revolut_pay_pay_with_smile_settings_change_passcode_title = 2131996367;
+    public static int revolut_pay_pay_with_smile_settings_description = 2131996368;
+    public static int revolut_pay_pay_with_smile_settings_menu_opt_out = 2131996369;
+    public static int revolut_pay_pay_with_smile_settings_menu_terms = 2131996370;
+    public static int revolut_pay_pay_with_smile_settings_opt_out_description = 2131996371;
+    public static int revolut_pay_pay_with_smile_settings_opt_out_primary_action = 2131996372;
+    public static int revolut_pay_pay_with_smile_settings_opt_out_secondary_action = 2131996373;
+    public static int revolut_pay_pay_with_smile_settings_opt_out_success_title = 2131996374;
+    public static int revolut_pay_pay_with_smile_settings_opt_out_title = 2131996375;
+    public static int revolut_pay_pay_with_smile_settings_pay_with_smile_title = 2131996376;
+    public static int revolut_pay_pay_with_smile_settings_title = 2131996377;
+    public static int revolut_pay_pay_with_smile_unavailable_description = 2131996364;
+    public static int revolut_pay_pay_with_smile_unavailable_title = 2131996365;
+    public static int revolut_pay_terms_pay_with_smile_accepted_title = 2131996743;
+    public static int revolut_pay_terms_pay_with_smile_action_accept_and_pay = 2131996744;
+    public static int revolut_pay_terms_pay_with_smile_action_accept_and_sign = 2131996745;
+    public static int revolut_pay_terms_pay_with_smile_checkbox_consent = 2131996746;
+    public static int revolut_pay_terms_pay_with_smile_subtitle_review_and_accept = 2131996747;
+
+    private R$string() {
+    }
+}

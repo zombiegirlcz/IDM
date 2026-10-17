@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/cameraKitCameraScreen_screenContainer"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.camerakit.ui.views.view.CameraKitView
+        android:id="@+id/cameraKitCameraScreen_cameraKitView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.camerakit.ui.views.view.player.CameraKitPlayer
+        android:id="@+id/cameraKitCameraScreen_player"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.camerakit.ui.views.view.debug.CameraKitDebugOverlayView
+        android:id="@+id/cameraKitCameraScreen_debugOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:theme="@style/UiKitColorsTheme.Night"
+        android:id="@+id/cameraKitCameraScreen_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.core.ui_kit.views.FooterTextView
+        android:layout_gravity="bottom"
+        android:id="@+id/cameraKitCameraScreen_footerText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/dp_8"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

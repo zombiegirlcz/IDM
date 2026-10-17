@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="?attr/uikit_colorSelectableItemBackground">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <corners android:radius="?attr/uikit_tab_corner_radius"/>
+            <solid android:color="?attr/uikit_colorBackground"/>
+        </shape>
+    </item>
+</ripple>

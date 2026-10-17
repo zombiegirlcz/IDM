@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.SecondaryBackgroundConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@drawable/internal_box_background"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:id="@+id/singleChoice_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp16"
+        android:layout_marginBottom="?attr/uikit_dp16"
+        android:layout_marginStart="?attr/uikit_dp16"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/singleChoice_barrier"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_goneMarginEnd="?attr/uikit_dp16"
+        style="?attr/internal_textAppearanceBody1"/>
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/singleChoice_barrier"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:barrierDirection="start"
+        app:constraint_referenced_ids="singleChoice_text,singleChoice_icon"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textAppearance="?attr/internal_textAppearanceEmphasis2"
+        android:textColor="?attr/uikit_colorAccentNeutral"
+        android:id="@+id/singleChoice_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <ImageView
+        android:id="@+id/singleChoice_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="?attr/uikit_dp24"
+        android:layout_marginTop="?attr/uikit_dp16"
+        android:layout_marginBottom="?attr/uikit_dp16"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+</com.revolut.core.ui_kit.internal.views.SecondaryBackgroundConstraintLayout>

@@ -1,0 +1,81 @@
+package com.revolut.feature.junior.account_activation.impl;
+
+/* JADX INFO: loaded from: classes4.dex */
+public final class R$string {
+    public static int junior_account_activation_birthday_over_registration_age_message = 2131979158;
+    public static int junior_account_activation_update_birth_date_action_update = 2131979159;
+    public static int junior_account_activation_update_birth_date_max_difference_error_message = 2131979160;
+    public static int junior_account_activation_update_birth_date_min_difference_error_message = 2131979161;
+    public static int junior_account_activation_update_birth_date_title = 2131979162;
+    public static int junior_account_activation_update_name_action_update = 2131979163;
+    public static int junior_account_activation_update_name_first_name_placeholder = 2131979164;
+    public static int junior_account_activation_update_name_first_name_title = 2131979165;
+    public static int junior_account_activation_update_name_first_names_placeholder = 2131979166;
+    public static int junior_account_activation_update_name_first_names_title = 2131979167;
+    public static int junior_account_activation_update_name_last_name_placeholder = 2131979168;
+    public static int junior_account_activation_update_name_last_name_title = 2131979169;
+    public static int junior_account_activation_update_name_last_names_placeholder = 2131979170;
+    public static int junior_account_activation_update_name_last_names_title = 2131979171;
+    public static int junior_account_activation_update_name_title = 2131979172;
+    public static int junior_signup_activation_denial_success_subtitle = 2131979961;
+    public static int junior_signup_activation_denial_success_subtitle_sub_account = 2131979962;
+    public static int junior_signup_activation_denial_success_title = 2131979963;
+    public static int junior_signup_activation_denial_success_title_sub_account = 2131979964;
+    public static int junior_signup_details_activation_action_approve = 2131979966;
+    public static int junior_signup_details_activation_action_decline = 2131979967;
+    public static int junior_signup_details_activation_birth_date_title = 2131979968;
+    public static int junior_signup_details_activation_confirmation_account_purpose = 2131979969;
+    public static int junior_signup_details_activation_confirmation_data_protection_terms = 2131979972;
+    public static int junior_signup_details_activation_confirmation_guardian = 2131979973;
+    public static int junior_signup_details_activation_confirmation_kid_control_details = 2131979974;
+    public static int junior_signup_details_activation_confirmation_live_with_me = 2131979975;
+    public static int junior_signup_details_activation_confirmation_same_address = 2131979977;
+    public static int junior_signup_details_activation_confirmation_student = 2131979978;
+    public static int junior_signup_details_activation_date_of_birth = 2131979981;
+    public static int junior_signup_details_activation_full_name = 2131979982;
+    public static int junior_signup_details_activation_full_name_title = 2131979983;
+    public static int junior_signup_details_activation_gender = 2131979984;
+    public static int junior_signup_details_activation_gender_hint = 2131979985;
+    public static int junior_signup_details_activation_header_subtitle_prepaid_card = 2131979987;
+    public static int junior_signup_details_activation_header_title = 2131979988;
+    public static int junior_signup_details_activation_header_title_sub_account = 2131979989;
+    public static int junior_signup_details_activation_relationship_hint = 2131979990;
+    public static int junior_signup_pending_action_activation_action_view_request = 2131980045;
+    public static int junior_signup_pending_action_activation_message = 2131980046;
+    public static int junior_signup_pending_action_activation_message_female = 2131980047;
+    public static int junior_signup_pending_action_activation_message_male = 2131980048;
+    public static int junior_signup_pending_action_activation_message_sub_account = 2131980049;
+    public static int junior_signup_pending_action_activation_message_with_name = 2131980050;
+    public static int junior_signup_pending_action_activation_title = 2131980051;
+    public static int junior_signup_pending_action_activation_title_sub_account = 2131980052;
+    public static int junior_signup_prompt_already_approved_subtitle = 2131980054;
+    public static int junior_signup_prompt_already_approved_title = 2131980055;
+    public static int junior_signup_prompt_denial_confirmation_action_approve = 2131980056;
+    public static int junior_signup_prompt_denial_confirmation_action_approve_sub_account = 2131980057;
+    public static int junior_signup_prompt_denial_confirmation_action_cancel = 2131980058;
+    public static int junior_signup_prompt_denial_confirmation_action_deny_request = 2131980059;
+    public static int junior_signup_prompt_denial_confirmation_subtitle = 2131980060;
+    public static int junior_signup_prompt_denial_confirmation_subtitle_sub_account = 2131980061;
+    public static int junior_signup_prompt_denial_confirmation_title = 2131980062;
+    public static int junior_signup_prompt_denial_confirmation_title_with_name = 2131980063;
+    public static int rev_u18_signup_activation_approval_success_actions_review_card_request = 2131995387;
+    public static int rev_u18_signup_activation_approval_success_subtitle = 2131995388;
+    public static int rev_u18_signup_activation_approval_success_subtitle_card_request = 2131995389;
+    public static int rev_u18_signup_activation_approval_success_title = 2131995390;
+    public static int rev_u18_signup_activation_approval_success_title_female = 2131995391;
+    public static int rev_u18_signup_activation_approval_success_title_gender_neutral = 2131995392;
+    public static int rev_u18_signup_activation_approval_success_title_sub_account = 2131995393;
+    public static int rev_u18_signup_details_activation_action_approve_account = 2131995404;
+    public static int rev_u18_signup_details_activation_relationship_hint = 2131995405;
+    public static int rev_u18_signup_details_activation_subtitle = 2131995406;
+    public static int rev_u18_signup_prompt_denial_confirmation_subtitle = 2131995420;
+    public static int youth_branch_mismatch_prompt_action = 2132016374;
+    public static int youth_branch_mismatch_prompt_subtitle = 2132016375;
+    public static int youth_branch_mismatch_prompt_title = 2132016376;
+    public static int youth_company_mismatch_prompt_action = 2132016384;
+    public static int youth_company_mismatch_prompt_subtitle = 2132016385;
+    public static int youth_company_mismatch_prompt_title = 2132016386;
+
+    private R$string() {
+    }
+}

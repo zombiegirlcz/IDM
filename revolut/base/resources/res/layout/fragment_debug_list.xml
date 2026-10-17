@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:id="@+id/navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/recycler_view_res_0x7f0a1777"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</LinearLayout>

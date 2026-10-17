@@ -1,0 +1,31 @@
+package ct0;
+
+import kotlin.enums.EnumEntries;
+
+/* JADX WARN: Failed to restore enum class, 'enum' modifier and super class removed */
+/* JADX WARN: Unknown enum class pattern. Please report as an issue! */
+/* JADX INFO: loaded from: classes19.dex */
+public final class y {
+    private static final /* synthetic */ EnumEntries $ENTRIES;
+    private static final /* synthetic */ y[] $VALUES;
+    public static final y GRADIENT;
+    public static final y SOLID;
+
+    static {
+        y yVar = new y("GRADIENT", 0);
+        GRADIENT = yVar;
+        y yVar2 = new y("SOLID", 1);
+        SOLID = yVar2;
+        y[] yVarArr = {yVar, yVar2};
+        $VALUES = yVarArr;
+        $ENTRIES = vc.s.n(yVarArr);
+    }
+
+    public static y valueOf(String str) {
+        return (y) Enum.valueOf(y.class, str);
+    }
+
+    public static y[] values() {
+        return (y[]) $VALUES.clone();
+    }
+}

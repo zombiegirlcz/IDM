@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/navBarWithToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+</com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout>

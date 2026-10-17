@@ -1,0 +1,7 @@
+package ll7;
+
+/* JADX INFO: loaded from: classes4.dex */
+public final class h0 {
+    private h0() {
+    }
+}

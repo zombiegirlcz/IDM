@@ -1,0 +1,5 @@
+package ms2;
+
+/* JADX INFO: loaded from: classes21.dex */
+public interface c extends pri.e {
+}

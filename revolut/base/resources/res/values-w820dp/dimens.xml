@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="activity_horizontal_margin">64dp</dimen>
+    <dimen name="internal_fullscreen_video_player_captions_width_percentage">0.5</dimen>
+    <dimen name="onfido_activity_horizontal_margin">64dp</dimen>
+</resources>

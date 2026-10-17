@@ -1,0 +1,6 @@
+package ulm;
+
+/* JADX INFO: loaded from: classes13.dex */
+public interface l0 {
+    m0 a(ylm.q qVar);
+}

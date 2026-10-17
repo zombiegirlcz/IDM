@@ -1,0 +1,25 @@
+package pkf;
+
+import kotlin.coroutines.Continuation;
+
+/* JADX INFO: loaded from: classes8.dex */
+public final class p extends gim.c {
+    public /* synthetic */ Object u;
+    public int v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public final /* synthetic */ nvk.v f237104w;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public p(nvk.v vVar, Continuation continuation) {
+        super(continuation);
+        this.f237104w = vVar;
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        this.u = obj2;
+        this.v |= Integer.MIN_VALUE;
+        return this.f237104w.emit(null, this);
+    }
+}

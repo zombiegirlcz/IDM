@@ -1,0 +1,82 @@
+package com.revolut.feature.payments_migration.impl;
+
+/* JADX INFO: loaded from: classes5.dex */
+public final class R$string {
+    public static int payments_migration_card_selection_description = 2131988824;
+    public static int payments_migration_card_selection_title = 2131988825;
+    public static int payments_migration_error_state_title = 2131988826;
+    public static int payments_migration_item_missing_merchant_title = 2131988827;
+    public static int payments_migration_item_moved = 2131988828;
+    public static int payments_migration_item_see_all_title = 2131988829;
+    public static int payments_migration_move_card_subscriptions = 2131988830;
+    public static int payments_migration_move_direct_debits = 2131988831;
+    public static int payments_migration_move_payment_action_done = 2131988853;
+    public static int payments_migration_move_payment_action_go_to = 2131988854;
+    public static int payments_migration_move_payment_action_open_browser = 2131988855;
+    public static int payments_migration_move_payment_hide_card_details = 2131988856;
+    public static int payments_migration_move_payment_instructions_first_step_account_details_description = 2131988857;
+    public static int payments_migration_move_payment_instructions_first_step_card_description = 2131988858;
+    public static int payments_migration_move_payment_instructions_first_step_title = 2131988859;
+    public static int payments_migration_move_payment_instructions_second_step_description = 2131988860;
+    public static int payments_migration_move_payment_instructions_second_step_title = 2131988861;
+    public static int payments_migration_move_payment_instructions_third_step_description = 2131988862;
+    public static int payments_migration_move_payment_instructions_third_step_opt_out_description = 2131988863;
+    public static int payments_migration_move_payment_instructions_third_step_opt_out_title = 2131988864;
+    public static int payments_migration_move_payment_instructions_third_step_title = 2131988865;
+    public static int payments_migration_move_payment_instructions_title = 2131988866;
+    public static int payments_migration_move_payment_no_provider_title = 2131988867;
+    public static int payments_migration_move_payment_provider_title = 2131988868;
+    public static int payments_migration_move_payment_show_card_details = 2131988869;
+    public static int payments_migration_move_provider_button_search_only_title = 2131988832;
+    public static int payments_migration_move_provider_button_title = 2131988833;
+    public static int payments_migration_move_provider_direct_debits_instructions_first_step_description = 2131988834;
+    public static int payments_migration_move_provider_direct_debits_instructions_first_step_search_only_description = 2131988835;
+    public static int payments_migration_move_provider_direct_debits_instructions_first_step_title = 2131988836;
+    public static int payments_migration_move_provider_direct_debits_instructions_second_step_description = 2131988837;
+    public static int payments_migration_move_provider_direct_debits_instructions_second_step_title = 2131988838;
+    public static int payments_migration_move_provider_direct_debits_instructions_third_step_description = 2131988839;
+    public static int payments_migration_move_provider_direct_debits_instructions_third_step_title = 2131988840;
+    public static int payments_migration_move_provider_direct_debits_popular_title = 2131988841;
+    public static int payments_migration_move_provider_direct_debits_title = 2131988842;
+    public static int payments_migration_move_provider_instructions_title = 2131988843;
+    public static int payments_migration_move_provider_subscriptions_instructions_first_step_description = 2131988844;
+    public static int payments_migration_move_provider_subscriptions_instructions_first_step_title = 2131988845;
+    public static int payments_migration_move_provider_subscriptions_instructions_second_step_description = 2131988846;
+    public static int payments_migration_move_provider_subscriptions_instructions_second_step_title = 2131988847;
+    public static int payments_migration_move_provider_subscriptions_instructions_third_step_description = 2131988848;
+    public static int payments_migration_move_provider_subscriptions_instructions_third_step_title = 2131988849;
+    public static int payments_migration_move_provider_subscriptions_popular_title = 2131988850;
+    public static int payments_migration_move_provider_subscriptions_title = 2131988851;
+    public static int payments_migration_move_subscriptions = 2131988852;
+    public static int payments_migration_move_subscriptions_loading_error_title = 2131988870;
+    public static int payments_migration_move_subscriptions_title = 2131988871;
+    public static int payments_migration_no_card_dialog_button = 2131988872;
+    public static int payments_migration_no_card_dialog_description = 2131988873;
+    public static int payments_migration_no_card_dialog_title = 2131988874;
+    public static int payments_migration_payment_selection_action = 2131988875;
+    public static int payments_migration_payment_selection_how_you_pay_description = 2131988876;
+    public static int payments_migration_payment_selection_how_you_pay_title = 2131988877;
+    public static int payments_migration_payment_selection_pay_by_card_description = 2131988878;
+    public static int payments_migration_payment_selection_pay_by_card_title = 2131988879;
+    public static int payments_migration_payment_selection_pay_by_direct_debit_description = 2131988880;
+    public static int payments_migration_payment_selection_pay_by_direct_debit_title = 2131988881;
+    public static int payments_migration_payment_selection_select_how_description = 2131988882;
+    public static int payments_migration_payment_selection_select_how_title = 2131988883;
+    public static int payments_migration_search_action = 2131988884;
+    public static int payments_migration_search_hint = 2131988885;
+    public static int payments_migration_search_merchant = 2131988886;
+    public static int payments_migration_search_merchant_hint = 2131988887;
+    public static int payments_migration_search_no_results_action = 2131988888;
+    public static int payments_migration_search_no_results_description = 2131988889;
+    public static int payments_migration_search_no_results_title = 2131988890;
+    public static int payments_migration_search_title = 2131988891;
+    public static int payments_migration_status_copy_account_number_title = 2131988892;
+    public static int payments_migration_status_copy_card_number_title = 2131988893;
+    public static int payments_migration_status_copy_iban_title = 2131988894;
+    public static int payments_migration_status_opening_provider_title = 2131988895;
+    public static int payments_migration_success_dialog_description = 2131988896;
+    public static int payments_migration_success_dialog_title = 2131988897;
+
+    private R$string() {
+    }
+}

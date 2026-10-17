@@ -1,0 +1,99 @@
+package dw3;
+
+import com.google.common.collect.ImmutableSet;
+import com.revolut.feature.credit.application.plugins.impl.ui.refinancing_account_details.input.RefinancingAccountDetailsInputFlowContract$InputData;
+import com.revolut.kompot.navigable.vc.ViewController;
+import java.util.Set;
+
+/* JADX INFO: loaded from: classes22.dex */
+public final class m5 implements xki.c, iq3.d {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final iq3.a f119278a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final RefinancingAccountDetailsInputFlowContract$InputData f119279b;
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name */
+    public final c1 f119280c;
+    public final m5 d = this;
+    public final e4m.e e;
+    public final e4m.e f;
+
+    /* JADX INFO: renamed from: g, reason: collision with root package name */
+    public final e4m.e f119281g;
+
+    /* JADX INFO: renamed from: h, reason: collision with root package name */
+    public final e4m.e f119282h;
+    public final e4m.e i;
+
+    /* JADX INFO: renamed from: j, reason: collision with root package name */
+    public final e4m.e f119283j;
+    public final e4m.e k;
+
+    /* JADX INFO: renamed from: l, reason: collision with root package name */
+    public final e4m.e f119284l;
+
+    /* JADX INFO: renamed from: m, reason: collision with root package name */
+    public final e4m.e f119285m;
+
+    /* JADX INFO: renamed from: n, reason: collision with root package name */
+    public final e4m.e f119286n;
+    public final e4m.e o;
+
+    /* JADX INFO: renamed from: p, reason: collision with root package name */
+    public final e4m.e f119287p;
+
+    /* JADX INFO: renamed from: q, reason: collision with root package name */
+    public final e4m.e f119288q;
+
+    /* JADX INFO: renamed from: r, reason: collision with root package name */
+    public final e4m.e f119289r;
+
+    /* JADX INFO: renamed from: s, reason: collision with root package name */
+    public final e4m.e f119290s;
+
+    /* JADX INFO: renamed from: t, reason: collision with root package name */
+    public final e4m.e f119291t;
+    public final e4m.e u;
+
+    public m5(c1 c1Var, iq3.a aVar, ViewController viewController, RefinancingAccountDetailsInputFlowContract$InputData refinancingAccountDetailsInputFlowContract$InputData) {
+        this.f119280c = c1Var;
+        this.f119278a = aVar;
+        this.f119279b = refinancingAccountDetailsInputFlowContract$InputData;
+        this.e = e4m.b.b(e4m.c.a(viewController));
+        int i = 2;
+        this.f = e4m.b.b(new g5(c1Var, this, 2, i));
+        this.f119281g = e4m.b.b(new g5(c1Var, this, 1, i));
+        this.f119282h = e4m.b.b(new g5(c1Var, this, 0, i));
+        this.i = e4m.b.b(e4m.c.a(refinancingAccountDetailsInputFlowContract$InputData));
+        int i2 = 2;
+        this.f119283j = e4m.b.b(new g5(c1Var, this, 7, i2));
+        this.k = e4m.b.b(new g5(c1Var, this, 6, i2));
+        this.f119284l = e4m.b.b(new g5(c1Var, this, 10, i2));
+        this.f119285m = e4m.b.b(new g5(c1Var, this, 11, i2));
+        this.f119286n = e4m.b.b(new g5(c1Var, this, 9, i2));
+        this.o = e4m.b.b(new g5(c1Var, this, 8, i2));
+        this.f119287p = e4m.b.b(new g5(c1Var, this, 5, i2));
+        this.f119288q = e4m.b.b(new g5(c1Var, this, 4, i2));
+        this.f119289r = e4m.b.b(new g5(c1Var, this, 3, i2));
+        this.f119290s = e4m.b.b(new g5(c1Var, this, 12, i2));
+        this.f119291t = e4m.b.b(new g5(c1Var, this, 13, i2));
+        this.u = e4m.b.b(new g5(c1Var, this, 14, i2));
+    }
+
+    @Override // xki.e
+    public final Set f() {
+        return ImmutableSet.of((yji.n) this.f119290s.get(), (yji.n) this.f119291t.get(), (yji.n) this.f119287p.get(), (yji.n) this.k.get());
+    }
+
+    @Override // xki.e
+    public final Set g() {
+        return ImmutableSet.of((yji.d) this.f119282h.get(), (yji.d) this.f119289r.get());
+    }
+
+    @Override // iq3.d
+    public final iq3.b q() {
+        return new k7(this.f119280c, this.d, 7);
+    }
+}

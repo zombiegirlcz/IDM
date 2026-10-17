@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/fallbackConfirmation_recyclerView"
+        android:paddingBottom="@dimen/dp_96"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.core.ui_kit.views.buttons.ActionFooterView
+        android:layout_gravity="bottom"
+        android:id="@+id/fallbackConfirmation_actionFooterView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout
+        android:gravity="bottom"
+        android:orientation="vertical"
+        android:id="@+id/flatChartHeaderView_container"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:dividerPadding="4dp">
+        <androidx.appcompat.widget.AppCompatTextView
+            android:textColor="?attr/uikit_colorGreyTone50"
+            android:id="@+id/flatChartHeaderView_line1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:lines="1"
+            style="?attr/internal_textAppearanceBody2"/>
+        <androidx.appcompat.widget.AppCompatTextView
+            android:textColor="?attr/uikit_colorGreyTone50"
+            android:id="@+id/flatChartHeaderView_line2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:lines="1"
+            style="?attr/internal_textAppearanceBody2"/>
+        <androidx.appcompat.widget.AppCompatTextView
+            android:textColor="?attr/uikit_colorGreyTone50"
+            android:id="@+id/flatChartHeaderView_line3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:lines="1"
+            style="?attr/internal_textAppearanceBody2"/>
+    </LinearLayout>
+</merge>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerFrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/paymentsSelectionScreen_container"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+            android:id="@+id/paymentsSelectionScreen_navigationBarWithToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <com.revolut.recyclerkit.ScreenContentRecyclerView
+            android:id="@+id/paymentsSelectionScreen_recyclerView"
+            android:paddingBottom="?attr/uikit_dp72"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+        <com.revolut.core.ui_kit.views.LabeledVerticalScrollView
+            android:layout_gravity="end|bottom"
+            android:id="@+id/paymentsSelectionScreen_labeledScroller"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"/>
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+</com.revolut.kompot.view.ControllerContainerFrameLayout>

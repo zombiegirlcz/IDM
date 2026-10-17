@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="oval">
+            <size
+                android:height="26dp"
+                android:width="26dp"/>
+            <solid android:color="?attr/uikit_colorBackground"/>
+        </shape>
+    </item>
+    <item
+        android:drawable="@drawable/circle_blue"
+        android:left="3dp"
+        android:top="3dp"
+        android:right="3dp"
+        android:bottom="3dp"/>
+    <item
+        android:drawable="@drawable/icon_24_retry_white"
+        android:left="5dp"
+        android:top="5dp"
+        android:right="5dp"
+        android:bottom="5dp"/>
+</layer-list>

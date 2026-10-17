@@ -1,0 +1,5 @@
+package iwk;
+
+/* JADX INFO: loaded from: classes12.dex */
+public interface l extends pri.f {
+}

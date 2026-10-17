@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/toDoItemView_image"
+        android:layout_width="?attr/uikit_dp16"
+        android:layout_height="?attr/uikit_dp16"
+        android:layout_marginEnd="?attr/uikit_dp12"
+        android:layout_marginVertical="?attr/uikit_dp2"/>
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:id="@+id/toDoItemView_text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textAlignment="viewStart"
+        style="?attr/internal_textAppearanceBody2"/>
+</merge>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.views.ActionsView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/navBarLargeCentred_actionsView"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:internal_paddingEnd="@dimen/internal_dp16"
+    app:internal_paddingStart="@dimen/internal_dp16"/>

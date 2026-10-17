@@ -1,0 +1,6 @@
+package x15;
+
+/* JADX INFO: loaded from: classes22.dex */
+public interface p {
+    boolean a();
+}

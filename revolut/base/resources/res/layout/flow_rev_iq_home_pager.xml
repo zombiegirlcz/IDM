@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/revIQHomeFlow_container"
+    android:background="?attr/uikit_colorGroupedBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:fitStatusBar="true">
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/revIQHomeFlow_viewPager"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="18dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        app:layout_constraintBottom_toTopOf="@+id/revIQHomeFlow_pagerIndicatorView"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.ScrollingPagerIndicatorView
+        android:id="@+id/revIQHomeFlow_pagerIndicatorView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="39dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

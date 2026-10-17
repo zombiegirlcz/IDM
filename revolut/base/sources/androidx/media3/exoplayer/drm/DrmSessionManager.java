@@ -1,0 +1,56 @@
+package androidx.media3.exoplayer.drm;
+
+import android.os.Looper;
+import androidx.media3.common.Format;
+import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.drm.DrmSession;
+import androidx.media3.exoplayer.drm.DrmSessionEventListener;
+import pd.h;
+
+/* JADX INFO: loaded from: classes.dex */
+public interface DrmSessionManager {
+    public static final DrmSessionManager DRM_UNSUPPORTED = new DrmSessionManager() { // from class: androidx.media3.exoplayer.drm.DrmSessionManager.1
+        @Override // androidx.media3.exoplayer.drm.DrmSessionManager
+        public DrmSession acquireSession(DrmSessionEventListener.EventDispatcher eventDispatcher, Format format) {
+            if (format.drmInitData == null) {
+                return null;
+            }
+            return new ErrorStateDrmSession(new DrmSession.DrmSessionException(new UnsupportedDrmException(1), 6001));
+        }
+
+        @Override // androidx.media3.exoplayer.drm.DrmSessionManager
+        public int getCryptoType(Format format) {
+            return format.drmInitData != null ? 1 : 0;
+        }
+
+        @Override // androidx.media3.exoplayer.drm.DrmSessionManager
+        public void setPlayer(Looper looper, PlayerId playerId) {
+        }
+    };
+
+    public interface DrmSessionReference {
+        public static final DrmSessionReference EMPTY = new h(7);
+
+        /* JADX INFO: Access modifiers changed from: private */
+        static /* synthetic */ void lambda$static$0() {
+        }
+
+        void release();
+    }
+
+    DrmSession acquireSession(DrmSessionEventListener.EventDispatcher eventDispatcher, Format format);
+
+    int getCryptoType(Format format);
+
+    default DrmSessionReference preacquireSession(DrmSessionEventListener.EventDispatcher eventDispatcher, Format format) {
+        return DrmSessionReference.EMPTY;
+    }
+
+    default void prepare() {
+    }
+
+    default void release() {
+    }
+
+    void setPlayer(Looper looper, PlayerId playerId);
+}

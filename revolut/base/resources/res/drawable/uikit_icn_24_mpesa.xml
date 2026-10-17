@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="24dp"
+    android:width="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="?attr/uikit_colorBackground"
+        android:pathData="M0 0h24v24H0z"
+        android:fillAlpha="0.01"/>
+    <path
+        android:fillColor="?attr/uikit_colorForeground"
+        android:pathData="M14.69 24H8.885c-0.848 0-1.542-0.694-1.542-1.543V5.45c0-0.848 0.694-1.542 1.542-1.542h5.805c0.068 0 0.136 0.004 0.203 0.013V2.67c0-0.369 0.3-0.67 0.67-0.67 0.368 0 0.67 0.301 0.67 0.67v2.11c0 0.094-0.02 0.183-0.056 0.264 0.036 0.13 0.055 0.266 0.055 0.406v17.008c0 0.848-0.694 1.542-1.542 1.542zM10.103 6.14c-1.072 0-1.948 0.877-1.948 1.949v5.601c0 1.072 0.876 1.948 1.948 1.948h3.369c1.072 0 1.948-0.877 1.948-1.948V8.089c0-1.072-0.877-1.949-1.948-1.949h-3.37z"/>
+    <path
+        android:fillColor="?attr/uikit_colorForeground"
+        android:pathData="M9.707 9.93c0.333 0.78 0.787 1.138 1.337 1.16-0.857 0.64-1.785 1.03-2.752 1.278-0.607-0.039-1.187-0.193-1.751-0.348 1.424-0.28 2.486-0.97 3.166-2.09z"/>
+    <path
+        android:fillColor="?attr/uikit_colorForeground"
+        android:pathData="M13.441 7.92l4.019 2.03c-2.047 2.693-5.498 2.764-9.174 2.416 2.458-0.606 4.16-2.108 5.155-4.445z"/>
+</vector>

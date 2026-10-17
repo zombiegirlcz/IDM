@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="4dp"/>
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:textSize="@dimen/material_text_size_m"
+        android:textColor="?attr/uikit_colorAccent"
+        android:gravity="center"
+        android:id="@+id/dialog_action"
+        android:background="?attr/uikit_colorBackground"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="@string/common.action.cancel"
+        app:ttv_typeface="regular"/>
+</LinearLayout>

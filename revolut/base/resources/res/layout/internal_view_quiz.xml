@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" android:clipToPadding="false">
+    <com.revolut.core.ui_kit.internal.views.quiz.QuizCardView
+        android:id="@+id/quiz_bgLastCard"
+        android:background="@drawable/internal_background_quiz_bg_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleX="@dimen/internal_quiz_card_scale_x"
+        android:scaleY="@dimen/internal_quiz_card_scale_y"
+        android:elevation="0dp"
+        android:outlineProvider="none"/>
+    <com.revolut.core.ui_kit.internal.views.quiz.QuizCardView
+        android:id="@+id/quiz_bgCard"
+        android:background="@drawable/internal_background_quiz_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
+        android:scaleX="@dimen/internal_quiz_card_scale_x"
+        android:scaleY="@dimen/internal_quiz_card_scale_y"
+        android:elevation="1dp"
+        android:outlineProvider="none">
+        <com.revolut.core.ui_kit.internal.views.quiz.QuizCardContentView
+            android:id="@+id/quiz_bgCardContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+    </com.revolut.core.ui_kit.internal.views.quiz.QuizCardView>
+    <com.revolut.core.ui_kit.internal.views.quiz.QuizCardView
+        android:id="@+id/quiz_fgCard"
+        android:background="@drawable/internal_background_quiz_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:translationY="@dimen/internal_quiz_card_y_translate"
+        android:elevation="1dp"
+        android:outlineProvider="none">
+        <com.revolut.core.ui_kit.internal.views.quiz.QuizCardContentView
+            android:id="@+id/quiz_fgCardContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+    </com.revolut.core.ui_kit.internal.views.quiz.QuizCardView>
+</merge>

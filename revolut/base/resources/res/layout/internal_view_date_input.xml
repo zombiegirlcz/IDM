@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:focusable="false"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.views.input.InputText
+        android:id="@+id/dateInput_day"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@+id/dateInput_month"/>
+    <com.revolut.core.ui_kit.views.input.InputText
+        android:id="@+id/dateInput_month"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="?attr/uikit_dp8"
+        android:layout_marginRight="?attr/uikit_dp8"
+        app:layout_constraintLeft_toRightOf="@+id/dateInput_day"
+        app:layout_constraintRight_toLeftOf="@+id/dateInput_year"/>
+    <com.revolut.core.ui_kit.views.input.InputText
+        android:id="@+id/dateInput_year"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toRightOf="@+id/dateInput_month"
+        app:layout_constraintRight_toRightOf="parent"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/dateInput_helperText"
+        android:paddingTop="3dp"
+        android:paddingBottom="3dp"
+        android:visibility="gone"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="?attr/uikit_dp16"
+        android:layout_marginTop="?attr/uikit_dp4"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/dateInput_day"
+        style="?attr/internal_textAppearanceBody3"/>
+</merge>

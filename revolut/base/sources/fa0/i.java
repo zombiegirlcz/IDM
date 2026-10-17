@@ -1,0 +1,60 @@
+package fa0;
+
+import com.revolut.core.backend_flow.api.navigation.BackendFlowInput;
+import com.revolut.feature.backend_flow.domain.endpoint.BackendFlowApiEndpoints;
+import com.revolut.feature.backend_flow.domain.models.BackendFlow;
+import com.revolut.kompot.navigable.vc.ViewController;
+
+/* JADX INFO: loaded from: classes19.dex */
+public final class i implements na0.c {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final k f133067a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public ViewController f133068b;
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name */
+    public BackendFlowInput f133069c;
+    public BackendFlow d;
+    public BackendFlowApiEndpoints e;
+
+    public i(k kVar) {
+        this.f133067a = kVar;
+    }
+
+    @Override // xki.b
+    public final Object a(ViewController viewController) {
+        this.f133068b = viewController;
+        return this;
+    }
+
+    @Override // xki.b
+    public final xki.c build() {
+        vc.s.h(this.f133068b, ViewController.class);
+        vc.s.h(this.f133069c, BackendFlowInput.class);
+        vc.s.h(this.d, BackendFlow.class);
+        vc.s.h(this.e, BackendFlowApiEndpoints.class);
+        return new j(this.f133067a, new na0.h(), this.f133068b, this.f133069c, this.d, this.e);
+    }
+
+    @Override // na0.c
+    public final na0.c h(BackendFlowApiEndpoints backendFlowApiEndpoints) {
+        backendFlowApiEndpoints.getClass();
+        this.e = backendFlowApiEndpoints;
+        return this;
+    }
+
+    @Override // na0.c
+    public final na0.c k(BackendFlowInput backendFlowInput) {
+        backendFlowInput.getClass();
+        this.f133069c = backendFlowInput;
+        return this;
+    }
+
+    @Override // na0.c
+    public final na0.c m(BackendFlow backendFlow) {
+        this.d = backendFlow;
+        return this;
+    }
+}

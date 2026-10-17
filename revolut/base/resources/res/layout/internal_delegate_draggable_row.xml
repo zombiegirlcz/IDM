@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.SecondaryBackgroundLinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="horizontal"
+    android:id="@+id/draggableRow_root"
+    android:clipToPadding="false"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/draggableRow_imageStart"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginEnd="@dimen/internal_dp16"
+        app:tint="?attr/uikit_colorAccentNeutral"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:ellipsize="end"
+        android:id="@+id/draggableRow_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:layout_weight="1"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/draggableRow_imageDrag"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="24dp"
+        app:srcCompat="@drawable/uikit_icn_24_drag"
+        app:tint="?attr/uikit_colorGreyTone20"/>
+</com.revolut.core.ui_kit.internal.views.SecondaryBackgroundLinearLayout>

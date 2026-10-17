@@ -1,0 +1,20 @@
+package androidx.camera.core.impl;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import java.util.concurrent.Executor;
+
+/* JADX INFO: loaded from: classes15.dex */
+public interface Observable<T> {
+
+    public interface Observer<T> {
+        void onError(Throwable th10);
+
+        void onNewData(T t2);
+    }
+
+    void addObserver(Executor executor, Observer<? super T> observer);
+
+    ListenableFuture<T> fetchData();
+
+    void removeObserver(Observer<? super T> observer);
+}

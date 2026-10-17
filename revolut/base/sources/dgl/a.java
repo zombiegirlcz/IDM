@@ -1,0 +1,18 @@
+package dgl;
+
+import e4m.b;
+import e4m.e;
+
+/* JADX INFO: loaded from: classes12.dex */
+public final class a {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final a31.a f114711a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final e f114712b = b.b(new d9g.a(this, 10));
+
+    public a(a31.a aVar) {
+        this.f114711a = aVar;
+    }
+}

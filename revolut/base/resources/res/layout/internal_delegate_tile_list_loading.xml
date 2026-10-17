@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/tileListLoading_recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/tileListLoading_shimmeringView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <View
+            android:layout_gravity="center_horizontal"
+            android:id="@+id/tileListLoading_button"
+            android:background="@drawable/internal_rectangle_gradient_grey"
+            android:layout_width="100dp"
+            android:layout_height="16dp"
+            android:layout_margin="@dimen/dp_16"/>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+</LinearLayout>

@@ -1,0 +1,10 @@
+package l6k;
+
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes13.dex */
+public interface f {
+
+    @NotNull
+    public static final e Companion = e.f192414a;
+}

@@ -1,0 +1,5 @@
+package s6f;
+
+/* JADX INFO: loaded from: classes8.dex */
+public interface b extends yki.g {
+}

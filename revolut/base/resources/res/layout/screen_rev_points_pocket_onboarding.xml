@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/revPointsPocketOnboarding_coordinatorLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithContainer
+        android:id="@+id/revPointsPocketOnboarding_navBarWithContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.navbar.ObjectCarouselNavBarContentView
+            android:id="@+id/revPointsPocketOnboarding_carouselContentView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithContainer>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/revPointsPocketOnboarding_recyclerView"
+        android:paddingBottom="?attr/uikit_dp64"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarOverlappingScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:layout_gravity="bottom"
+        android:id="@+id/revPointsPocketOnboarding_nextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="?attr/uikit_dp16"
+        android:layout_marginRight="?attr/uikit_dp16"
+        android:layout_marginBottom="?attr/uikit_dp24"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

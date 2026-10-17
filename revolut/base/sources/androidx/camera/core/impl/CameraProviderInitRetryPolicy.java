@@ -1,0 +1,72 @@
+package androidx.camera.core.impl;
+
+import androidx.camera.core.Logger;
+import androidx.camera.core.RetryPolicy;
+import androidx.camera.core.impl.CameraValidator;
+
+/* JADX INFO: loaded from: classes15.dex */
+public final class CameraProviderInitRetryPolicy implements RetryPolicyInternal {
+    private final RetryPolicy mDelegatePolicy;
+
+    public static final class Legacy implements RetryPolicyInternal {
+        private final RetryPolicy mBasePolicy;
+
+        public Legacy(long j2) {
+            this.mBasePolicy = new CameraProviderInitRetryPolicy(j2);
+        }
+
+        @Override // androidx.camera.core.impl.RetryPolicyInternal
+        public RetryPolicy copy(long j2) {
+            return new Legacy(j2);
+        }
+
+        @Override // androidx.camera.core.RetryPolicy
+        public long getTimeoutInMillis() {
+            return this.mBasePolicy.getTimeoutInMillis();
+        }
+
+        @Override // androidx.camera.core.RetryPolicy
+        public RetryPolicy.RetryConfig onRetryDecisionRequested(RetryPolicy.ExecutionState executionState) {
+            if (this.mBasePolicy.onRetryDecisionRequested(executionState).shouldRetry()) {
+                return RetryPolicy.RetryConfig.DEFAULT_DELAY_RETRY;
+            }
+            Throwable cause = executionState.getCause();
+            if (cause instanceof CameraValidator.CameraIdListIncorrectException) {
+                Logger.e("CameraX", "The device might underreport the amount of the cameras. Finish the initialize task since we are already reaching the maximum number of retries.");
+                if (((CameraValidator.CameraIdListIncorrectException) cause).getAvailableCameraCount() > 0) {
+                    return RetryPolicy.RetryConfig.COMPLETE_WITHOUT_FAILURE;
+                }
+            }
+            return RetryPolicy.RetryConfig.NOT_RETRY;
+        }
+    }
+
+    public CameraProviderInitRetryPolicy(final long j2) {
+        this.mDelegatePolicy = new TimeoutRetryPolicy(j2, new RetryPolicy() { // from class: androidx.camera.core.impl.CameraProviderInitRetryPolicy.1
+            @Override // androidx.camera.core.RetryPolicy
+            public long getTimeoutInMillis() {
+                return j2;
+            }
+
+            @Override // androidx.camera.core.RetryPolicy
+            public RetryPolicy.RetryConfig onRetryDecisionRequested(RetryPolicy.ExecutionState executionState) {
+                return executionState.getStatus() == 1 ? RetryPolicy.RetryConfig.NOT_RETRY : RetryPolicy.RetryConfig.DEFAULT_DELAY_RETRY;
+            }
+        });
+    }
+
+    @Override // androidx.camera.core.impl.RetryPolicyInternal
+    public RetryPolicy copy(long j2) {
+        return new CameraProviderInitRetryPolicy(j2);
+    }
+
+    @Override // androidx.camera.core.RetryPolicy
+    public long getTimeoutInMillis() {
+        return this.mDelegatePolicy.getTimeoutInMillis();
+    }
+
+    @Override // androidx.camera.core.RetryPolicy
+    public RetryPolicy.RetryConfig onRetryDecisionRequested(RetryPolicy.ExecutionState executionState) {
+        return this.mDelegatePolicy.onRetryDecisionRequested(executionState);
+    }
+}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/flowNoteDetails_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.Tabs
+            android:id="@+id/flowNoteDetails_tabs"
+            android:paddingTop="?attr/uikit_dp8"
+            android:paddingBottom="?attr/uikit_dp16"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="?attr/uikit_dp16"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar>
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/flowNoteDetails_viewPager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:overScrollMode="never"
+        android:nestedScrollingEnabled="false"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarOverlappingScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.views.buttons.TwinHorizontalButton
+        android:gravity="bottom"
+        android:layout_gravity="bottom"
+        android:id="@+id/flowNoteDetails_buySellPanel"
+        android:background="@drawable/uikit_bottom_container_gradient"
+        android:visibility="invisible"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

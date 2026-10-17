@@ -1,0 +1,32 @@
+package com.revolut.core.ui_kit.models.avatar;
+
+import kotlin.enums.EnumEntries;
+import vc.s;
+
+/* JADX WARN: Failed to restore enum class, 'enum' modifier and super class removed */
+/* JADX WARN: Unknown enum class pattern. Please report as an issue! */
+/* JADX INFO: loaded from: classes19.dex */
+public final class c {
+    private static final /* synthetic */ EnumEntries $ENTRIES;
+    private static final /* synthetic */ c[] $VALUES;
+    public static final c OVAL;
+    public static final c RECTANGLE;
+
+    static {
+        c cVar = new c("OVAL", 0);
+        OVAL = cVar;
+        c cVar2 = new c("RECTANGLE", 1);
+        RECTANGLE = cVar2;
+        c[] cVarArr = {cVar, cVar2};
+        $VALUES = cVarArr;
+        $ENTRIES = s.n(cVarArr);
+    }
+
+    public static c valueOf(String str) {
+        return (c) Enum.valueOf(c.class, str);
+    }
+
+    public static c[] values() {
+        return (c[]) $VALUES.clone();
+    }
+}

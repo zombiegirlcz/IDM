@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<account-authenticator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:label="@string/revolut_login_account_manager_label"
+    android:icon="@drawable/uikit_revolut_logo_white"
+    android:accountType="com.revolut.sso"
+    android:smallIcon="@drawable/uikit_revolut_logo_white"/>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center_vertical"
+    android:id="@+id/bottomBar_tabContent"
+    android:focusable="true"
+    android:clickable="true"
+    android:layout_width="match_parent"
+    android:layout_height="48dp"
+    android:paddingHorizontal="@dimen/internal_dp24">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/floatingBottomTabExpanded_image"
+        android:layout_width="@dimen/internal_dp24"
+        android:layout_height="@dimen/internal_dp24"
+        android:layout_marginEnd="@dimen/internal_dp16"
+        app:tint="?attr/uikit_colorForeground"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:ellipsize="end"
+        android:id="@+id/floatingBottomTabExpanded_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        style="@style/InternalTextAppearance.Emphasis1"/>
+</LinearLayout>

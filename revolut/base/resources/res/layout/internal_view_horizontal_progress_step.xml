@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <ImageView
+        android:id="@+id/viewHorizontalProgressStep_icon"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginBottom="10dp"/>
+    <TextView
+        android:textColor="@color/internal_foreground"
+        android:ellipsize="end"
+        android:id="@+id/viewHorizontalProgressStep_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="3"
+        android:paddingHorizontal="4dp"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+    <TextView
+        android:textColor="@color/internal_greyTone50"
+        android:id="@+id/viewHorizontalProgressStep_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="2"
+        android:paddingHorizontal="4dp"
+        style="?attr/internal_textAppearanceBody2"/>
+</merge>

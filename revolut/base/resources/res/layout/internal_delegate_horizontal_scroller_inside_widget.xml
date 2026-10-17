@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.internal.views.framelayout.NestedScrollableHost
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <androidx.recyclerview.widget.RecyclerView
+            android:theme="@style/internal_EmptyTheme"
+            android:layout_gravity="center_vertical"
+            android:id="@+id/scrollerDelegate_recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:overScrollMode="never"
+            android:nestedScrollingEnabled="false"/>
+    </com.revolut.core.ui_kit.internal.views.framelayout.NestedScrollableHost>
+    <com.revolut.core.ui_kit.views.ScrollingPagerIndicatorView
+        android:layout_gravity="bottom|center_horizontal"
+        android:id="@+id/scrollerDelegate_pagerIndicator"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"/>
+</LinearLayout>

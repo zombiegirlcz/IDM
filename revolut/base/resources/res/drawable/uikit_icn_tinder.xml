@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:height="24dp"
+    android:width="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group>
+        <clip-path android:pathData="M12 0a12 12 0 0 1 12 12 12 12 0 0 1-12 12A12 12 0 0 1 0 12 12 12 0 0 1 12 0zM0 0"/>
+        <path
+            android:fillColor="#ffffff"
+            android:pathData="M12 24c6.627 0 12-5.373 12-12S18.627 0 12 0 0 5.373 0 12s5.373 12 12 12z"/>
+        <path
+            android:fillColor="@drawable/_uikit_icn_tinder__0_res_0x7f0800a5"
+            android:pathData="M12.632 3.678c-0.015-0.007-0.031-0.011-0.046-0.011H12.58c-0.06 0.002-0.11 0.06-0.11 0.134 0.406 2.63-0.136 5.492-3.323 6.591-0.014 0-0.04 0-0.055-0.014-0.555-0.745-0.69-2.02-0.732-2.522 0-0.095-0.109-0.15-0.19-0.095-1.708 0.977-3.295 3.282-3.295 5.52 0 3.838 2.618 7.052 7.12 7.052 4.219 0 7.121-3.309 7.121-7.052 0-4.883-3.431-8.124-6.483-9.603z"/>
+        <path
+            android:fillColor="#ffffff"
+            android:pathData="M12 24c6.627 0 12-5.373 12-12S18.627 0 12 0 0 5.373 0 12s5.373 12 12 12zm0-0.5c6.351 0 11.5-5.149 11.5-11.5S18.351 0.5 12 0.5 0.5 5.649 0.5 12 5.649 23.5 12 23.5z"
+            android:fillAlpha="0.03"/>
+    </group>
+</vector>

@@ -1,0 +1,102 @@
+package x96;
+
+import bq.i;
+import com.google.common.collect.ImmutableSet;
+import com.revolut.feature.document_view.impl.ui.DocumentViewContract$Configuration;
+import e4m.e;
+import fsi.g;
+import java.util.Set;
+import wak.d;
+import xpi.f;
+
+/* JADX INFO: loaded from: classes3.dex */
+public final class b implements c {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final g f303581a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final f f303582b;
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name */
+    public final DocumentViewContract$Configuration f303583c;
+    public final e d = e4m.b.b(new d(this, 21));
+
+    public b(xoi.d dVar, f fVar, DocumentViewContract$Configuration documentViewContract$Configuration) {
+        this.f303581a = dVar;
+        this.f303582b = fVar;
+        this.f303583c = documentViewContract$Configuration;
+    }
+
+    @Override // gsi.a
+    public final yy0.f Q() {
+        return i.j(this.f303581a);
+    }
+
+    @Override // gsi.a
+    public final mz0.a V() {
+        return i.p(this.f303581a);
+    }
+
+    @Override // gsi.a
+    public final c01.d W() {
+        return gmf.b.e(this.f303581a);
+    }
+
+    @Override // gsi.a
+    public final py0.e X() {
+        return gmf.b.g(this.f303581a);
+    }
+
+    @Override // gsi.a
+    public final xy0.a Y() {
+        return gmf.b.b(this.f303581a);
+    }
+
+    @Override // gsi.a
+    public final h01.b Z() {
+        return i.n(this.f303581a);
+    }
+
+    @Override // gsi.h
+    public final g a() {
+        return this.f303581a;
+    }
+
+    @Override // gsi.a
+    public final jz0.d a0() {
+        return gmf.b.d(this.f303581a);
+    }
+
+    @Override // gsi.a
+    public final ty0.c b0() {
+        return i.g(this.f303581a);
+    }
+
+    @Override // gsi.a
+    public final lz0.g c0() {
+        return gmf.b.f(this.f303581a);
+    }
+
+    @Override // gsi.a
+    public final i01.b d0() {
+        return gsi.d.p(this.f303581a);
+    }
+
+    @Override // gsi.a
+    public final d01.g e0() {
+        return gmf.b.c(this.f303581a);
+    }
+
+    @Override // gsi.a
+    public final Set l0() {
+        ImmutableSet.Builder builderBuilderWithExpectedSize = ImmutableSet.builderWithExpectedSize(2);
+        builderBuilderWithExpectedSize.addAll((Iterable) i.k(this.f303581a));
+        return j6.a.g(this.d, builderBuilderWithExpectedSize);
+    }
+
+    @Override // gsi.a
+    public final py0.f m0() {
+        return gmf.b.i(this.f303581a);
+    }
+}

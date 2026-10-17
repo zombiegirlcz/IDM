@@ -1,0 +1,12 @@
+package ru;
+
+/* JADX INFO: loaded from: classes17.dex */
+public final class s extends av1.c {
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name */
+    public static final s f257378c = new s();
+
+    private s() {
+        super("PASSED_KYB", 6);
+    }
+}

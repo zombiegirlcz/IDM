@@ -1,0 +1,72 @@
+package androidx.media3.extractor.text.webvtt;
+
+import android.text.TextUtils;
+import androidx.media3.common.ParserException;
+import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.extractor.text.CuesWithTiming;
+import androidx.media3.extractor.text.LegacySubtitleUtil;
+import androidx.media3.extractor.text.SubtitleParser;
+import java.util.ArrayList;
+
+/* JADX INFO: loaded from: classes15.dex */
+public final class WebvttParser implements SubtitleParser {
+    private final ParsableByteArray parsableWebvttData = new ParsableByteArray();
+    private final WebvttCssParser cssParser = new WebvttCssParser();
+
+    private static int getNextEvent(ParsableByteArray parsableByteArray) {
+        int i = -1;
+        int position = 0;
+        while (i == -1) {
+            position = parsableByteArray.getPosition();
+            String line = parsableByteArray.readLine();
+            i = line == null ? 0 : "STYLE".equals(line) ? 2 : line.startsWith("NOTE") ? 1 : 3;
+        }
+        parsableByteArray.setPosition(position);
+        return i;
+    }
+
+    private static void skipComment(ParsableByteArray parsableByteArray) {
+        while (!TextUtils.isEmpty(parsableByteArray.readLine())) {
+        }
+    }
+
+    @Override // androidx.media3.extractor.text.SubtitleParser
+    public int getCueReplacementBehavior() {
+        return 1;
+    }
+
+    @Override // androidx.media3.extractor.text.SubtitleParser
+    public void parse(byte[] bArr, int i, int i2, SubtitleParser.OutputOptions outputOptions, Consumer<CuesWithTiming> consumer) {
+        WebvttCueInfo cue2;
+        this.parsableWebvttData.reset(bArr, i2 + i);
+        this.parsableWebvttData.setPosition(i);
+        ArrayList arrayList = new ArrayList();
+        try {
+            WebvttParserUtil.validateWebvttHeaderLine(this.parsableWebvttData);
+            while (!TextUtils.isEmpty(this.parsableWebvttData.readLine())) {
+            }
+            ArrayList arrayList2 = new ArrayList();
+            while (true) {
+                int nextEvent = getNextEvent(this.parsableWebvttData);
+                if (nextEvent == 0) {
+                    LegacySubtitleUtil.toCuesWithTiming(new WebvttSubtitle(arrayList2), outputOptions, consumer);
+                    return;
+                }
+                if (nextEvent == 1) {
+                    skipComment(this.parsableWebvttData);
+                } else if (nextEvent == 2) {
+                    if (!arrayList2.isEmpty()) {
+                        throw new IllegalArgumentException("A style block was found after the first cue.");
+                    }
+                    this.parsableWebvttData.readLine();
+                    arrayList.addAll(this.cssParser.parseBlock(this.parsableWebvttData));
+                } else if (nextEvent == 3 && (cue2 = WebvttCueParser.parseCue(this.parsableWebvttData, arrayList)) != null) {
+                    arrayList2.add(cue2);
+                }
+            }
+        } catch (ParserException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+}

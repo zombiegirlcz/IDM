@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/orderNewCardFlowNavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.Tabs
+            android:id="@+id/orderNewCardFlowTabs"
+            android:paddingTop="16dp"
+            android:paddingBottom="24dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar>
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/orderNewCardFlowPager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

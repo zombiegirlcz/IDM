@@ -1,0 +1,11 @@
+package rt3;
+
+import kotlin.Pair;
+import zhm.r0;
+
+/* JADX INFO: loaded from: classes21.dex */
+public abstract class f {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final Object f257157a = r0.k(new Pair("CONSENTS", ts3.a.CONSENTS), new Pair("OTP", ts3.a.OTP));
+}

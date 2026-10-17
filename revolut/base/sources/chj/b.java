@@ -1,0 +1,11 @@
+package chj;
+
+/* JADX INFO: loaded from: classes11.dex */
+public final class b implements c {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final b f24243a = new b();
+
+    private b() {
+    }
+}

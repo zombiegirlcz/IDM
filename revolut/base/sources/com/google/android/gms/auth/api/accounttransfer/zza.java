@@ -1,0 +1,16 @@
+package com.google.android.gms.auth.api.accounttransfer;
+
+import android.content.Context;
+import android.os.Looper;
+import com.google.android.gms.common.api.Api;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.internal.ClientSettings;
+import com.google.android.gms.internal.auth.zzap;
+
+/* JADX INFO: loaded from: classes16.dex */
+final class zza extends Api.AbstractClientBuilder {
+    @Override // com.google.android.gms.common.api.Api.AbstractClientBuilder
+    public final /* synthetic */ Api.Client buildClient(Context context, Looper looper, ClientSettings clientSettings, Object obj2, GoogleApiClient.ConnectionCallbacks connectionCallbacks, GoogleApiClient.OnConnectionFailedListener onConnectionFailedListener) {
+        return new zzap(context, looper, clientSettings, (zzr) obj2, connectionCallbacks, onConnectionFailedListener);
+    }
+}

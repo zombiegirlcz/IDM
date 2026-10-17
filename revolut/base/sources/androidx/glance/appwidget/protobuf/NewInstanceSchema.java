@@ -1,0 +1,6 @@
+package androidx.glance.appwidget.protobuf;
+
+/* JADX INFO: loaded from: classes15.dex */
+interface NewInstanceSchema {
+    Object newInstance(Object obj2);
+}

@@ -1,0 +1,135 @@
+package com.revolut.feature.apm.core.ui.impl.ui.alias_claim.form;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+import com.revolut.kompot.navigable.flow.FlowStep;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes20.dex */
+@Metadata(d1 = {"\u0000\u0014\n\u0000\n\u0002\u0018\u0002\n\u0002\b\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0000\bw\u0018\u00002\u00020\u0001:\u0002\u0002\u0003\u0082\u0001\u0002\u0004\u0005¨\u0006\u0006À\u0006\u0003"}, d2 = {"com/revolut/feature/apm/core/ui/impl/ui/alias_claim/form/ApmAliasClaimFormFlowContract$Step", "Lcom/revolut/kompot/navigable/flow/FlowStep;", "Upload", "AdditionalInfo", "Lcom/revolut/feature/apm/core/ui/impl/ui/alias_claim/form/ApmAliasClaimFormFlowContract$Step$AdditionalInfo;", "Lcom/revolut/feature/apm/core/ui/impl/ui/alias_claim/form/ApmAliasClaimFormFlowContract$Step$Upload;", "feature_apm_core_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public interface ApmAliasClaimFormFlowContract$Step extends FlowStep {
+
+    @Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0086\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"Lcom/revolut/feature/apm/core/ui/impl/ui/alias_claim/form/ApmAliasClaimFormFlowContract$Step$AdditionalInfo;", "Lcom/revolut/feature/apm/core/ui/impl/ui/alias_claim/form/ApmAliasClaimFormFlowContract$Step;", "", "toString", "()Ljava/lang/String;", "feature_apm_core_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final /* data */ class AdditionalInfo implements ApmAliasClaimFormFlowContract$Step {
+
+        @NotNull
+        public static final Parcelable.Creator<AdditionalInfo> CREATOR = new a();
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public final List f62340a;
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                int i = parcel.readInt();
+                ArrayList arrayList = new ArrayList(i);
+                int iC = 0;
+                while (iC != i) {
+                    iC = ch.qos.logback.core.util.a.c(parcel, arrayList, iC, 1);
+                }
+                return new AdditionalInfo(arrayList);
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new AdditionalInfo[i];
+            }
+        }
+
+        public AdditionalInfo(List files) {
+            Intrinsics.checkNotNullParameter(files, "files");
+            this.f62340a = files;
+        }
+
+        @Override // android.os.Parcelable
+        public final int describeContents() {
+            return 0;
+        }
+
+        public final boolean equals(Object obj2) {
+            if (this == obj2) {
+                return true;
+            }
+            return (obj2 instanceof AdditionalInfo) && Intrinsics.f(this.f62340a, ((AdditionalInfo) obj2).f62340a);
+        }
+
+        public final int hashCode() {
+            return this.f62340a.hashCode();
+        }
+
+        @Override // android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            Iterator itV = p.a.v(this.f62340a, dest);
+            while (itV.hasNext()) {
+                dest.writeSerializable((Serializable) itV.next());
+            }
+        }
+    }
+
+    @Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0086\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"Lcom/revolut/feature/apm/core/ui/impl/ui/alias_claim/form/ApmAliasClaimFormFlowContract$Step$Upload;", "Lcom/revolut/feature/apm/core/ui/impl/ui/alias_claim/form/ApmAliasClaimFormFlowContract$Step;", "", "toString", "()Ljava/lang/String;", "feature_apm_core_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final /* data */ class Upload implements ApmAliasClaimFormFlowContract$Step {
+
+        @NotNull
+        public static final Parcelable.Creator<Upload> CREATOR = new a();
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public final List f62341a;
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                int i = parcel.readInt();
+                ArrayList arrayList = new ArrayList(i);
+                int iC = 0;
+                while (iC != i) {
+                    iC = ch.qos.logback.core.util.a.c(parcel, arrayList, iC, 1);
+                }
+                return new Upload(arrayList);
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new Upload[i];
+            }
+        }
+
+        public Upload(List files) {
+            Intrinsics.checkNotNullParameter(files, "files");
+            this.f62341a = files;
+        }
+
+        @Override // android.os.Parcelable
+        public final int describeContents() {
+            return 0;
+        }
+
+        public final boolean equals(Object obj2) {
+            if (this == obj2) {
+                return true;
+            }
+            return (obj2 instanceof Upload) && Intrinsics.f(this.f62341a, ((Upload) obj2).f62341a);
+        }
+
+        public final int hashCode() {
+            return this.f62341a.hashCode();
+        }
+
+        @Override // android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            Iterator itV = p.a.v(this.f62341a, dest);
+            while (itV.hasNext()) {
+                dest.writeSerializable((Serializable) itV.next());
+            }
+        }
+    }
+}

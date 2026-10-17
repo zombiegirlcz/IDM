@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:id="@+id/delegate_header"
+    android:paddingBottom="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="32dp"
+    android:paddingEnd="32dp">
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:gravity="center"
+        android:id="@+id/step_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="@style/MainTitle"/>
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:textColorLink="?attr/uikit_colorAccent"
+        android:gravity="center"
+        android:id="@+id/step_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        style="@style/SubtitleText"/>
+</LinearLayout>

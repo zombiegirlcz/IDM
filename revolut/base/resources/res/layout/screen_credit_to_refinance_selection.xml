@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerLinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.kompot.view.ControllerContainerCoordinatorLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+            android:id="@+id/creditToRefinanceSelection_navBarWithToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <com.revolut.recyclerkit.ScreenContentRecyclerView
+            android:id="@+id/creditToRefinanceSelection_recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+        <LinearLayout
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:id="@+id/creditToRefinanceSelection_gradient"
+            android:background="@drawable/uikit_bottom_container_gradient"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/uikit_dp16"/>
+    </com.revolut.kompot.view.ControllerContainerCoordinatorLayout>
+    <com.revolut.kompot.view.ControllerContainerLinearLayout
+        android:orientation="vertical"
+        android:id="@+id/creditToRefinanceSelection_footerContainer"
+        android:background="@drawable/uikit_bottom_container_gradient"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.rxdiffadapter.AsyncDiffRecyclerView
+            android:id="@+id/creditToRefinanceSelection_bottomRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <com.revolut.core.ui_kit.views.buttons.ActionFooterView
+            android:id="@+id/creditToRefinanceSelection_actionFooterView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </com.revolut.kompot.view.ControllerContainerLinearLayout>
+</com.revolut.kompot.view.ControllerContainerLinearLayout>

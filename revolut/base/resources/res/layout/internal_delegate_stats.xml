@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:ellipsize="end"
+        android:id="@+id/statsView_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGrey50"
+        android:ellipsize="end"
+        android:id="@+id/statsView_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:maxLines="1"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/statsView_title"
+        style="?attr/internal_textAppearanceBody2"/>
+    <View
+        android:id="@+id/statsView_legend"
+        android:background="@drawable/internal_nav_bar_stats_legend"
+        android:visibility="gone"
+        android:layout_width="4dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/statsView_subtitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/statsView_title"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:textColor="?attr/uikit_colorWhite_70"
+    android:id="@+id/title"
+    android:background="?attr/uikit_colorAccent"
+    android:paddingTop="?attr/uikit_dp16"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="?attr/uikit_dp24"
+    android:paddingEnd="?attr/uikit_dp24"
+    style="?attr/internal_textAppearanceEmphasis1"/>

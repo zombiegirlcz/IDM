@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/screenEsimGetPlan_container"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/screenEsimGetPlan_navBarWithToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent">
+        <com.revolut.core.ui_kit.views.Tabs
+            android:id="@+id/screenEsimGetPlan_tabs"
+            android:paddingBottom="?attr/uikit_dp12"
+            android:visibility="visible"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="?attr/uikit_dp16"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar>
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/screenEsimGetPlan_viewPager"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/screenEsimGetPlan_navBarWithToolbar"/>
+    <com.revolut.core.ui_kit.views.buttons.TwinVerticalButton
+        android:id="@+id/screenEsimGetPlan_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

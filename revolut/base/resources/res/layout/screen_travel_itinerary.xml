@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/travelItineraryScreen_container"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithBigTile
+        android:id="@+id/travelItineraryScreen_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/travelItineraryScreen_recyclerView"
+        android:paddingBottom="@dimen/dp_80"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.views.navbar.SlidingFromTopViewContainer
+        android:id="@+id/travelItineraryScreen_slidingContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:translationY="?attr/uikit_dp32"
+        app:layout_anchor="@+id/travelItineraryScreen_navBar"
+        app:layout_anchorGravity="bottom">
+        <com.revolut.core.ui_kit.views.Tabs
+            android:id="@+id/travelItineraryScreen_monthTabs"
+            android:background="?attr/uikit_windowBackground"
+            android:paddingTop="@dimen/dp_8"
+            android:paddingBottom="@dimen/dp_8"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="@dimen/dp_16"
+            android:paddingEnd="@dimen/dp_16"/>
+    </com.revolut.core.ui_kit.views.navbar.SlidingFromTopViewContainer>
+    <com.revolut.core.ui_kit.views.buttons.FormsActionButton
+        android:layout_gravity="end|bottom"
+        android:id="@+id/travelItineraryScreen_formsActionButton"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/dp_24"
+        android:layout_marginEnd="@dimen/dp_16"
+        app:uikit_FormsActionButton="AccentButton"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

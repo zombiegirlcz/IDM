@@ -1,0 +1,53 @@
+package androidx.media3.ui;
+
+/* JADX INFO: loaded from: classes.dex */
+public abstract class R$id {
+    public static int exo_ad_overlay = 2131364358;
+    public static int exo_artwork = 2131364359;
+    public static int exo_audio_track = 2131364360;
+    public static int exo_basic_controls = 2131364361;
+    public static int exo_bottom_bar = 2131364362;
+    public static int exo_buffering = 2131364363;
+    public static int exo_center_controls = 2131364364;
+    public static int exo_check = 2131364365;
+    public static int exo_content_frame = 2131364366;
+    public static int exo_controller = 2131364367;
+    public static int exo_controller_placeholder = 2131364368;
+    public static int exo_controls_background = 2131364369;
+    public static int exo_duration = 2131364370;
+    public static int exo_error_message = 2131364371;
+    public static int exo_extra_controls = 2131364372;
+    public static int exo_extra_controls_scroll_view = 2131364373;
+    public static int exo_ffwd = 2131364374;
+    public static int exo_ffwd_with_amount = 2131364375;
+    public static int exo_fullscreen = 2131364376;
+    public static int exo_icon = 2131364377;
+    public static int exo_image = 2131364378;
+    public static int exo_main_text = 2131364379;
+    public static int exo_media_route_button_placeholder = 2131364380;
+    public static int exo_minimal_controls = 2131364381;
+    public static int exo_minimal_fullscreen = 2131364382;
+    public static int exo_next = 2131364383;
+    public static int exo_overflow_hide = 2131364384;
+    public static int exo_overflow_show = 2131364385;
+    public static int exo_overlay = 2131364386;
+    public static int exo_play_pause = 2131364389;
+    public static int exo_playback_speed = 2131364390;
+    public static int exo_position = 2131364391;
+    public static int exo_prev = 2131364392;
+    public static int exo_progress = 2131364393;
+    public static int exo_progress_placeholder = 2131364394;
+    public static int exo_repeat_toggle = 2131364395;
+    public static int exo_rew = 2131364396;
+    public static int exo_rew_with_amount = 2131364397;
+    public static int exo_settings = 2131364398;
+    public static int exo_shuffle = 2131364400;
+    public static int exo_shutter = 2131364401;
+    public static int exo_sub_text = 2131364402;
+    public static int exo_subtitle = 2131364403;
+    public static int exo_subtitles = 2131364404;
+    public static int exo_text = 2131364405;
+    public static int exo_time = 2131364406;
+    public static int exo_top_controls = 2131364407;
+    public static int exo_vr = 2131364409;
+}

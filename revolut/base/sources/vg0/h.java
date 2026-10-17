@@ -1,0 +1,23 @@
+package vg0;
+
+/* JADX INFO: loaded from: classes19.dex */
+public final class h {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final int f288693a;
+
+    public h(int i) {
+        this.f288693a = i;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        return (obj2 instanceof h) && this.f288693a == ((h) obj2).f288693a;
+    }
+
+    public final int hashCode() {
+        return Integer.hashCode(this.f288693a);
+    }
+}

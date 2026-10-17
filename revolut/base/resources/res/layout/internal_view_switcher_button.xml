@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <ImageView
+        android:id="@+id/switcherButton_leftImage"
+        android:visibility="gone"
+        android:layout_width="24dp"
+        android:layout_height="24dp"/>
+    <TextView
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:id="@+id/switcherButton_textLeft"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+    <TextView
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:id="@+id/switcherButton_textRight"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/switcherButton_chevron"
+        android:visibility="gone"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        app:srcCompat="@drawable/uikit_icn_16_chevron_down_small"/>
+</merge>

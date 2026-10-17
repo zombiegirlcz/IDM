@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <com.revolut.core.ui_kit.views.AvatarView
+        android:id="@+id/duoAvatar_iconLeft"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        app:layout_constraintEnd_toStartOf="@+id/duoAvatar_iconRight"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.AvatarView
+        android:id="@+id/duoAvatar_iconRight"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_marginStart="-16dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/duoAvatar_iconLeft"
+        app:layout_constraintTop_toTopOf="@+id/duoAvatar_iconLeft"/>
+    <com.revolut.core.ui_kit.internal.views.tag.TagView
+        android:id="@+id/duoAvatar_tagView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="60dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/duoAvatar_iconRight"
+        app:layout_constraintStart_toStartOf="@+id/duoAvatar_iconLeft"
+        app:layout_constraintTop_toTopOf="parent"/>
+</merge>

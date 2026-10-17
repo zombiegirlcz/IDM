@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <bool name="google_pay_button_background_light_enabled">false</bool>
+    <bool name="google_pay_button_shadows_enabled">false</bool>
+    <bool name="windowLightNavigationBar">false</bool>
+    <bool name="windowLightStatusBarEnabled">false</bool>
+</resources>

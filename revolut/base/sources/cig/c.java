@@ -1,0 +1,54 @@
+package cig;
+
+import com.revolut.core.ui_kit.delegates.RowDelegate;
+import com.revolut.feature.travel.miles.impl.ui.screen.home.search.TravelMilesAirlinesHomeSearchScreen;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlin.jvm.internal.Intrinsics;
+import kotlin.text.a0;
+import yhm.o;
+
+/* JADX INFO: loaded from: classes9.dex */
+public final class c extends gim.i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ TravelMilesAirlinesHomeSearchScreen v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public c(TravelMilesAirlinesHomeSearchScreen travelMilesAirlinesHomeSearchScreen, Continuation continuation) {
+        super(2, continuation);
+        this.v = travelMilesAirlinesHomeSearchScreen;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        c cVar = new c(this.v, continuation);
+        cVar.u = obj2;
+        return cVar;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((c) create((RowDelegate.Model) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        RowDelegate.Model model = (RowDelegate.Model) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        o.b(obj2);
+        g gVarE3 = this.v.R2();
+        Intrinsics.h(model);
+        com.revolut.feature.travel.miles.impl.ui.screen.home.search.a aVar2 = (com.revolut.feature.travel.miles.impl.ui.screen.home.search.a) gVarE3;
+        aVar2.getClass();
+        Intrinsics.checkNotNullParameter(model, "model");
+        if (a0.H(model.f53228a, "AIRLINE_ITEM_ID_", false)) {
+            Object obj3 = model.u;
+            u2f.d dVar = obj3 instanceof u2f.d ? (u2f.d) obj3 : null;
+            if (dVar != null) {
+                aVar2.f94362q.Z2(new i(aVar2, dVar, null));
+            }
+        }
+        return Unit.f186387a;
+    }
+}

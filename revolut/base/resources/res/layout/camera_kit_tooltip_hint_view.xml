@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <com.revolut.core.ui_kit.views.AvatarView
+        android:id="@+id/cameraKitUi_tooltipHintAvatar"
+        android:layout_width="?attr/uikit_dp40"
+        android:layout_height="?attr/uikit_dp40"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <LinearLayout
+        android:orientation="vertical"
+        android:id="@+id/cameraKitUi_tooltipHintTextContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="?attr/uikit_dp16"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_constrainedWidth="true"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0"
+        app:layout_constraintStart_toEndOf="@+id/cameraKitUi_tooltipHintAvatar"
+        app:layout_constraintTop_toTopOf="parent">
+        <com.revolut.core.ui_kit.internal.views.UIKitTextView
+            android:textColor="?attr/uikit_colorForeground"
+            android:ellipsize="end"
+            android:id="@+id/cameraKitUi_tooltipHintTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="239dp"
+            android:maxLines="2"
+            android:textAlignment="viewStart"
+            style="?attr/internal_textAppearanceEmphasis1"/>
+        <com.revolut.core.ui_kit.internal.views.UIKitTextView
+            android:textColor="?attr/uikit_colorGreyTone50"
+            android:ellipsize="end"
+            android:id="@+id/cameraKitUi_tooltipHintDescription"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="239dp"
+            android:maxLines="2"
+            android:textAlignment="viewStart"
+            style="?attr/internal_textAppearanceBody2"/>
+    </LinearLayout>
+</merge>

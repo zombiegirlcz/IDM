@@ -1,0 +1,88 @@
+package com.revolut.feature.travel.hotels.api.navigation;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+import com.revolut.kompot.bridge.navigation.KompotBridgeFeatureConfig;
+import com.revolut.kompot.bridge.navigation.KompotDestination;
+import com.revolut.kompot.common.ParcelableDestination;
+import com.revolut.retail.core.navigation.ActivityAnimation;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes9.dex */
+@Metadata(d1 = {"\u0000\u0016\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\b\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0000\b6\u0018\u00002\u00020\u0001:\u0002\u0002\u0003\u0082\u0001\u0002\u0004\u0005¨\u0006\u0006"}, d2 = {"Lcom/revolut/feature/travel/hotels/api/navigation/TravelHotelsKompotFeatureConfig;", "Lcom/revolut/kompot/bridge/navigation/KompotBridgeFeatureConfig;", "Home", "SearchResults", "Lcom/revolut/feature/travel/hotels/api/navigation/TravelHotelsKompotFeatureConfig$Home;", "Lcom/revolut/feature/travel/hotels/api/navigation/TravelHotelsKompotFeatureConfig$SearchResults;", "feature_travel_hotels_api_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public abstract class TravelHotelsKompotFeatureConfig extends KompotBridgeFeatureConfig {
+
+    @Metadata(d1 = {"\u0000\f\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\b\u0003\bÇ\u0002\u0018\u00002\u00020\u0001B\t\b\u0002¢\u0006\u0004\b\u0002\u0010\u0003¨\u0006\u0004"}, d2 = {"Lcom/revolut/feature/travel/hotels/api/navigation/TravelHotelsKompotFeatureConfig$Home;", "Lcom/revolut/feature/travel/hotels/api/navigation/TravelHotelsKompotFeatureConfig;", "<init>", "()V", "feature_travel_hotels_api_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final class Home extends TravelHotelsKompotFeatureConfig {
+
+        /* JADX INFO: renamed from: g, reason: collision with root package name */
+        public static final Home f93634g = new Home();
+
+        @NotNull
+        public static final Parcelable.Creator<Home> CREATOR = new a();
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                parcel.readInt();
+                return Home.f93634g;
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new Home[i];
+            }
+        }
+
+        private Home() {
+            super(new TravelHotelsHomeKompotDestination(null, null, null, 7));
+        }
+
+        @Override // com.revolut.kompot.bridge.navigation.KompotBridgeFeatureConfig, android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            dest.writeInt(1);
+        }
+    }
+
+    @Metadata(d1 = {"\u0000\f\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\b\u0003\bÇ\u0002\u0018\u00002\u00020\u0001B\t\b\u0002¢\u0006\u0004\b\u0002\u0010\u0003¨\u0006\u0004"}, d2 = {"Lcom/revolut/feature/travel/hotels/api/navigation/TravelHotelsKompotFeatureConfig$SearchResults;", "Lcom/revolut/feature/travel/hotels/api/navigation/TravelHotelsKompotFeatureConfig;", "<init>", "()V", "feature_travel_hotels_api_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final class SearchResults extends TravelHotelsKompotFeatureConfig {
+
+        /* JADX INFO: renamed from: g, reason: collision with root package name */
+        public static final SearchResults f93635g = new SearchResults();
+
+        @NotNull
+        public static final Parcelable.Creator<SearchResults> CREATOR = new a();
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                parcel.readInt();
+                return SearchResults.f93635g;
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new SearchResults[i];
+            }
+        }
+
+        private SearchResults() {
+            super(new SearchResultsDestination(false, false));
+        }
+
+        @Override // com.revolut.kompot.bridge.navigation.KompotBridgeFeatureConfig, android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            dest.writeInt(1);
+        }
+    }
+
+    public TravelHotelsKompotFeatureConfig(KompotDestination kompotDestination) {
+        super((ActivityAnimation) null, (ParcelableDestination) kompotDestination, false, (Integer) null, 0, 60);
+    }
+}

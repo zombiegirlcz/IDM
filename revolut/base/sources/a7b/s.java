@@ -1,0 +1,54 @@
+package a7b;
+
+import com.revolut.feature.hyper_text.model.HyperTextTarget;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function1;
+import wli.x;
+
+/* JADX INFO: loaded from: classes6.dex */
+public final class s extends gim.i implements Function1 {
+    public int u;
+    public final /* synthetic */ com.revolut.feature.retail.cobranded_cards.impl.presentation.screens.card_additional_value.c v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public final /* synthetic */ HyperTextTarget f1833w;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public s(com.revolut.feature.retail.cobranded_cards.impl.presentation.screens.card_additional_value.c cVar, HyperTextTarget hyperTextTarget, Continuation continuation) {
+        super(1, continuation);
+        this.v = cVar;
+        this.f1833w = hyperTextTarget;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Continuation continuation) {
+        return new s(this.v, this.f1833w, continuation);
+    }
+
+    @Override // kotlin.jvm.functions.Function1
+    public final Object invoke(Object obj2) {
+        return ((s) create((Continuation) obj2)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        int i = this.u;
+        if (i != 0) {
+            if (i != 1) {
+                throw new IllegalStateException("call to 'resume' before 'invoke' with coroutine");
+            }
+            yhm.o.b(obj2);
+            return obj2;
+        }
+        yhm.o.b(obj2);
+        x xVar = this.v.f82560q;
+        String str = ((HyperTextTarget.Link) this.f1833w).f74757a;
+        lg0.a aVar2 = lg0.a.OPEN_BROWSER;
+        Boolean bool = Boolean.FALSE;
+        this.u = 1;
+        Object objL1 = xVar.L1(str, aVar2, bool, this);
+        return objL1 == aVar ? aVar : objL1;
+    }
+}

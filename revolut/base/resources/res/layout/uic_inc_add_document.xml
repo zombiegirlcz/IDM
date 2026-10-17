@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/document_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <RelativeLayout
+        android:orientation="horizontal"
+        android:id="@+id/add_document_container"
+        android:background="@drawable/rectangle_grey_stroke"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginRight="16dp">
+        <ImageView
+            android:id="@+id/document_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginLeft="20dp"
+            android:layout_centerVertical="true"
+            app:srcCompat="@drawable/ic_camera_blue_m"/>
+        <com.revolut.core_ui_custom_font.TypefaceTextView
+            android:textSize="@dimen/material_text_size_m"
+            android:textColor="?attr/uikit_colorAccent"
+            android:gravity="center"
+            android:id="@+id/add_document_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/transaction.attach.receipts"
+            android:includeFontPadding="false"
+            android:layout_centerInParent="true"/>
+    </RelativeLayout>
+</FrameLayout>

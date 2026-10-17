@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.facebook.shimmer.ShimmerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/statsLoading_shimmeringView"
+    android:layout_width="100dp"
+    android:layout_height="44dp">
+    <View
+        android:id="@+id/statsLoading_title"
+        android:background="?attr/uikit_shimmerBackgroundRect"
+        android:layout_width="60dp"
+        android:layout_height="20dp"
+        android:layout_marginTop="2dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <View
+        android:id="@+id/statsLoading_description"
+        android:background="?attr/uikit_shimmerBackgroundRect"
+        android:layout_width="100dp"
+        android:layout_height="16dp"
+        android:layout_marginTop="4dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/statsLoading_title"/>
+</com.facebook.shimmer.ShimmerConstraintLayout>

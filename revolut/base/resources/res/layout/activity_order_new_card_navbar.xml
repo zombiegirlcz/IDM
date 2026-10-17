@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.views.legacy.LegacyContentContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/screenContainer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:fitStatusBar="true">
+    <com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+            android:id="@+id/navBarWithToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <com.revolut.recyclerkit.ScreenContentRecyclerView
+            android:id="@+id/recyclerView"
+            android:paddingBottom="@dimen/dp_64"
+            android:clipToPadding="false"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:splitMotionEvents="false"
+            app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    </com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout>
+    <com.revolut.core.ui_kit.views.FooterTextView
+        android:id="@+id/bottomFooterText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="?attr/uikit_dp16"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+</com.revolut.core.ui_kit.views.legacy.LegacyContentContainerConstraintLayout>

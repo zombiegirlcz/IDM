@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/loginFragment_root"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <LinearLayout
+        android:orientation="vertical"
+        android:fitsSystemWindows="true"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/login_content"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <com.revolut.core.ui_kit.views.pin.PinCodeView
+                    android:id="@+id/login_pin_code_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"/>
+                <com.revolut.core.ui_kit.views.buttons.TwinVerticalButton
+                    android:layout_gravity="bottom"
+                    android:id="@+id/login_biometric_only_fallback_buttons"
+                    android:visibility="gone"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"/>
+            </FrameLayout>
+        </androidx.core.widget.NestedScrollView>
+    </LinearLayout>
+</FrameLayout>

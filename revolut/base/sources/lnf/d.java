@@ -1,0 +1,56 @@
+package lnf;
+
+import com.revolut.core.ui_kit.delegates.LargeActionButtonDelegate;
+import com.revolut.feature.transactions.impl.ui.pending.revert.dialog.PendingTransactionRecallController;
+import com.revolut.feature.transactions.impl.ui.pending.revert.dialog.ui.RecallTransactionParcel;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlin.jvm.internal.Intrinsics;
+import yhm.o;
+
+/* JADX INFO: loaded from: classes8.dex */
+public final class d extends gim.i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ PendingTransactionRecallController v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public d(PendingTransactionRecallController pendingTransactionRecallController, Continuation continuation) {
+        super(2, continuation);
+        this.v = pendingTransactionRecallController;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        d dVar = new d(this.v, continuation);
+        dVar.u = obj2;
+        return dVar;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((d) create((LargeActionButtonDelegate.Model) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    /* JADX WARN: Type inference failed for: r4v2, types: [java.lang.Object, kotlin.Lazy] */
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        LargeActionButtonDelegate.Model model = (LargeActionButtonDelegate.Model) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        o.b(obj2);
+        e eVar = (e) this.v.N.getValue();
+        Intrinsics.h(model);
+        l lVar = (l) eVar;
+        lVar.getClass();
+        Intrinsics.checkNotNullParameter(model, "model");
+        Object obj3 = model.i;
+        RecallTransactionParcel recallTransactionParcel = obj3 instanceof RecallTransactionParcel ? (RecallTransactionParcel) obj3 : null;
+        String str = recallTransactionParcel != null ? recallTransactionParcel.f92076a : null;
+        if (str == null) {
+            lVar.C2(h.f197242a);
+        } else {
+            lVar.l2(new k(lVar, str, null), new yi5.b(26));
+        }
+        return Unit.f186387a;
+    }
+}

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/swipeableCardContentHeader_smallTitleStart"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toStartOf="@+id/swipeableCardContentHeader_smallTitleEnd"
+        app:layout_constraintHorizontal_bias="0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        style="?attr/internal_textAppearanceBody2"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/swipeableCardContentHeader_smallTitleEnd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1"
+        app:layout_constraintTop_toTopOf="parent"
+        style="?attr/internal_textAppearanceBody2"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:id="@+id/swipeableCardContentHeader_bigTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/internal_dp8"
+        app:layout_constraintTop_toBottomOf="@+id/swipeableCardContentHeader_smallTitleStart"
+        style="?attr/internal_textAppearanceHeading3"/>
+</merge>

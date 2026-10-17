@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:id="@+id/headerContainer"
+    android:background="@drawable/internal_box_background_ripple"
+    android:focusable="true"
+    android:clickable="true"
+    android:layout_width="match_parent"
+    android:layout_height="64dp">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/toggleIcon"
+        android:layout_width="8dp"
+        android:layout_height="8dp"
+        android:scaleType="center"
+        android:tint="?attr/uikit_colorGreyTone50"
+        android:layout_marginStart="8dp"
+        app:srcCompat="@drawable/internal_card_header_arrow"/>
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/icon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="8dp"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:id="@+id/title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:layout_weight="1"
+        android:layout_marginStart="24dp"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        style="?attr/internal_textAppearanceBody1"/>
+</LinearLayout>

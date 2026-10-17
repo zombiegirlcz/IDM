@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@string/crash_activity_ok, @string/crash_activity_ok_link, @string/crash_activity_2, @string/crash_activity_3, @string/crash_activity_4"/>

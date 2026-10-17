@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.uicomponent.groupview.TouchInterceptLinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:id="@+id/contentRoot"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <ImageView
+        android:id="@+id/tickIcon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/dp_24"
+        android:layout_marginBottom="@dimen/dp_24"
+        android:layout_marginStart="@dimen/dp_24"
+        android:layout_marginEnd="@dimen/dp_8"
+        app:srcCompat="@drawable/ic_24_tick_empty"/>
+    <FrameLayout
+        android:id="@+id/innerContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"/>
+</com.revolut.uicomponent.groupview.TouchInterceptLinearLayout>

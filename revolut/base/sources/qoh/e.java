@@ -1,0 +1,15 @@
+package qoh;
+
+import com.revolut.core.ui_kit.models.TextLocalisedClause;
+import com.revolut.retail.wealth.resources.R$string;
+
+/* JADX INFO: loaded from: classes10.dex */
+public final class e extends g {
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name */
+    public static final e f248213c = new e();
+
+    private e() {
+        super(zel.c.MOST_SOLD, new TextLocalisedClause(R$string.wealth_most_traded_selector_section_most_sold, null, null, 14));
+    }
+}

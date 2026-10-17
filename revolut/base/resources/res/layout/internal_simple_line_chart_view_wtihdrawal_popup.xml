@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="@drawable/internal_background_rounded_popover"
+    android:padding="?attr/uikit_dp8"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:minWidth="136dp">
+    <TextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/simpleLineChartView_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        style="?attr/internal_textAppearanceBody2"/>
+    <LinearLayout
+        android:orientation="vertical"
+        android:id="@+id/simpleLineChartView_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minWidth="136dp"/>
+</LinearLayout>

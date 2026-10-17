@@ -1,0 +1,50 @@
+package ip7;
+
+import com.revolut.core.ui_kit.delegates.CellDetailsDelegate;
+import com.revolut.core.ui_kit.delegates.SelectableDelegate;
+import com.revolut.feature.insurance_car.impl.data.model.OptionValue;
+import com.revolut.feature.insurance_car.impl.ui.screen.onboarding.plan_options.PlanOptionsScreen;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import yhm.o;
+
+/* JADX INFO: loaded from: classes4.dex */
+public final class e extends gim.i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ PlanOptionsScreen v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public e(PlanOptionsScreen planOptionsScreen, Continuation continuation) {
+        super(2, continuation);
+        this.v = planOptionsScreen;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        e eVar = new e(this.v, continuation);
+        eVar.u = obj2;
+        return eVar;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((e) create((SelectableDelegate.Model) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    /* JADX WARN: Type inference failed for: r4v2, types: [java.lang.Object, kotlin.Lazy] */
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        SelectableDelegate.Model model = (SelectableDelegate.Model) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        o.b(obj2);
+        j jVar = (j) this.v.Z.getValue();
+        Object obj3 = ((CellDetailsDelegate.Model) model.f53305b).o;
+        jVar.getClass();
+        if (!(obj3 instanceof OptionValue)) {
+            throw new IllegalStateException(com.google.android.gms.internal.mlkit_vision_face.a.l(obj3, "unexpected item in selectorOptionClicked: "));
+        }
+        jVar.x2(new ib6.j(obj3, 2));
+        return Unit.f186387a;
+    }
+}

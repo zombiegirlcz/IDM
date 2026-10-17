@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.DraggableWidgetRootFrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginHorizontal="@dimen/internal_dp16">
+        <com.revolut.core.ui_kit.internal.views.ResizableTileHeaderView
+            android:textColor="?attr/uikit_colorGreyTone50"
+            android:id="@+id/tileWithHalfPie_header"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/internal_dp12"
+            android:maxLines="2"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            style="@style/InternalTextAppearance.Emphasis2"/>
+        <com.revolut.core.ui_kit.internal.views.gaugechart.SegmentedGaugeChartView
+            android:id="@+id/tileWithHalfPie_chart"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_marginTop="@dimen/internal_dp12"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHeight_default="wrap"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tileWithHalfPie_header"
+            app:layout_constraintVertical_bias="1"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.revolut.core.ui_kit.internal.views.DraggableWidgetRootFrameLayout>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:height="24dp"
+    android:width="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@drawable/_uikit_icn_24_logo_tinder__0_res_0x7f080090"
+        android:pathData="M12.76 2.014C12.742 2.005 12.723 2 12.706 2h-0.009c-0.072 0.002-0.133 0.072-0.133 0.161 0.488 3.157-0.162 6.591-3.987 7.91-0.017 0-0.049 0-0.065-0.017-0.667-0.895-0.83-2.425-0.88-3.027 0-0.114-0.13-0.18-0.228-0.114-2.048 1.172-3.953 3.939-3.953 6.624C3.45 18.143 6.592 22 11.995 22c5.062 0 8.545-3.97 8.545-8.463 0-5.859-4.118-9.749-7.78-11.523z"/>
+</vector>

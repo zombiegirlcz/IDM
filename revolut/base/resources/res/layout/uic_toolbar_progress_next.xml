@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.percentlayout.widget.PercentRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="?android:attr/actionBarSize">
+    <include layout="@layout/uic_toolbar_title_back_sign_black"/>
+    <ProgressBar
+        android:id="@+id/progress"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:screenReaderFocusable="true"
+        app:layout_widthPercent="45%"
+        style="@style/RegistrationProgress"/>
+    <com.revolut.core_ui_custom_font.TypefaceButton
+        android:textColor="@color/color_state_primary_text_black"
+        android:id="@+id/menu_button_next"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_alignParentEnd="true"
+        style="@style/UIC_ToolbarRightTextButton"/>
+    <ImageView
+        android:id="@+id/menu_icon"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:visibility="gone"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:scaleType="center"
+        android:layout_centerVertical="true"
+        android:layout_alignParentEnd="true"/>
+</androidx.percentlayout.widget.PercentRelativeLayout>

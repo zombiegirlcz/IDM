@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/travelMilesFlightSearchResultsScreen_container"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:id="@+id/travelMilesFlightSearchResultsScreen_navBarWithToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+        <FrameLayout
+            android:id="@+id/travelMilesFlightSearchResultsScreen_searchInputsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <com.revolut.core.ui_kit.views.InputTravelSearchItemView
+                android:id="@+id/travelMilesFlightSearchResultsScreen_searchInputView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"/>
+            <com.revolut.core.ui_kit.views.InputTravelSearchView
+                android:id="@+id/travelMilesFlightSearchResultsScreen_searchFieldsInputView"
+                android:visibility="gone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="8dp"/>
+        </FrameLayout>
+    </com.revolut.core.ui_kit.views.navbar.BasicNavBar>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/travelMilesFlightSearchResultsScreen_recyclerView"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

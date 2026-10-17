@@ -1,0 +1,44 @@
+package androidx.compose.foundation.text.selection;
+
+import gim.d;
+import gim.i;
+import kotlin.Metadata;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function1;
+import yhm.o;
+
+/* JADX INFO: loaded from: classes15.dex */
+@d(c = "androidx.compose.foundation.text.selection.TextFieldSelectionManager$contextMenuAreaModifier$3", f = "TextFieldSelectionManager.kt", l = {}, m = "invokeSuspend", v = 1)
+@Metadata(d1 = {"\u0000\u0006\n\u0000\n\u0002\u0010\u0002\u0010\u0000\u001a\u00020\u0001H\n"}, d2 = {"<anonymous>", ""}, k = 3, mv = {2, 0, 0}, xi = 48)
+public final class TextFieldSelectionManager$contextMenuAreaModifier$3 extends i implements Function1<Continuation<? super Unit>, Object> {
+    int label;
+    final /* synthetic */ TextFieldSelectionManager this$0;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public TextFieldSelectionManager$contextMenuAreaModifier$3(TextFieldSelectionManager textFieldSelectionManager, Continuation<? super TextFieldSelectionManager$contextMenuAreaModifier$3> continuation) {
+        super(1, continuation);
+        this.this$0 = textFieldSelectionManager;
+    }
+
+    @Override // gim.a
+    public final Continuation<Unit> create(Continuation<?> continuation) {
+        return new TextFieldSelectionManager$contextMenuAreaModifier$3(this.this$0, continuation);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        if (this.label != 0) {
+            throw new IllegalStateException("call to 'resume' before 'invoke' with coroutine");
+        }
+        o.b(obj2);
+        this.this$0.setTextToolbarShownViaProvider$foundation(false);
+        return Unit.f186387a;
+    }
+
+    @Override // kotlin.jvm.functions.Function1
+    public final Object invoke(Continuation<? super Unit> continuation) {
+        return ((TextFieldSelectionManager$contextMenuAreaModifier$3) create(continuation)).invokeSuspend(Unit.f186387a);
+    }
+}

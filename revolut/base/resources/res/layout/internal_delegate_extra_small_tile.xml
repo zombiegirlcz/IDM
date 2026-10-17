@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.views.OverlappedIconsView
+        android:id="@+id/extraSmallTile_overlappedIconsView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/internal_extra_small_vertical_padding"
+        android:layout_marginStart="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:ellipsize="end"
+        android:id="@+id/extraSmallTile_titleText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/internal_extra_small_text_top_padding"
+        android:lines="1"
+        android:textAlignment="viewStart"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintBottom_toTopOf="@+id/extraSmallTile_descriptionText"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/extraSmallTile_overlappedIconsView"
+        app:layout_constraintVertical_bias="1"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:ellipsize="end"
+        android:id="@+id/extraSmallTile_descriptionText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/internal_extra_small_vertical_padding"
+        android:lines="1"
+        android:textAlignment="viewStart"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

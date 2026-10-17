@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/travelFlightsLocationPicker_container"
+    android:background="?attr/uikit_colorGroupedBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.input.InputText
+        android:id="@+id/travelFlightsLocationPicker_searchInput"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp16"
+        android:layout_marginStart="?attr/uikit_dp16"
+        android:layout_marginEnd="?attr/uikit_dp8"
+        app:layout_constraintEnd_toStartOf="@+id/travelFlightsLocationPicker_closeButton"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.buttons.FormsActionButton
+        android:id="@+id/travelFlightsLocationPicker_closeButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_constraintBottom_toBottomOf="@+id/travelFlightsLocationPicker_searchInput"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/travelFlightsLocationPicker_searchInput"
+        app:uikit_FormsActionButton="WhiteButton"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/travelFlightsLocationPicker_recyclerView"
+        android:paddingTop="?attr/uikit_dp8"
+        android:clipToPadding="false"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/travelFlightsLocationPicker_searchInput"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

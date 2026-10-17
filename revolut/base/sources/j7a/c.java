@@ -1,0 +1,7 @@
+package j7a;
+
+/* JADX INFO: loaded from: classes5.dex */
+public abstract class c {
+    private c() {
+    }
+}

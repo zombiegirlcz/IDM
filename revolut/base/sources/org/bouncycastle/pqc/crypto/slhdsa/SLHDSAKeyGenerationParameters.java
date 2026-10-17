@@ -1,0 +1,19 @@
+package org.bouncycastle.pqc.crypto.slhdsa;
+
+import java.security.SecureRandom;
+import org.bouncycastle.crypto.KeyGenerationParameters;
+
+/* JADX INFO: loaded from: classes14.dex */
+@Deprecated
+public class SLHDSAKeyGenerationParameters extends KeyGenerationParameters {
+    private final SLHDSAParameters parameters;
+
+    public SLHDSAKeyGenerationParameters(SecureRandom secureRandom, SLHDSAParameters sLHDSAParameters) {
+        super(secureRandom, -1);
+        this.parameters = sLHDSAParameters;
+    }
+
+    public SLHDSAParameters getParameters() {
+        return this.parameters;
+    }
+}

@@ -1,0 +1,218 @@
+package yxc;
+
+import com.revolut.core.ui_kit_resources.R$drawable;
+import java.util.Locale;
+import kotlin.NoWhenBranchMatchedException;
+import kotlin.jvm.internal.Intrinsics;
+import kotlin.text.a0;
+
+/* JADX INFO: loaded from: classes13.dex */
+public final class l {
+    public static int b(aal.b icon) {
+        Intrinsics.checkNotNullParameter(icon, "icon");
+        switch (k.f317650a[icon.ordinal()]) {
+            case 1:
+                return R$drawable.uikit_icn_24_national_id;
+            case 2:
+                return R$drawable.uikit_icn_24_lounges;
+            case 3:
+                return R$drawable.uikit_icn_24_revert_left;
+            case 4:
+                return R$drawable.uikit_icn_24_revert_right;
+            case 5:
+                return R$drawable.uikit_icn_24_vault;
+            case 6:
+                return R$drawable.uikit_icn_24_smartphone_umbrella;
+            case 7:
+                return R$drawable.uikit_icn_24_account_actions;
+            case 8:
+                return R$drawable.uikit_icn_24_apple_pay;
+            case 9:
+                return R$drawable.uikit_icn_24_archive;
+            case 10:
+                return R$drawable.uikit_icn_24_arrow_exchange;
+            case 11:
+                return R$drawable.uikit_icn_24_arrow_rates;
+            case 12:
+                return R$drawable.uikit_icn_24_arrow_repeat;
+            case 13:
+                return R$drawable.uikit_icn_24_arrow_request;
+            case 14:
+                return R$drawable.uikit_icn_24_arrow_right_left;
+            case 15:
+                return R$drawable.uikit_icn_24_arrow_send;
+            case 16:
+                return R$drawable.uikit_icn_24_auto_topup;
+            case 17:
+                return R$drawable.uikit_icn_24_backpack;
+            case 18:
+                return R$drawable.uikit_icn_24_bank;
+            case 19:
+                return R$drawable.uikit_icn_24_bitcoin;
+            case 20:
+                return R$drawable.uikit_icn_24_calendar;
+            case 21:
+                return R$drawable.uikit_icn_24_camera;
+            case 22:
+                return R$drawable.uikit_icn_24_card;
+            case 23:
+                return R$drawable.uikit_icn_24_cart;
+            case 24:
+                return R$drawable.uikit_icn_24_cash;
+            case 25:
+                return R$drawable.uikit_icn_24_cashback;
+            case 26:
+                return R$drawable.uikit_icn_24_cash_flow;
+            case 27:
+                return R$drawable.uikit_icn_24_cash_income;
+            case 28:
+                return R$drawable.uikit_icn_24_change_passcode;
+            case 29:
+                return R$drawable.uikit_icn_24_chat;
+            case 30:
+                return R$drawable.uikit_icn_24_check;
+            case 31:
+                return R$drawable.uikit_icn_24_check_success;
+            case 32:
+                return R$drawable.uikit_icn_24_coins;
+            case 33:
+                return R$drawable.uikit_icn_24_commodities;
+            case 34:
+                return R$drawable.uikit_icn_24_credit;
+            case 35:
+                return R$drawable.uikit_icn_24_cross;
+            case 36:
+                return R$drawable.uikit_icn_24_delete;
+            case 37:
+                return R$drawable.uikit_icn_24_document;
+            case 38:
+                return R$drawable.uikit_icn_24_driving_licence;
+            case 39:
+                return R$drawable.uikit_icn_24_envelope;
+            case 40:
+                return R$drawable.uikit_icn_24_exclamation_mark;
+            case 41:
+                return R$drawable.uikit_icn_24_exclamation_triangle;
+            case 42:
+                return R$drawable.uikit_icn_24_eye_outline;
+            case 43:
+                return R$drawable.uikit_icn_24_fees;
+            case 44:
+                return R$drawable.uikit_icn_24_fingerprint;
+            case 45:
+                return R$drawable.uikit_icn_24_flag;
+            case 46:
+                return R$drawable.uikit_icn_24_form;
+            case 47:
+                return R$drawable.uikit_icn_24_game_cube;
+            case 48:
+                return R$drawable.uikit_icn_24_gear;
+            case 49:
+                return R$drawable.uikit_icn_24_google_pay;
+            case 50:
+                return R$drawable.uikit_icn_24_heart;
+            case 51:
+                return R$drawable.uikit_icn_24_hotel;
+            case 52:
+                return R$drawable.uikit_icn_24_inbox;
+            case 53:
+                return R$drawable.uikit_icn_24_info;
+            case 54:
+                return R$drawable.uikit_icn_24_info_outline;
+            case 55:
+                return R$drawable.uikit_icn_24_joint;
+            case 56:
+                return R$drawable.uikit_icn_24_key;
+            case 57:
+                return R$drawable.uikit_icn_24_lightning;
+            case 58:
+                return R$drawable.uikit_icn_24_limit;
+            case 59:
+                return R$drawable.uikit_icn_24_link;
+            case 60:
+                return R$drawable.uikit_icn_24_lock_closed;
+            case 61:
+                return R$drawable.uikit_icn_24_lock_opened;
+            case 62:
+                return R$drawable.uikit_icn_24_map;
+            case 63:
+                return R$drawable.uikit_icn_24_medical_cross;
+            case 64:
+                return R$drawable.uikit_icn_24_minus;
+            case 65:
+                return R$drawable.uikit_icn_24_moon;
+            case 66:
+                return R$drawable.uikit_icn_24_more_ios;
+            case 67:
+                return R$drawable.uikit_icn_24_national_id;
+            case 68:
+                return R$drawable.uikit_icn_24_passport;
+            case 69:
+                return R$drawable.uikit_icn_24_pencil;
+            case 70:
+                return R$drawable.uikit_icn_24_people;
+            case 71:
+                return R$drawable.uikit_icn_24_percent;
+            case 72:
+                return R$drawable.uikit_icn_24_plus;
+            case 73:
+                return R$drawable.uikit_icn_24_pocket;
+            case 74:
+                return R$drawable.uikit_icn_24_premium;
+            case 75:
+                return R$drawable.uikit_icn_24_present;
+            case 76:
+                return R$drawable.uikit_icn_24_price_tag;
+            case 77:
+                return R$drawable.uikit_icn_24_profile;
+            case 78:
+                return R$drawable.uikit_icn_24_question;
+            case 79:
+                return R$drawable.uikit_icn_24_question_outline;
+            case 80:
+                return R$drawable.uikit_icn_24_rates_converter;
+            case 81:
+                return R$drawable.uikit_icn_24_reverted;
+            case 82:
+                return R$drawable.uikit_icn_24_rev_points;
+            case 83:
+                return R$drawable.uikit_icn_24_revolut_u18;
+            case 84:
+                return R$drawable.uikit_icn_24_rocket;
+            case 85:
+                return R$drawable.uikit_icn_24_shield;
+            case 86:
+                return R$drawable.uikit_icn_24_shopping;
+            case 87:
+                return R$drawable.uikit_icn_24_statement;
+            case 88:
+                return R$drawable.uikit_icn_24_suitcase;
+            case 89:
+                return R$drawable.uikit_icn_24_time;
+            case 90:
+                return R$drawable.uikit_icn_24_time_outline;
+            case 91:
+                return R$drawable.uikit_icn_24_travel;
+            case 92:
+                return R$drawable.uikit_icn_24_vault;
+            case 93:
+                return R$drawable.uikit_icn_24_wallet;
+            case 94:
+                return R$drawable.uikit_icn_24_wealth;
+            default:
+                throw new NoWhenBranchMatchedException();
+        }
+    }
+
+    public final aal.b a(String icon) {
+        Intrinsics.checkNotNullParameter(icon, "icon");
+        String upperCase = icon.toUpperCase(Locale.ROOT);
+        Intrinsics.checkNotNullExpressionValue(upperCase, "toUpperCase(...)");
+        for (aal.b bVar : aal.b.values()) {
+            if (a0.z(bVar.name(), upperCase, true)) {
+                return bVar;
+            }
+        }
+        return null;
+    }
+}

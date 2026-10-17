@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.views.legacy.LegacyContentContainerFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.state.FullScreenStateView
+        android:id="@+id/fullScreenView"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</com.revolut.core.ui_kit.views.legacy.LegacyContentContainerFrameLayout>

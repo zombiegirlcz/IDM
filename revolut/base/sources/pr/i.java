@@ -1,0 +1,17 @@
+package pr;
+
+import kotlinx.coroutines.CoroutineScope;
+import skm.p0;
+
+/* JADX INFO: loaded from: classes17.dex */
+public final class i implements e4m.e {
+    public static CoroutineScope a() {
+        h.Companion.getClass();
+        return rd0.e.a(p0.f264002b);
+    }
+
+    @Override // phm.a
+    public final Object get() {
+        return a();
+    }
+}

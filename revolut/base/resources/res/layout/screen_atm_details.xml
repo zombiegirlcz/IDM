@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.kompot.view.ControllerContainerCoordinatorLayout
+        android:id="@+id/atmDetailsScreen_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.navbar.NavBarWithBigTile
+            android:id="@+id/atmDetailsScreen_navigationBar"
+            android:background="?attr/uikit_colorBackground"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <com.revolut.recyclerkit.ScreenContentRecyclerView
+            android:id="@+id/atmDetailsScreen_recyclerView"
+            android:paddingBottom="@dimen/dp_16"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    </com.revolut.kompot.view.ControllerContainerCoordinatorLayout>
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/atmDetailsScreen_collapsedTitleBar"
+        android:background="?attr/uikit_windowBackground"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp16"
+        app:expanded="false"/>
+    <FrameLayout
+        android:id="@+id/atmDetailsScreen_collapsedTitleClickArea"
+        android:focusable="false"
+        android:clickable="false"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/uikit_dp64"
+        android:layout_marginTop="?attr/uikit_dp16"
+        android:layout_marginStart="?attr/uikit_dp64"
+        android:layout_marginEnd="?attr/uikit_dp64"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

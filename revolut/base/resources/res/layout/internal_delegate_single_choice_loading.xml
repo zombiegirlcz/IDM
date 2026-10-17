@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/singleChoiceLoading_shimmeringView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <View
+            android:id="@+id/singleChoiceLoading_title"
+            android:background="?attr/uikit_shimmerBackgroundRect"
+            android:layout_width="160dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="?attr/uikit_dp4"
+            android:layout_marginBottom="?attr/uikit_dp4"/>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+</FrameLayout>

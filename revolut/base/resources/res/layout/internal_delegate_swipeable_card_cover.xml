@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.swipeablecards.container.SwipeableCardContainerView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <FrameLayout
+        android:background="@drawable/internal_background_swipeable_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.revolut.core.ui_kit.internal.views.UiKitMediaView
+            android:id="@+id/swipeableCardCoverItemDelegate_mediaView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+        <com.revolut.core.ui_kit.internal.views.swipeablecards.cover.SwipeableCardCoverHeaderView
+            android:layout_gravity="top"
+            android:id="@+id/swipeableCardCoverItemDelegate_headerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/internal_dp24"
+            android:layout_marginStart="@dimen/internal_dp24"
+            android:layout_marginEnd="@dimen/internal_dp24"/>
+        <com.revolut.core.ui_kit.views.buttons.ActionFooterView
+            android:layout_gravity="bottom"
+            android:id="@+id/swipeableCardCoverItemDelegate_actionFooter"
+            android:visibility="gone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </FrameLayout>
+</com.revolut.core.ui_kit.internal.views.swipeablecards.container.SwipeableCardContainerView>

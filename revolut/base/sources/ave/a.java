@@ -1,0 +1,66 @@
+package ave;
+
+import com.revolut.feature.topup_screen.impl.data.network.service.CardTopUpRevampedService;
+import gim.i;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlinx.coroutines.CoroutineScope;
+import pue.b;
+import r10.q;
+import yhm.o;
+
+/* JADX INFO: loaded from: classes8.dex */
+public final class a extends i implements Function2 {
+    public int u;
+    public final /* synthetic */ q v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public final /* synthetic */ String f10013w;
+
+    /* JADX INFO: renamed from: x, reason: collision with root package name */
+    public final /* synthetic */ String f10014x;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public a(q qVar, String str, String str2, Continuation continuation) {
+        super(2, continuation);
+        this.v = qVar;
+        this.f10013w = str;
+        this.f10014x = str2;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        return new a(this.v, this.f10013w, this.f10014x, continuation);
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((a) create((CoroutineScope) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        int i = this.u;
+        if (i == 0) {
+            o.b(obj2);
+            CardTopUpRevampedService cardTopUpRevampedService = (CardTopUpRevampedService) this.v.f250849b;
+            pue.a aVar2 = new pue.a(this.f10013w, this.f10014x);
+            this.u = 1;
+            obj2 = cardTopUpRevampedService.createPennyTopUp(aVar2, new wj0.b("TOPUP_IDEMPOTENCY_TAG"), this);
+            if (obj2 == aVar) {
+                return aVar;
+            }
+        } else {
+            if (i != 1) {
+                throw new IllegalStateException("call to 'resume' before 'invoke' with coroutine");
+            }
+            o.b(obj2);
+        }
+        pue.b bVar = (pue.b) obj2;
+        String transactionId = bVar.getTransactionId();
+        b.a redirects = bVar.getRedirects();
+        return new zve.b(transactionId, redirects != null ? new zve.a(redirects.getSuccess(), redirects.getError(), redirects.getDecline(), redirects.getHold()) : null);
+    }
+}

@@ -1,0 +1,48 @@
+package o9c;
+
+import com.revolut.core.ui_kit.delegates.FullScreenStateDelegate;
+import com.revolut.feature.revolutpay.impl.ui.summary_screen.RevolutPaySummaryScreen;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlin.jvm.internal.Intrinsics;
+
+/* JADX INFO: loaded from: classes6.dex */
+public final class m extends gim.i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ RevolutPaySummaryScreen v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public m(RevolutPaySummaryScreen revolutPaySummaryScreen, Continuation continuation) {
+        super(2, continuation);
+        this.v = revolutPaySummaryScreen;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        m mVar = new m(this.v, continuation);
+        mVar.u = obj2;
+        return mVar;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((m) create((FullScreenStateDelegate.Model) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        FullScreenStateDelegate.Model model = (FullScreenStateDelegate.Model) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        yhm.o.b(obj2);
+        u uVarE3 = this.v.R2();
+        String listId = model.f52373a;
+        com.revolut.feature.revolutpay.impl.ui.summary_screen.f fVar = (com.revolut.feature.revolutpay.impl.ui.summary_screen.f) uVarE3;
+        fVar.getClass();
+        Intrinsics.checkNotNullParameter(listId, "listId");
+        if (Intrinsics.f(listId, "ORDER_SUMMARY_ERROR_LIST_ID")) {
+            fVar.N.k(Unit.f186387a);
+        }
+        return Unit.f186387a;
+    }
+}

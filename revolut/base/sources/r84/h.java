@@ -1,0 +1,53 @@
+package r84;
+
+import com.revolut.core.ui_kit.models.Clause;
+import com.revolut.core.ui_kit.models.TextLocalisedClause;
+import java.util.ArrayList;
+import java.util.List;
+import jki.n;
+import kotlin.jvm.internal.Intrinsics;
+
+/* JADX INFO: loaded from: classes22.dex */
+public final class h implements n {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final TextLocalisedClause f252358a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final Clause f252359b;
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name */
+    public final boolean f252360c;
+    public final ArrayList d;
+
+    public h(TextLocalisedClause navBarTitle, TextLocalisedClause textLocalisedClause, ArrayList items, boolean z) {
+        Intrinsics.checkNotNullParameter(navBarTitle, "navBarTitle");
+        Intrinsics.checkNotNullParameter(items, "items");
+        this.f252358a = navBarTitle;
+        this.f252359b = textLocalisedClause;
+        this.f252360c = z;
+        this.d = items;
+    }
+
+    @Override // jki.n
+    public final List c() {
+        return this.d;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        if (!(obj2 instanceof h)) {
+            return false;
+        }
+        h hVar = (h) obj2;
+        return this.f252358a.equals(hVar.f252358a) && Intrinsics.f(this.f252359b, hVar.f252359b) && this.f252360c == hVar.f252360c && this.d.equals(hVar.d);
+    }
+
+    public final int hashCode() {
+        int iHashCode = this.f252358a.hashCode() * 31;
+        Clause clause = this.f252359b;
+        return this.d.hashCode() + j6.a.c((iHashCode + (clause == null ? 0 : clause.hashCode())) * 31, 31, this.f252360c);
+    }
+}

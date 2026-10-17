@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:fitNavigationBar="true">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/navBarWithToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <fragment
+        android:name="com.revolut.feature.address_picker.address.AddressFragment"
+        android:id="@+id/address_fragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <com.revolut.core_ui_custom_font.TypefaceButton
+        android:layout_gravity="bottom"
+        android:id="@+id/next_button"
+        android:text="@string/button_action_done"
+        style="@style/Style.Button.Default"/>
+</com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout>

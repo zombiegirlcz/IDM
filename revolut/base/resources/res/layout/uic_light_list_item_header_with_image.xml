@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center_vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:gravity="center_vertical"
+        android:id="@+id/styled_text_view"
+        android:padding="16dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        style="@style/ListItemHeaderSubtitle_Light"/>
+    <ImageView
+        android:id="@+id/styled_text_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="0dp"
+        android:layout_marginBottom="0dp"
+        android:layout_toRightOf="@+id/styled_text_view"
+        android:layout_alignTop="@+id/styled_text_view"
+        android:layout_alignBottom="@+id/styled_text_view"/>
+</RelativeLayout>

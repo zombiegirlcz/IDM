@@ -1,0 +1,25 @@
+package au6;
+
+import kotlin.coroutines.Continuation;
+
+/* JADX INFO: loaded from: classes3.dex */
+public final class h3 extends gim.c {
+    public /* synthetic */ Object u;
+    public int v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public final /* synthetic */ aqd.w0 f9536w;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public h3(aqd.w0 w0Var, Continuation continuation) {
+        super(continuation);
+        this.f9536w = w0Var;
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        this.u = obj2;
+        this.v |= Integer.MIN_VALUE;
+        return this.f9536w.emit(null, this);
+    }
+}

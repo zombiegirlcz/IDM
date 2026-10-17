@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior">
+        <LinearLayout
+            android:id="@+id/navbar_wrapper"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toTopOf="parent">
+            <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+                android:id="@+id/basicNavBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+            <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+                android:id="@+id/navBarWithToolbar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+        <FrameLayout
+            android:id="@+id/fragment_container"
+            android:paddingBottom="80dp"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/navbar_wrapper"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:layout_gravity="bottom"
+        android:id="@+id/next_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="?attr/uikit_dp16"
+        android:layout_marginRight="?attr/uikit_dp16"
+        android:layout_marginBottom="?attr/uikit_dp24"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

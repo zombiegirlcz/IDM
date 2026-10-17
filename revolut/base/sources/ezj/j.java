@@ -1,0 +1,10 @@
+package ezj;
+
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes11.dex */
+public interface j {
+
+    @NotNull
+    public static final i Companion = i.f130972a;
+}

@@ -1,0 +1,42 @@
+package com.google.android.gms.nearby.connection;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+import androidx.annotation.NonNull;
+import com.google.android.gms.common.internal.Preconditions;
+import com.google.android.gms.common.internal.safeparcel.AbstractSafeParcelable;
+import com.google.android.gms.common.internal.safeparcel.SafeParcelWriter;
+import com.google.android.gms.common.internal.safeparcel.SafeParcelable;
+import java.util.List;
+
+/* JADX INFO: loaded from: classes16.dex */
+@SafeParcelable.Class(creator = "AppMetadataCreator")
+@SafeParcelable.Reserved({1000})
+@Deprecated
+public final class AppMetadata extends AbstractSafeParcelable {
+
+    @NonNull
+    public static final Parcelable.Creator<AppMetadata> CREATOR = new zzd();
+
+    /* JADX INFO: renamed from: zza, reason: collision with root package name */
+    @SafeParcelable.Field(getter = "getAppIdentifiers", id = 1)
+    private final List f47785zza;
+
+    @SafeParcelable.Constructor
+    public AppMetadata(@NonNull @SafeParcelable.Param(id = 1) List<AppIdentifier> list) {
+        this.f47785zza = (List) Preconditions.checkNotNull(list, "Must specify application identifiers");
+        Preconditions.checkNotZero(list.size(), (Object) "Application identifiers cannot be empty");
+    }
+
+    @NonNull
+    public List<AppIdentifier> getAppIdentifiers() {
+        return this.f47785zza;
+    }
+
+    @Override // android.os.Parcelable
+    public void writeToParcel(@NonNull Parcel parcel, int i) {
+        int iBeginObjectHeader = SafeParcelWriter.beginObjectHeader(parcel);
+        SafeParcelWriter.writeTypedList(parcel, 1, getAppIdentifiers(), false);
+        SafeParcelWriter.finishObjectHeader(parcel, iBeginObjectHeader);
+    }
+}

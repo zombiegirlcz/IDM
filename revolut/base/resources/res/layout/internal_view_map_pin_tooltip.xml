@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:visibility="gone"
+    android:layout_width="wrap_content"
+    android:layout_height="22dp"
+    android:elevation="2dp"
+    android:paddingHorizontal="4dp">
+    <ImageView
+        android:id="@+id/tooltip_icon"
+        android:visibility="gone"
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:layout_marginEnd="4dp"/>
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:ellipsize="end"
+        android:id="@+id/tooltip_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxWidth="40dp"
+        android:maxLines="1"
+        android:includeFontPadding="false"
+        style="?attr/internal_textAppearanceEmphasis4"/>
+</LinearLayout>

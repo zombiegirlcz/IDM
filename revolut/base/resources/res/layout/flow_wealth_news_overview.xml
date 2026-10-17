@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/flowWealthNewsOverview_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.Tabs
+            android:id="@+id/flowWealthNewsOverview_tabs"
+            android:paddingBottom="?attr/uikit_dp16"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="?attr/uikit_dp16"
+            android:paddingEnd="?attr/uikit_dp16"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/flowWealthNewsOverview_recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:overScrollMode="never"
+        android:nestedScrollingEnabled="false"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

@@ -1,0 +1,12 @@
+package jyg;
+
+import com.revolut.feature.wealth.analytics.widgetised.navigation.WidgetisedAnalyticsType;
+import java.util.Comparator;
+
+/* JADX INFO: loaded from: classes9.dex */
+public final class l implements Comparator {
+    @Override // java.util.Comparator
+    public final int compare(Object obj2, Object obj3) {
+        return cim.b.b(Boolean.valueOf(!(((jwg.c) obj2).f178997a instanceof WidgetisedAnalyticsType.AllInvestAccounts)), Boolean.valueOf(!(((jwg.c) obj3).f178997a instanceof WidgetisedAnalyticsType.AllInvestAccounts)));
+    }
+}

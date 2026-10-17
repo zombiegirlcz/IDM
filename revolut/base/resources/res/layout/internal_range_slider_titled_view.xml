@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.slider.RangeSliderView
+        android:id="@+id/rangeSliderView_slider"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/rangeSliderView_labelStart"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp8"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/rangeSliderView_slider"
+        style="?attr/internal_textAppearanceBody3"/>
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/rangeSliderView_labelEnd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp8"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/rangeSliderView_slider"
+        style="?attr/internal_textAppearanceBody3"/>
+</merge>

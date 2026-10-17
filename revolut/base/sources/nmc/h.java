@@ -1,0 +1,46 @@
+package nmc;
+
+/* JADX INFO: loaded from: classes6.dex */
+public abstract /* synthetic */ class h {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final /* synthetic */ int[] f217269a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public static final /* synthetic */ int[] f217270b;
+
+    static {
+        int[] iArr = new int[xdh.a.values().length];
+        try {
+            iArr[xdh.a.CONSERVATIVE.ordinal()] = 1;
+        } catch (NoSuchFieldError unused) {
+        }
+        try {
+            iArr[xdh.a.CAUTIOUS.ordinal()] = 2;
+        } catch (NoSuchFieldError unused2) {
+        }
+        try {
+            iArr[xdh.a.BALANCED.ordinal()] = 3;
+        } catch (NoSuchFieldError unused3) {
+        }
+        try {
+            iArr[xdh.a.BOLD.ordinal()] = 4;
+        } catch (NoSuchFieldError unused4) {
+        }
+        try {
+            iArr[xdh.a.AGGRESSIVE.ordinal()] = 5;
+        } catch (NoSuchFieldError unused5) {
+        }
+        f217269a = iArr;
+        int[] iArr2 = new int[xdh.d.values().length];
+        try {
+            iArr2[xdh.d.CORE.ordinal()] = 1;
+        } catch (NoSuchFieldError unused6) {
+        }
+        try {
+            iArr2[xdh.d.SUSTAINABLE.ordinal()] = 2;
+        } catch (NoSuchFieldError unused7) {
+        }
+        f217270b = iArr2;
+    }
+}

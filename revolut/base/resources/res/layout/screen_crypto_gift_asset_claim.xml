@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/cryptoGiftAssetClaim_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.spinnerPicker.SpinnerPickerView
+        android:id="@+id/cryptoGiftAssetClaim_spinnerPicker"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@+id/cryptoGiftAssetClaim_recyclerView"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/cryptoGiftAssetClaim_navBar"/>
+    <com.revolut.rxdiffadapter.AsyncDiffRecyclerView
+        android:id="@+id/cryptoGiftAssetClaim_recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@+id/cryptoGiftAssetClaim_actionFooterView"
+        app:layout_constraintTop_toBottomOf="@+id/cryptoGiftAssetClaim_spinnerPicker"/>
+    <com.revolut.core.ui_kit.views.buttons.ActionFooterView
+        android:id="@+id/cryptoGiftAssetClaim_actionFooterView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

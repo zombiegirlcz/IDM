@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="82dp">
+    <com.facebook.shimmer.ShimmerConstraintLayout
+        android:id="@+id/streakStepVerticalLoading_shimmerLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/streakStepVerticalLoading_circle"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:importantForAccessibility="no"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="?attr/uikit_shimmerBackgroundCircle"/>
+        <com.revolut.core.ui_kit.internal.views.UIKitTextView
+            android:id="@+id/streakStepVerticalLoading_title"
+            android:background="?attr/uikit_shimmerBackgroundRect"
+            android:layout_width="160dp"
+            android:layout_height="@dimen/internal_dp16"
+            android:layout_marginTop="@dimen/internal_dp2"
+            android:textAlignment="viewStart"
+            android:layout_marginStart="@dimen/internal_dp16"
+            app:layout_constraintStart_toEndOf="@+id/streakStepVerticalLoading_circle"
+            app:layout_constraintTop_toTopOf="parent"/>
+        <com.revolut.core.ui_kit.internal.views.UIKitTextView
+            android:id="@+id/streakStepVerticalLoading_trailingLabel"
+            android:background="?attr/uikit_shimmerBackgroundRect"
+            android:layout_width="40dp"
+            android:layout_height="@dimen/internal_dp16"
+            android:textAlignment="viewStart"
+            android:layout_marginStart="@dimen/internal_dp16"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/streakStepVerticalLoading_title"/>
+        <com.revolut.core.ui_kit.internal.views.UIKitTextView
+            android:id="@+id/streakStepVerticalLoading_subtitle"
+            android:background="?attr/uikit_shimmerBackgroundRect"
+            android:layout_width="80dp"
+            android:layout_height="@dimen/internal_dp14"
+            app:layout_constraintBottom_toBottomOf="@+id/streakStepVerticalLoading_circle"
+            app:layout_constraintStart_toStartOf="@+id/streakStepVerticalLoading_title"/>
+    </com.facebook.shimmer.ShimmerConstraintLayout>
+</FrameLayout>

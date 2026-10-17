@@ -1,0 +1,46 @@
+package nd4;
+
+import com.revolut.core.ui_kit.delegates.CellDetailsChevronDelegate;
+import com.revolut.feature.credit.application.plugins.api.models.plugins.manual_underwriting.ManualUnderwritingReferralFlag;
+import gim.i;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlin.jvm.internal.Intrinsics;
+import yhm.o;
+
+/* JADX INFO: loaded from: classes22.dex */
+public final class f extends i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ com.revolut.feature.credit.application.plugins.impl.ui.manual_underwriting.a v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public f(com.revolut.feature.credit.application.plugins.impl.ui.manual_underwriting.a aVar, Continuation continuation) {
+        super(2, continuation);
+        this.v = aVar;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        f fVar = new f(this.v, continuation);
+        fVar.u = obj2;
+        return fVar;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((f) create((CellDetailsChevronDelegate.Model) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        CellDetailsChevronDelegate.Model model = (CellDetailsChevronDelegate.Model) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        o.b(obj2);
+        Object obj3 = model.e;
+        Intrinsics.i(obj3, "null cannot be cast to non-null type com.revolut.feature.credit.application.plugins.api.models.plugins.manual_underwriting.ManualUnderwritingReferralFlag");
+        jv3.b bVar = jv3.b.OPTIONAL;
+        this.v.Q2((ManualUnderwritingReferralFlag) obj3, bVar);
+        return Unit.f186387a;
+    }
+}

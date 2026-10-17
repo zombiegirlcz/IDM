@@ -1,0 +1,66 @@
+package g1k;
+
+import com.revolut.data.model.Data;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+
+/* JADX INFO: loaded from: classes11.dex */
+public final class g extends gim.i implements Function2 {
+    public final /* synthetic */ int u;
+    public /* synthetic */ Object v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public final /* synthetic */ com.revolut.retail.feature.marketnews.impl.ui.wealthnews.all_news.b f139695w;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public /* synthetic */ g(com.revolut.retail.feature.marketnews.impl.ui.wealthnews.all_news.b bVar, Continuation continuation, int i) {
+        super(2, continuation);
+        this.u = i;
+        this.f139695w = bVar;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        switch (this.u) {
+            case 0:
+                g gVar = new g(this.f139695w, continuation, 0);
+                gVar.v = obj2;
+                return gVar;
+            default:
+                g gVar2 = new g(this.f139695w, continuation, 1);
+                gVar2.v = obj2;
+                return gVar2;
+        }
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        Data data = (Data) obj2;
+        Continuation continuation = (Continuation) obj3;
+        switch (this.u) {
+        }
+        return ((g) create(data, continuation)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        int i = this.u;
+        com.revolut.retail.feature.marketnews.impl.ui.wealthnews.all_news.b bVar = this.f139695w;
+        switch (i) {
+            case 0:
+                Data data = (Data) this.v;
+                fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+                yhm.o.b(obj2);
+                bVar.H2(bVar.f101863r, new fv6.r(data, 19));
+                break;
+            default:
+                Data data2 = (Data) this.v;
+                fim.a aVar2 = fim.a.COROUTINE_SUSPENDED;
+                yhm.o.b(obj2);
+                bVar.H2(bVar.f101863r, new fv6.r(data2, 20));
+                break;
+        }
+        return Unit.f186387a;
+    }
+}

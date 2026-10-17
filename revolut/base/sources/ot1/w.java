@@ -1,0 +1,21 @@
+package ot1;
+
+/* JADX INFO: loaded from: classes20.dex */
+public abstract /* synthetic */ class w {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final /* synthetic */ int[] f229421a;
+
+    static {
+        int[] iArr = new int[hrf.f.values().length];
+        try {
+            iArr[hrf.f.OUTGOING.ordinal()] = 1;
+        } catch (NoSuchFieldError unused) {
+        }
+        try {
+            iArr[hrf.f.INCOMING.ordinal()] = 2;
+        } catch (NoSuchFieldError unused2) {
+        }
+        f229421a = iArr;
+    }
+}

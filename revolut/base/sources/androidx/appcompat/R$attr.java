@@ -1,0 +1,50 @@
+package androidx.appcompat;
+
+/* JADX INFO: loaded from: classes.dex */
+public abstract class R$attr {
+    public static int actionBarPopupTheme = 2130968589;
+    public static int actionBarSize = 2130968590;
+    public static int actionBarStyle = 2130968592;
+    public static int actionBarTabBarStyle = 2130968593;
+    public static int actionBarTabStyle = 2130968594;
+    public static int actionBarTheme = 2130968596;
+    public static int actionBarWidgetTheme = 2130968597;
+    public static int actionDropDownStyle = 2130968599;
+    public static int actionModePopupWindowStyle = 2130968611;
+    public static int actionModeStyle = 2130968615;
+    public static int actionOverflowButtonStyle = 2130968618;
+    public static int actionOverflowMenuStyle = 2130968619;
+    public static int alertDialogCenterButtons = 2130968631;
+    public static int alertDialogStyle = 2130968632;
+    public static int alertDialogTheme = 2130968633;
+    public static int autoCompleteTextViewStyle = 2130968667;
+    public static int buttonStyle = 2130968770;
+    public static int checkboxStyle = 2130968813;
+    public static int checkedTextViewStyle = 2130968824;
+    public static int colorAccent = 2130968881;
+    public static int colorButtonNormal = 2130968883;
+    public static int colorControlActivated = 2130968885;
+    public static int colorControlHighlight = 2130968886;
+    public static int colorControlNormal = 2130968887;
+    public static int colorPrimary = 2130968913;
+    public static int colorSwitchThumbNormal = 2130968938;
+    public static int dialogTheme = 2130969037;
+    public static int drawerArrowStyle = 2130969068;
+    public static int dropDownListViewStyle = 2130969072;
+    public static int editTextStyle = 2130969082;
+    public static int imageButtonStyle = 2130969280;
+    public static int lineHeight = 2130969589;
+    public static int listMenuViewStyle = 2130969598;
+    public static int listPopupWindowStyle = 2130969599;
+    public static int panelMenuListTheme = 2130969967;
+    public static int radioButtonStyle = 2130970050;
+    public static int ratingBarStyle = 2130970052;
+    public static int searchViewStyle = 2130970118;
+    public static int seekBarStyle = 2130970124;
+    public static int selectableItemBackgroundBorderless = 2130970126;
+    public static int spinnerStyle = 2130970214;
+    public static int switchStyle = 2130970287;
+    public static int textColorSearchUrl = 2130970371;
+    public static int toolbarNavigationButtonStyle = 2130970481;
+    public static int toolbarStyle = 2130970482;
+}

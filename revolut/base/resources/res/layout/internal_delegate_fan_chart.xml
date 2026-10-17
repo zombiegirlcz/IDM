@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:clipChildren="false"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.chart.ChartHeaderView
+        android:id="@+id/fanChart_chartHeaderView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <Space
+        android:id="@+id/fanChart_separator"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/dp_16"
+        app:layout_constraintTop_toBottomOf="@+id/fanChart_chartHeaderView"/>
+    <com.revolut.core.ui_kit.internal.views.fanchart.FanChartView
+        android:id="@+id/fanChart_fanChartView"
+        android:layout_width="match_parent"
+        android:layout_height="192dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/fanChart_separator"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

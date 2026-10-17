@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/plansCoordinator"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/plansRecycler"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:overScrollMode="never"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.views.navbar.SlidingFromTopViewContainer
+        android:id="@+id/plansSlidingContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.FixedTabs
+            android:id="@+id/plansTabLayout"
+            android:background="?attr/uikit_windowBackground"
+            android:paddingTop="?attr/uikit_dp16"
+            android:paddingBottom="?attr/uikit_dp16"
+            android:visibility="gone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="?attr/uikit_dp16"
+            android:paddingEnd="?attr/uikit_dp16"/>
+    </com.revolut.core.ui_kit.views.navbar.SlidingFromTopViewContainer>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

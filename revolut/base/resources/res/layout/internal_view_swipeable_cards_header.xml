@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/swipeableCardsHeader_iconClose"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="@dimen/internal_dp4"
+        android:layout_width="@dimen/internal_dp32"
+        android:layout_height="@dimen/internal_dp32"
+        android:tint="?attr/uikit_colorWhite"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/uikit_icn_24_cross"/>
+    <com.revolut.core.ui_kit.views.HorizontalStepsProgressView
+        android:id="@+id/swipeableCardsHeader_lineProgressIndicator"
+        android:layout_width="0dp"
+        android:layout_height="4dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_percent="0.5"/>
+</merge>

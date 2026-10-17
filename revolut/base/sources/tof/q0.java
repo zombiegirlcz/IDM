@@ -1,0 +1,28 @@
+package tof;
+
+import kotlin.enums.EnumEntries;
+
+/* JADX WARN: Failed to restore enum class, 'enum' modifier and super class removed */
+/* JADX WARN: Unknown enum class pattern. Please report as an issue! */
+/* JADX INFO: loaded from: classes8.dex */
+public final class q0 {
+    private static final /* synthetic */ EnumEntries $ENTRIES;
+    private static final /* synthetic */ q0[] $VALUES;
+    public static final q0 OPEN_FINANCE;
+
+    static {
+        q0 q0Var = new q0("OPEN_FINANCE", 0);
+        OPEN_FINANCE = q0Var;
+        q0[] q0VarArr = {q0Var};
+        $VALUES = q0VarArr;
+        $ENTRIES = vc.s.n(q0VarArr);
+    }
+
+    public static q0 valueOf(String str) {
+        return (q0) Enum.valueOf(q0.class, str);
+    }
+
+    public static q0[] values() {
+        return (q0[]) $VALUES.clone();
+    }
+}

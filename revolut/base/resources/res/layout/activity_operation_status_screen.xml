@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootCoordinator"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:fitNavigationBar="true">
+    <com.revolut.core.ui_kit.views.legacy.LegacyFragmentContainerFrameLayout
+        android:id="@+id/fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+    <com.revolut.core.ui_kit.views.buttons.TwinVerticalButton
+        android:layout_gravity="bottom"
+        android:id="@+id/twinVerticalButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <View
+        android:id="@+id/behaviour_anchor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:rtbr_toolbar="@+id/toolbar"/>
+    <com.revolut.uicomponent.toolbar.app_bar.RevolutAppBarLayout
+        android:id="@+id/app_bar"
+        android:background="?attr/uikit_colorTransparent"
+        android:fitsSystemWindows="true"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.uicomponent.toolbar.app_bar.RevolutToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </com.revolut.uicomponent.toolbar.app_bar.RevolutAppBarLayout>
+</com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout>

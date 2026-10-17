@@ -1,0 +1,7 @@
+package hwi;
+
+/* JADX INFO: loaded from: classes10.dex */
+public final class b1 {
+    private b1() {
+    }
+}

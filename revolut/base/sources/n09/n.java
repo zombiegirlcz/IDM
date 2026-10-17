@@ -1,0 +1,11 @@
+package n09;
+
+/* JADX INFO: loaded from: classes4.dex */
+public final class n implements v {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final n f210962a = new n();
+
+    private n() {
+    }
+}

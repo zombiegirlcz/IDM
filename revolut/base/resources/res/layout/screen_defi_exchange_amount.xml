@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:fitStatusBar="true">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithAvatar
+        android:id="@+id/navBarWithAvatar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/recyclerView"
+        android:paddingBottom="@dimen/dp_48"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:foregroundGravity="center"
+        android:overScrollMode="never"
+        app:layout_constrainedHeight="true"
+        app:layout_constraintBottom_toTopOf="@+id/goToButton"
+        app:layout_constraintTop_toBottomOf="@+id/navBarWithAvatar"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:id="@+id/goToButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="?attr/uikit_dp24"
+        android:layout_marginStart="?attr/uikit_dp16"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

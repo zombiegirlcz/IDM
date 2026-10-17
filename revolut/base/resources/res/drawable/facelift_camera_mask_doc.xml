@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <size android:width="343dp"/>
+    <size android:height="222dp"/>
+    <solid android:color="#ffffff"/>
+    <corners android:radius="?attr/uikit_box_corner_radius"/>
+</shape>

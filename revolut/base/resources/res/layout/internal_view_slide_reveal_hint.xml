@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="horizontal"
+    android:background="?attr/uikit_colorWidgetBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:layout_gravity="center_vertical"
+        android:id="@+id/hint_icon"
+        android:padding="?attr/uikit_dp8"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginLeft="?attr/uikit_dp8"
+        app:srcCompat="@drawable/uikit_icn_24_search"/>
+    <TextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:gravity="center_vertical"
+        android:layout_gravity="center_vertical"
+        android:id="@+id/hint_title"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:lines="1"
+        android:layout_marginStart="?attr/uikit_dp8"
+        android:layout_marginEnd="?attr/uikit_dp8"
+        style="?attr/internal_textAppearanceBody1"/>
+</merge>

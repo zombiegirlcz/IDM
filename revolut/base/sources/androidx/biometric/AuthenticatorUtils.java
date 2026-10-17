@@ -1,0 +1,39 @@
+package androidx.biometric;
+
+import android.os.Build;
+import androidx.annotation.NonNull;
+import androidx.biometric.BiometricPrompt;
+
+/* JADX INFO: loaded from: classes.dex */
+abstract class AuthenticatorUtils {
+    public static String convertToString(int i) {
+        return i != 15 ? i != 255 ? i != 32768 ? i != 32783 ? i != 33023 ? String.valueOf(i) : "BIOMETRIC_WEAK | DEVICE_CREDENTIAL" : "BIOMETRIC_STRONG | DEVICE_CREDENTIAL" : "DEVICE_CREDENTIAL" : "BIOMETRIC_WEAK" : "BIOMETRIC_STRONG";
+    }
+
+    public static int getConsolidatedAuthenticators(@NonNull BiometricPrompt.PromptInfo promptInfo, BiometricPrompt.CryptoObject cryptoObject) {
+        if (promptInfo.getAllowedAuthenticators() != 0) {
+            return promptInfo.getAllowedAuthenticators();
+        }
+        int i = cryptoObject != null ? 15 : 255;
+        return promptInfo.isDeviceCredentialAllowed() ? 32768 | i : i;
+    }
+
+    public static boolean isDeviceCredentialAllowed(int i) {
+        return (i & 32768) != 0;
+    }
+
+    public static boolean isSomeBiometricAllowed(int i) {
+        return (i & 32767) != 0;
+    }
+
+    public static boolean isSupportedCombination(int i) {
+        if (i != 15 && i != 255) {
+            return i != 32768 ? i != 32783 ? i == 33023 || i == 0 : Build.VERSION.SDK_INT > 29 : Build.VERSION.SDK_INT >= 30;
+        }
+        return true;
+    }
+
+    public static boolean isWeakBiometricAllowed(int i) {
+        return (i & 255) == 255;
+    }
+}

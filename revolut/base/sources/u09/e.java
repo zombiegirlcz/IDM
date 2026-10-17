@@ -1,0 +1,7 @@
+package u09;
+
+/* JADX INFO: loaded from: classes4.dex */
+public abstract class e {
+    private e() {
+    }
+}

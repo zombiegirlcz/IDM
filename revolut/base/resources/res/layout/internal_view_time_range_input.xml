@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.views.input.InputText
+        android:id="@+id/timeRange_start"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="@color/internal_color_input_text"
+        android:id="@+id/timeRange_separator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/uikit.time_range_input.separator"
+        android:layout_marginStart="@dimen/internal_dp8"
+        android:layout_marginEnd="@dimen/internal_dp8"
+        style="@style/InternalTextAppearance.Body1"/>
+    <com.revolut.core.ui_kit.views.input.InputText
+        android:id="@+id/timeRange_end"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"/>
+    <com.revolut.core.ui_kit.internal.views.SmallActionButton
+        android:id="@+id/timeRange_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/internal_dp8"/>
+</merge>

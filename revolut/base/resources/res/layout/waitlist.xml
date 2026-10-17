@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:animateLayoutChanges="true">
+    <com.revolut.core.ui_kit.views.navbar.WallpaperAssetSwitcher
+        android:id="@+id/waitlist_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/waitlist_recycler"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@+id/waitlist_footer"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/waitlist_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.core.ui_kit.views.buttons.ActionFooterView
+        android:id="@+id/waitlist_footer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:animateLayoutChanges="true"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

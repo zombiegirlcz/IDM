@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="?attr/uikit_colorWidgetBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.SimpleLimitProgressBarWithText
+        android:layout_gravity="center"
+        android:id="@+id/simpleLimitProgressBarWithText_content"
+        android:layout_width="88dp"
+        android:layout_height="88dp"/>
+</FrameLayout>

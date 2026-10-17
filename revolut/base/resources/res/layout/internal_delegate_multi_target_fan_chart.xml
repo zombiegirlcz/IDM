@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.chart.ChartHeaderView
+        android:id="@+id/multiTargetFanChart_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/dp_16"/>
+    <com.revolut.core.ui_kit.internal.views.fanchart.MultiTargetFanChartView
+        android:id="@+id/multiTargetFanChart_chart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/dp_8"
+        android:layout_marginBottom="@dimen/dp_16"
+        android:minHeight="204dp"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/multiTargetFanChart_legend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="?attr/internal_textAppearanceBody3"/>
+</androidx.appcompat.widget.LinearLayoutCompat>

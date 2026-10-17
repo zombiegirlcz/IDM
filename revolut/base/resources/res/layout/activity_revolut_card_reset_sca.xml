@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/resetSca_recyclerView"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+    <LinearLayout
+        android:orientation="vertical"
+        android:id="@+id/bottomContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_anchor="@+id/resetSca_recyclerView"
+        app:layout_anchorGravity="bottom">
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/bottomRecyclerView"
+            android:background="@drawable/background_action_button_white_gradient_opaque"
+            android:paddingTop="@dimen/dp_32"
+            android:paddingBottom="@dimen/dp_32"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <LinearLayout
+            android:orientation="vertical"
+            android:id="@+id/bottomButtonContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <com.revolut.core.ui_kit.views.buttons.TwinVerticalButton
+                android:layout_gravity="bottom"
+                android:id="@+id/twinVerticalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+    </LinearLayout>
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:id="@+id/navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout>

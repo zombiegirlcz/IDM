@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <View
+        android:layout_gravity="top"
+        android:id="@+id/quizCard_headerGradient"
+        android:background="@drawable/internal_background_gradient_quiz_card_header"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/internal_quiz_card_gradient_height"
+        android:elevation="1dp"
+        android:outlineProvider="none"/>
+    <View
+        android:layout_gravity="bottom"
+        android:id="@+id/quizCard_footerGradient"
+        android:background="@drawable/internal_background_gradient_quiz_card_footer"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/internal_quiz_card_gradient_height"
+        android:elevation="1dp"
+        android:outlineProvider="none"/>
+</merge>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:id="@+id/rowsWidgetBigHeader_container"
+    android:background="@drawable/internal_box_background"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/rowsWidgetBigHeader_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp8"
+        android:layout_marginBottom="?attr/uikit_dp4"
+        android:textAlignment="viewStart"
+        android:layout_marginStart="?attr/uikit_dp12"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+    <com.revolut.core.ui_kit.internal.views.navbar.ConstraintHeaderLayout
+        android:id="@+id/rowsWidgetBigHeader_headerLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="?attr/uikit_dp4"
+        android:layout_marginStart="-4dp"/>
+</LinearLayout>

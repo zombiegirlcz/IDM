@@ -1,0 +1,49 @@
+package zng;
+
+import com.revolut.core.ui_kit.delegates.InputTextDelegate;
+import com.revolut.feature.user_declarations.shared.flows.name.screen.NameScreen;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlin.jvm.internal.Intrinsics;
+import yhm.o;
+
+/* JADX INFO: loaded from: classes9.dex */
+public final class f extends gim.i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ NameScreen v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public f(NameScreen nameScreen, Continuation continuation) {
+        super(2, continuation);
+        this.v = nameScreen;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        f fVar = new f(this.v, continuation);
+        fVar.u = obj2;
+        return fVar;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((f) create((InputTextDelegate.TextData) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    /* JADX WARN: Type inference failed for: r6v2, types: [java.lang.Object, kotlin.Lazy] */
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        InputTextDelegate.TextData textData = (InputTextDelegate.TextData) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        o.b(obj2);
+        i iVar = (i) this.v.Q.getValue();
+        String itemId = textData.f52597a;
+        String newName = textData.f52598b.toString();
+        iVar.getClass();
+        Intrinsics.checkNotNullParameter(itemId, "itemId");
+        Intrinsics.checkNotNullParameter(newName, "newName");
+        iVar.H2(iVar.f323825p, new yrk.e(iVar, 23, itemId, newName));
+        return Unit.f186387a;
+    }
+}

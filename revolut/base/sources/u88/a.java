@@ -1,0 +1,36 @@
+package u88;
+
+import com.revolut.core.ui_kit.models.Clause;
+import com.revolut.core.ui_kit.models.TextLocalisedClause;
+import com.revolut.feature.junior.accounts.impl.R$string;
+import csh.d;
+import java.util.List;
+import kotlin.jvm.internal.Intrinsics;
+import zhm.d0;
+import zhm.v;
+
+/* JADX INFO: loaded from: classes4.dex */
+public final class a implements d {
+    @Override // csh.d
+    public final Clause a() {
+        return new TextLocalisedClause(R$string.junior_widgets_catalogue_spending_title, null, null, 14);
+    }
+
+    @Override // csh.d
+    public final List c() {
+        return v.k("AnalyticsSmall", "AnalyticsMedium");
+    }
+
+    @Override // csh.d
+    public final Clause d(String widgetType) {
+        Intrinsics.checkNotNullParameter(widgetType, "widgetType");
+        return new TextLocalisedClause(R$string.junior_widgets_catalogue_spending_description, null, null, 14);
+    }
+
+    @Override // csh.d
+    public final String e(List availableWidgetTypes) {
+        Intrinsics.checkNotNullParameter(availableWidgetTypes, "availableWidgetTypes");
+        String str = availableWidgetTypes.contains("AnalyticsSmall") ? "AnalyticsSmall" : null;
+        return str == null ? (String) d0.b0(availableWidgetTypes) : str;
+    }
+}

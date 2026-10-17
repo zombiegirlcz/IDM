@@ -1,0 +1,11 @@
+package vq2;
+
+import kotlin.jvm.internal.Intrinsics;
+import sq2.b;
+
+/* JADX INFO: loaded from: classes21.dex */
+public final class a {
+    public a(b repository) {
+        Intrinsics.checkNotNullParameter(repository, "repository");
+    }
+}

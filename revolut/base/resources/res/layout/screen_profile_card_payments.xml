@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerFrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.ProfileCardView
+        android:layout_gravity="center"
+        android:id="@+id/screenProfileDetails_card"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="?attr/uikit_dp24"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:layout_gravity="bottom"
+        android:id="@+id/googleWalletButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="?attr/uikit_dp24"
+        app:uikit_LargeActionButtonStyle="AddToGoogleWalletButton"/>
+</com.revolut.kompot.view.ControllerContainerFrameLayout>

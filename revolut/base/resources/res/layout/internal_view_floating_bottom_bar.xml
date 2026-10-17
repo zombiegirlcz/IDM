@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:id="@+id/floatingBottomBar_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <View
+        android:id="@+id/floatingBottomBar_shadow"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/internal_dp16"/>
+    <com.revolut.core.ui_kit.internal.views.box.ShadowLayout
+        android:layout_gravity="center_horizontal"
+        android:id="@+id/floatingBottomBar_shadowLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <FrameLayout
+            android:id="@+id/floatingBottomBar_contentContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <LinearLayout
+                android:gravity="bottom"
+                android:orientation="horizontal"
+                android:id="@+id/floatingBottomBar_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+            <com.revolut.core.ui_kit.internal.views.floatingbottombar.FloatingBottomBarExpandedView
+                android:id="@+id/floatingBottomBar_expandedView"
+                android:background="?attr/uikit_colorElevatedBackground"
+                android:visibility="gone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:overScrollMode="never"/>
+        </FrameLayout>
+    </com.revolut.core.ui_kit.internal.views.box.ShadowLayout>
+</merge>

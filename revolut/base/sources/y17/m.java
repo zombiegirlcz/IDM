@@ -1,0 +1,25 @@
+package y17;
+
+/* JADX INFO: loaded from: classes3.dex */
+public abstract /* synthetic */ class m {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final /* synthetic */ int[] f310324a;
+
+    static {
+        int[] iArr = new int[cs6.c.values().length];
+        try {
+            iArr[cs6.c.PAYMENT_LINK.ordinal()] = 1;
+        } catch (NoSuchFieldError unused) {
+        }
+        try {
+            iArr[cs6.c.INVOICE.ordinal()] = 2;
+        } catch (NoSuchFieldError unused2) {
+        }
+        try {
+            iArr[cs6.c.CARD_READER.ordinal()] = 3;
+        } catch (NoSuchFieldError unused3) {
+        }
+        f310324a = iArr;
+    }
+}

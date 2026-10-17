@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center"
+    android:id="@+id/dialog_loading"
+    android:background="#ccffffff"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:alpha="0">
+    <ProgressBar
+        android:layout_gravity="center"
+        android:id="@+id/progress"
+        android:background="@android:color/transparent"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:indeterminate="true"
+        android:progressDrawable="@drawable/progress_blue"
+        android:indeterminateTint="#0666eb"
+        android:indeterminateTintMode="src_in"/>
+</FrameLayout>

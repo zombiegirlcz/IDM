@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorGrey50"
+        android:ellipsize="end"
+        android:id="@+id/projectionChart_description"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:maxLines="1"
+        style="?attr/internal_textAppearanceBody2"/>
+    <com.revolut.core.ui_kit.internal.views.chart.HorizontalChartLegendView
+        android:id="@+id/projectionChart_legendView"
+        android:clickable="false"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"/>
+    <com.revolut.core.ui_kit.internal.views.fanchart.CurvedFanChartView
+        android:id="@+id/projectionChart_chart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="182dp"/>
+</androidx.appcompat.widget.LinearLayoutCompat>

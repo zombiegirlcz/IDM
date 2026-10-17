@@ -1,0 +1,72 @@
+package com.google.android.gms.measurement.internal;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+import com.google.android.gms.common.internal.safeparcel.SafeParcelReader;
+
+/* JADX INFO: loaded from: classes16.dex */
+public final class zzaj implements Parcelable.Creator {
+    @Override // android.os.Parcelable.Creator
+    public final /* bridge */ /* synthetic */ Object createFromParcel(Parcel parcel) {
+        int iValidateObjectHeader = SafeParcelReader.validateObjectHeader(parcel);
+        String strCreateString = null;
+        String strCreateString2 = null;
+        zzqb zzqbVar = null;
+        String strCreateString3 = null;
+        zzbh zzbhVar = null;
+        zzbh zzbhVar2 = null;
+        zzbh zzbhVar3 = null;
+        long j2 = 0;
+        long j3 = 0;
+        long j5 = 0;
+        boolean z = false;
+        while (parcel.dataPosition() < iValidateObjectHeader) {
+            int header = SafeParcelReader.readHeader(parcel);
+            switch (SafeParcelReader.getFieldId(header)) {
+                case 2:
+                    strCreateString = SafeParcelReader.createString(parcel, header);
+                    break;
+                case 3:
+                    strCreateString2 = SafeParcelReader.createString(parcel, header);
+                    break;
+                case 4:
+                    zzqbVar = (zzqb) SafeParcelReader.createParcelable(parcel, header, zzqb.CREATOR);
+                    break;
+                case 5:
+                    j2 = SafeParcelReader.readLong(parcel, header);
+                    break;
+                case 6:
+                    z = SafeParcelReader.readBoolean(parcel, header);
+                    break;
+                case 7:
+                    strCreateString3 = SafeParcelReader.createString(parcel, header);
+                    break;
+                case 8:
+                    zzbhVar = (zzbh) SafeParcelReader.createParcelable(parcel, header, zzbh.CREATOR);
+                    break;
+                case 9:
+                    j3 = SafeParcelReader.readLong(parcel, header);
+                    break;
+                case 10:
+                    zzbhVar2 = (zzbh) SafeParcelReader.createParcelable(parcel, header, zzbh.CREATOR);
+                    break;
+                case 11:
+                    j5 = SafeParcelReader.readLong(parcel, header);
+                    break;
+                case 12:
+                    zzbhVar3 = (zzbh) SafeParcelReader.createParcelable(parcel, header, zzbh.CREATOR);
+                    break;
+                default:
+                    SafeParcelReader.skipUnknownField(parcel, header);
+                    break;
+            }
+        }
+        SafeParcelReader.ensureAtEnd(parcel, iValidateObjectHeader);
+        return new zzai(strCreateString, strCreateString2, zzqbVar, j2, z, strCreateString3, zzbhVar, j3, zzbhVar2, j5, zzbhVar3);
+    }
+
+    @Override // android.os.Parcelable.Creator
+    public final /* synthetic */ Object[] newArray(int i) {
+        return new zzai[i];
+    }
+}

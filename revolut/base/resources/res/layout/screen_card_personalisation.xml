@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/screenContainer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.CardPersonalisationView
+        android:id="@+id/cardPersonalisationView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+    <com.revolut.core.ui_kit.views.FooterTextView
+        android:id="@+id/cardPersonalisation_footer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="?attr/uikit_dp16"
+        app:layout_anchor="@+id/twinButton"
+        app:layout_anchorGravity="top"/>
+    <com.revolut.core.ui_kit.views.buttons.TwinVerticalButton
+        android:layout_gravity="bottom"
+        android:id="@+id/twinButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/navBarWithToolbar"
+        android:background="?attr/uikit_windowBackground"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.rxdiffadapter.AsyncDiffRecyclerView
+        android:layout_gravity="bottom"
+        android:id="@+id/cardPersonalisation_suggestionsRecyclerView"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

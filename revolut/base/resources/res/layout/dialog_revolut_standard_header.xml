@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:textSize="@dimen/material_text_size_m"
+        android:textColor="?attr/uikit_colorForeground"
+        android:gravity="center"
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginRight="16dp"
+        app:ttv_typeface="medium"/>
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:textSize="@dimen/material_text_size_ss"
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:gravity="center"
+        android:id="@+id/subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="16dp"
+        android:text="@string/plan.feature.contract.info"
+        app:ttv_typeface="regular"/>
+</LinearLayout>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core_ui_custom_font.TypefaceTextView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:textSize="@dimen/material_text_size_m"
+    android:textColor="?attr/uikit_colorForeground"
+    android:gravity="center_vertical"
+    android:id="@+id/message"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:lineSpacingExtra="6sp"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    app:ttv_typeface="regular"/>

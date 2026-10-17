@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="29dp"
+    android:width="164.8dp"
+    android:viewportWidth="164.8"
+    android:viewportHeight="29">
+    <group
+        android:translateX="1"
+        android:translateY="2">
+        <path
+            android:fillColor="?attr/uikit_colorAccent"
+            android:pathData="M 146 19.6 L 137.771006 25.3262379 L 140.674084 15.7304952 L 132.685209 9.67376208 L 142.708403 9.46950483 L 146 0 L 149.291597 9.46950483 L 159.314791 9.67376208 L 151.325916 15.7304952 L 154.228994 25.3262379 Z"
+            android:strokeColor="?attr/uikit_colorAccent"
+            android:strokeWidth="2.3333"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
+        <path
+            android:fillColor="?attr/uikit_colorAccent"
+            android:pathData="M 102 19.6 L 93.7710065 25.3262379 L 96.6740835 15.7304952 L 88.6852088 9.67376208 L 98.7084026 9.46950483 L 102 0 L 105.291597 9.46950483 L 115.314791 9.67376208 L 107.325916 15.7304952 L 110.228994 25.3262379 Z"
+            android:strokeColor="?attr/uikit_colorAccent"
+            android:strokeWidth="2.3333"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
+        <path
+            android:fillColor="?attr/uikit_colorAccent"
+            android:pathData="M 58 19.6 L 49.7710065 25.3262379 L 52.6740835 15.7304952 L 44.6852088 9.67376208 L 54.7084026 9.46950483 L 58 0 L 61.2915974 9.46950483 L 71.3147912 9.67376208 L 63.3259165 15.7304952 L 66.2289935 25.3262379 Z"
+            android:strokeColor="?attr/uikit_colorAccent"
+            android:strokeWidth="2.3333"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
+        <path
+            android:fillColor="?attr/uikit_colorAccent"
+            android:pathData="M 14 19.6 L 5.77100647 25.3262379 L 8.67408351 15.7304952 L 0.685208772 9.67376208 L 10.7084026 9.46950483 L 14 0 L 17.2915974 9.46950483 L 27.3147912 9.67376208 L 19.3259165 15.7304952 L 22.2289935 25.3262379 Z"
+            android:strokeColor="?attr/uikit_colorAccent"
+            android:strokeWidth="2.3333"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
+    </group>
+</vector>

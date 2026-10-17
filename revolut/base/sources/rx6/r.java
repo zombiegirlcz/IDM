@@ -1,0 +1,44 @@
+package rx6;
+
+import com.revolut.data.model.Data;
+import dmj.r0;
+import kotlin.Pair;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+
+/* JADX INFO: loaded from: classes3.dex */
+public final class r extends gim.i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ com.revolut.feature.freelancer.impl.ui.invoice.list.a v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public r(com.revolut.feature.freelancer.impl.ui.invoice.list.a aVar, Continuation continuation) {
+        super(2, continuation);
+        this.v = aVar;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        r rVar = new r(this.v, continuation);
+        rVar.u = obj2;
+        return rVar;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((r) create((Pair) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        Pair pair = (Pair) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        yhm.o.b(obj2);
+        Data data = (Data) pair.f186385a;
+        boolean zBooleanValue = ((Boolean) pair.f186386b).booleanValue();
+        com.revolut.feature.freelancer.impl.ui.invoice.list.a aVar2 = this.v;
+        aVar2.H2(aVar2.f73878r, new r0(9, data, zBooleanValue));
+        return Unit.f186387a;
+    }
+}

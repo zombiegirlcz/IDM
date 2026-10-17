@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.background.AnimatedBackgroundView
+        android:id="@+id/topItemOffer_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.core.ui_kit.views.navbar.NavBarLargeCentred
+        android:id="@+id/topItemOffer_navBarLargeCentred"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior">
+        <com.revolut.recyclerkit.ScreenContentRecyclerView
+            android:id="@+id/topItemOffer_recyclerView"
+            android:paddingBottom="@dimen/dp_120"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:overScrollMode="never"
+            app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    </FrameLayout>
+    <FrameLayout
+        android:layout_gravity="bottom"
+        android:id="@+id/topItemOffer_largeActionButtonContainer"
+        android:background="@drawable/uikit_bottom_button_gradient"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.buttons.TwinVerticalButton
+            android:layout_gravity="bottom"
+            android:id="@+id/topItemOffer_twinVerticalButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="@dimen/dp_24"
+            app:uikit_LargeActionButtonStyle="AccentButton"/>
+    </FrameLayout>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

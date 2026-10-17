@@ -1,0 +1,7 @@
+package pp4;
+
+/* JADX INFO: loaded from: classes22.dex */
+public final class p {
+    private p() {
+    }
+}

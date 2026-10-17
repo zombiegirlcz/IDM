@@ -1,0 +1,84 @@
+package com.revolut.feature.address_picker;
+
+/* JADX INFO: loaded from: classes20.dex */
+public final class R$string {
+    public static int address_autocomplete_address_not_listed = 2131952731;
+    public static int address_form_address_line1_sg_footer = 2131952625;
+    public static int address_form_address_line2_sg_footer = 2131952629;
+    public static int address_form_city_il_placeholder = 2131952635;
+    public static int address_form_city_jp_footer = 2131952636;
+    public static int address_form_city_jp_placeholder = 2131952637;
+    public static int address_form_city_ua_placeholder = 2131952638;
+    public static int address_form_flat_il_placeholder = 2131952648;
+    public static int address_form_flat_jp_footer = 2131952649;
+    public static int address_form_flat_jp_placeholder = 2131952650;
+    public static int address_form_house_name_jp_footer = 2131952651;
+    public static int address_form_house_name_jp_placeholder = 2131952652;
+    public static int address_form_house_number_jp_footer = 2131952656;
+    public static int address_form_house_number_jp_placeholder = 2131952657;
+    public static int address_form_postal_code_jp_placeholder = 2131952659;
+    public static int address_form_postal_code_label = 2131952660;
+    public static int address_form_postal_code_sg_footer = 2131952661;
+    public static int address_form_postal_code_sg_placeholder = 2131952662;
+    public static int address_form_prompt_jp_button_primary = 2131952663;
+    public static int address_form_prompt_jp_button_secondary = 2131952664;
+    public static int address_form_prompt_jp_subtitle = 2131952665;
+    public static int address_form_prompt_jp_title = 2131952666;
+    public static int address_form_prompt_missing_floor_and_unit_button_accept = 2131952667;
+    public static int address_form_prompt_missing_floor_and_unit_button_decline = 2131952668;
+    public static int address_form_prompt_missing_floor_and_unit_subtitle = 2131952669;
+    public static int address_form_prompt_missing_floor_and_unit_title = 2131952670;
+    public static int address_form_prompt_missing_room_number_button_accept = 2131952671;
+    public static int address_form_prompt_missing_room_number_button_decline = 2131952672;
+    public static int address_form_prompt_missing_room_number_subtitle = 2131952673;
+    public static int address_form_prompt_missing_room_number_title = 2131952674;
+    public static int address_form_region_ua_footer = 2131952675;
+    public static int address_form_street_jp_footer = 2131952678;
+    public static int address_form_street_jp_placeholder = 2131952679;
+    public static int address_map_error_message = 2131952681;
+    public static int address_picker_address1_hint = 2131952693;
+    public static int address_picker_address2_hint = 2131952694;
+    public static int address_picker_address_enter_manually_link = 2131952682;
+    public static int address_picker_address_enter_manually_no_result_found = 2131952683;
+    public static int address_picker_address_enter_manually_not_found = 2131952684;
+    public static int address_picker_address_enter_manually_not_found_placeholder = 2131952685;
+    public static int address_picker_address_invalid_postcode_message = 2131952687;
+    public static int address_picker_address_invalid_postcode_title = 2131952689;
+    public static int address_picker_address_not_here = 2131952695;
+    public static int address_picker_address_not_listed = 2131952696;
+    public static int address_picker_address_postcode = 2131952690;
+    public static int address_picker_address_select_country = 2131952691;
+    public static int address_picker_address_zip_code = 2131952692;
+    public static int address_picker_change_delivery_address = 2131952697;
+    public static int address_picker_change_home_address = 2131952698;
+    public static int address_picker_countries_title = 2131952699;
+    public static int address_picker_enter_address_manually = 2131952700;
+    public static int address_picker_error_house_number_required = 2131952701;
+    public static int address_picker_hint_address_line_1 = 2131952702;
+    public static int address_picker_hint_address_line_2 = 2131952703;
+    public static int address_picker_neighbourhood_hint = 2131952706;
+    public static int address_picker_postcode_hint = 2131952707;
+    public static int address_picker_provide_accurate_address = 2131952708;
+    public static int address_picker_search_hint = 2131952709;
+    public static int address_picker_search_placeholder = 2131952710;
+    public static int address_picker_search_results_appear_here = 2131952712;
+    public static int address_picker_type_address_manually = 2131952713;
+    public static int common_footer_optional = 2131961986;
+    public static int sign_up_form_address2_footer = 2132001030;
+    public static int sign_up_form_flat = 2132001032;
+    public static int sign_up_form_house_number = 2132001033;
+    public static int sign_up_form_mx_city = 2132001034;
+    public static int sign_up_form_mx_flat = 2132001035;
+    public static int sign_up_form_mx_house_number = 2132001036;
+    public static int sign_up_form_neighbourhood = 2132001037;
+    public static int sign_up_form_neighbourhood_jp = 2132001038;
+    public static int sign_up_form_street = 2132001040;
+    public static int signup_registration_enter_address_hint_building_room_helper = 2132001322;
+    public static int signup_registration_enter_address_hint_city_ward_helper = 2132001324;
+    public static int signup_registration_enter_address_postal_helper = 2132001319;
+    public static int validation_error_incorrect_postal_code = 2132010039;
+    public static int validation_error_unsupported_postal_code = 2132010041;
+
+    private R$string() {
+    }
+}

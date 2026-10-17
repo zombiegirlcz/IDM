@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/containerBack"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    style="@style/MainToolbar">
+    <ImageButton
+        android:id="@+id/back_button"
+        android:clickable="true"
+        android:layout_alignParentLeft="true"
+        android:layout_centerVertical="true"
+        app:srcCompat="@drawable/uikit_icn_24_back_button_arrow"
+        style="@style/ToolbarLeftButton"/>
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:ellipsize="end"
+        android:id="@+id/main_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:lines="1"
+        android:layout_toRightOf="@+id/back_button"
+        android:layout_centerVertical="true"
+        style="@style/ToolbarTitle"/>
+</merge>

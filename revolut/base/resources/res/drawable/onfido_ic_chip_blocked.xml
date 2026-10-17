@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="56dp"
+    android:width="56dp"
+    android:viewportWidth="56"
+    android:viewportHeight="56">
+    <path
+        android:fillColor="?attr/onfidoColorIconBackground"
+        android:pathData="M0,28C0,12.536 12.536,0 28,0C43.464,0 56,12.536 56,28C56,43.464 43.464,56 28,56C12.536,56 0,43.464 0,28Z"/>
+    <group>
+        <clip-path android:pathData="M16,16h24v24h-24z"/>
+        <path
+            android:fillColor="?attr/onfidoColorIconStroke"
+            android:pathData="M38,33C38,34.105 37.105,35 36,35H23.828L26.964,31.863C27.294,31.952 27.642,32 28,32C29.864,32 31.43,30.725 31.874,29H38V33ZM24.136,29.035L18.676,34.495C18.262,34.129 18,33.596 18,33V29H24.126C24.129,29.012 24.133,29.023 24.136,29.035ZM29.035,24.136C28.705,24.048 28.358,24 28,24C26.136,24 24.57,25.275 24.126,27H18V23C18,21.895 18.895,21 20,21H32.172L29.035,24.136ZM37.323,21.504C37.737,21.87 38,22.404 38,23V27H31.874C31.871,26.988 31.867,26.976 31.863,26.964L37.323,21.504Z"/>
+        <path
+            android:fillColor="?attr/onfidoColorIconStroke"
+            android:pathData="M16.686,37.899L37.9,16.686A1,1 0,0 1,39.314 16.686L39.314,16.686A1,1 0,0 1,39.314 18.1L18.101,39.314A1,1 128.802,0 1,16.686 39.314L16.686,39.314A1,1 128.802,0 1,16.686 37.899z"/>
+    </group>
+</vector>

@@ -1,0 +1,11 @@
+package wba;
+
+/* JADX INFO: loaded from: classes5.dex */
+public final class l implements r {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final l f296083a = new l();
+
+    private l() {
+    }
+}

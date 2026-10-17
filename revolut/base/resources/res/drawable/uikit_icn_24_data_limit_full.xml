@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="24dp"
+    android:width="24dp"
+    android:autoMirrored="true"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="?attr/uikit_colorForeground"
+        android:pathData="M1.1 9c0-1.105 0.895-2 2-2h0.7c1.104 0 2 0.895 2 2v6c0 1.105-0.896 2-2 2H3.1c-1.105 0-2-0.895-2-2V9zm5.7 0c0-1.105 0.895-2 2-2h0.7c1.104 0 2 0.895 2 2v6c0 1.105-0.896 2-2 2H8.8c-1.105 0-2-0.895-2-2V9zm5.7 0c0-1.105 0.896-2 2-2h0.7c1.105 0 2 0.895 2 2v6c0 1.105-0.895 2-2 2h-0.7c-1.104 0-2-0.895-2-2V9zm7.7-2c-1.105 0-2 0.895-2 2v6c0 1.105 0.895 2 2 2h0.7c1.105 0 2-0.895 2-2V9c0-1.105-0.895-2-2-2h-0.7z"/>
+</vector>

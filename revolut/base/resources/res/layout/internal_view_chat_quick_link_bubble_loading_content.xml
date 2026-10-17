@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.facebook.shimmer.ShimmerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.ShimmeringTextView
+        android:id="@+id/chatQuickLinkBubbleLoading_title"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:maxLines="1"
+        android:layout_marginStart="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+    <com.revolut.core.ui_kit.internal.views.ShimmeringTextView
+        android:id="@+id/chatQuickLinkBubbleLoading_description"
+        android:layout_width="64dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:maxLines="1"
+        android:layout_marginStart="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/chatQuickLinkBubbleLoading_title"
+        style="?attr/internal_textAppearanceBody2"/>
+    <com.revolut.core.ui_kit.internal.views.ShimmeringPillShapeView
+        android:id="@+id/chatQuickLinkBubbleLoading_icon"
+        android:layout_width="24dp"
+        android:layout_height="16dp"
+        android:layout_marginEnd="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/uikit_icn_24_chevron_right"
+        app:tint="?attr/uikit_colorGreyTone10"/>
+</com.facebook.shimmer.ShimmerConstraintLayout>

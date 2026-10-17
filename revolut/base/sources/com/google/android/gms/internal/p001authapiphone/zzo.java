@@ -1,0 +1,27 @@
+package com.google.android.gms.internal.p001authapiphone;
+
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.common.api.internal.IStatusCallback;
+import com.google.android.gms.common.api.internal.TaskUtil;
+import com.google.android.gms.common.internal.ApiExceptionUtil;
+import com.google.android.gms.tasks.TaskCompletionSource;
+
+/* JADX INFO: loaded from: classes16.dex */
+final class zzo extends IStatusCallback.Stub {
+
+    /* JADX INFO: renamed from: zza, reason: collision with root package name */
+    final /* synthetic */ TaskCompletionSource f38802zza;
+
+    public zzo(zzr zzrVar, TaskCompletionSource taskCompletionSource) {
+        this.f38802zza = taskCompletionSource;
+    }
+
+    @Override // com.google.android.gms.common.api.internal.IStatusCallback
+    public final void onResult(Status status) {
+        if (status.getStatusCode() == 6) {
+            this.f38802zza.trySetException(ApiExceptionUtil.fromStatus(status));
+        } else {
+            TaskUtil.setResultOrApiException(status, this.f38802zza);
+        }
+    }
+}

@@ -1,0 +1,43 @@
+package androidx.transition;
+
+import android.graphics.Matrix;
+import android.graphics.drawable.Drawable;
+import android.os.Build;
+import android.widget.ImageView;
+
+/* JADX INFO: loaded from: classes16.dex */
+abstract class ImageViewUtils {
+    private static boolean sTryHiddenAnimateTransform = true;
+
+    public static class Api29Impl {
+        public static void animateTransform(ImageView imageView, Matrix matrix) {
+            imageView.animateTransform(matrix);
+        }
+    }
+
+    public static void animateTransform(ImageView imageView, Matrix matrix) {
+        if (Build.VERSION.SDK_INT >= 29) {
+            Api29Impl.animateTransform(imageView, matrix);
+            return;
+        }
+        if (matrix != null) {
+            hiddenAnimateTransform(imageView, matrix);
+            return;
+        }
+        Drawable drawable = imageView.getDrawable();
+        if (drawable != null) {
+            drawable.setBounds(0, 0, (imageView.getWidth() - imageView.getPaddingLeft()) - imageView.getPaddingRight(), (imageView.getHeight() - imageView.getPaddingTop()) - imageView.getPaddingBottom());
+            imageView.invalidate();
+        }
+    }
+
+    private static void hiddenAnimateTransform(ImageView imageView, Matrix matrix) {
+        if (sTryHiddenAnimateTransform) {
+            try {
+                Api29Impl.animateTransform(imageView, matrix);
+            } catch (NoSuchMethodError unused) {
+                sTryHiddenAnimateTransform = false;
+            }
+        }
+    }
+}

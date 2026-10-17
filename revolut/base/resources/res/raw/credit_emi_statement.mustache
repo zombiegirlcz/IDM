@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8' />
+
+    <style type='text/css'>
+
+        @font-face {
+            font-family: 'Basier Circle';
+            src: url('https://assets.revolut.com/media/fonts/BasierCircle-Regular.woff2') format('woff2');
+        }
+
+        body {
+            margin: 0;
+            letter-spacing: 1px;
+            font-weight: 300;
+            font-family: "Basier Circle";
+            -webkit-font-smoothing: antialiased;
+            color: #191C1F;
+            font-size: 12px;
+        }
+
+        .sheet {
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+            box-sizing: border-box;
+            page-break-after: always;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: -40px;
+            display: block;
+            width: 100%;
+        }
+
+        .footer p {
+            color: #bfbfbf;
+            width: 100%;
+            font-size: 9px;
+            text-align: center;
+            position: relative;
+            left: 0;
+            bottom: 20px;
+        }
+
+        .col-1,
+        .col-2,
+        .col-3,
+        .col-4,
+        .col-5,
+        .col-6,
+        .col-7,
+        .col-8,
+        .col-9,
+        .col-10,
+        .col-11,
+        .col-12 {
+            float: left;
+            position: relative;
+            min-height: 1px;
+        }
+
+        .col-12 {
+            width: 100%;
+        }
+
+        .col-11 {
+            width: 91.66666667%;
+        }
+
+        .col-10 {
+            width: 83.33333333%;
+        }
+
+        .col-9 {
+            width: 75%;
+        }
+
+        .col-8 {
+            width: 66.66666667%;
+        }
+
+        .col-7 {
+            width: 58.33333333%;
+        }
+
+        .col-6 {
+            width: 50%;
+        }
+
+        .col-5 {
+            width: 41.66666667%;
+        }
+
+        .col-4 {
+            width: 33.33333333%;
+        }
+
+        .col-3 {
+            width: 25%;
+        }
+
+        .col-2 {
+            width: 16.66666667%;
+        }
+
+        .col-1 {
+            width: 8.33333333%;
+        }
+
+        .clearfix:before,
+        .clearfix:after,
+        .container:before,
+        .container:after,
+        .container-fluid:before,
+        .container-fluid:after,
+        .row:before,
+        .row:after {
+            content: ' ';
+            display: table;
+        }
+
+        .clearfix:after,
+        .container:after,
+        .container-fluid:after,
+        .row:after {
+            clear: both;
+        }
+
+        .row {
+            margin: 0 0 15px;
+        }
+
+        p {
+            text-align: justify;
+        }
+
+        h1 {
+            margin-bottom: 7.5px;
+        }
+
+        h4 {
+            margin-top: 0;
+            font-weight: 500;
+        }
+
+        h3 {
+            font-size: 18px;
+            margin-bottom: 17.5px;
+        }
+
+        .align-left {
+            text-align: left;
+        }
+
+        .align-right {
+            text-align: right;
+        }
+
+        .logo {
+            position: relative;
+            top: 18px;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        ul li {
+            margin: 4px 0;
+        }
+
+        .box {
+            background: #f7f7f7;
+            padding: 17.5px 15px;
+            margin-bottom: 15px;
+        }
+
+        .box.summary {
+            padding: 15px 17.5px;
+            margin-bottom: 45px;
+        }
+
+        .box.summary h4 {
+            margin: 17.5px 0 10px;
+        }
+
+        .box.box.summary p {
+            margin-top: 0;
+        }
+
+        .get-in-touch {
+            margin-top: 20px;
+            padding: 15px 17.5px;
+            display: inline-block;
+        }
+
+        .get-in-touch img {
+            margin-right: 2px;
+        }
+
+        .get-in-touch ul li {
+            padding-left: 18px;
+        }
+
+        .get-in-touch ul li:first-child {
+            padding-left: 0;
+        }
+
+        .box ul {
+            margin: 0;
+        }
+
+        .box ul li {
+            margin: 0 0 12.5px 0;
+        }
+
+        .box ul li:last-child {
+            margin: 0;
+        }
+
+        .box ul li span:first-child {
+            float: left;
+        }
+
+        .box ul li.highlight {
+            font-weight: 500;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        table thead th {
+            text-align: right;
+            padding: 7.5px;
+            font-weight: 300;
+            border-bottom: 2px solid;
+            width: 10%;
+        }
+
+        table thead th:first-child {
+            text-align: left;
+        }
+
+        table thead th:nth-child(2) {
+            text-align: left;
+            width: 18%;
+        }
+
+        table tbody td {
+            padding: 14px 7.5px;
+            text-align: right;
+            -webkit-column-break-inside: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        table tbody tr {
+            -webkit-column-break-inside: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        table tbody tr:first-child td {
+            padding: 17.5px 7.5px 14px;
+        }
+
+        table tbody td:first-child,
+        table tbody td:nth-child(2) {
+            text-align: left;
+        }
+
+        table tbody tr:nth-child(even) td {
+            background: #f7f7f7;
+            border-top: 1px solid #efefef;
+            border-bottom: 1px solid #efefef;
+        }
+
+        table.overdue tbody tr td {
+            color: #EB008D;
+        }
+
+        table.overdue tbody tr:last-child td {
+            color: #191C1F;
+        }
+
+        .break {
+            display: block;
+            page-break-after: always;
+        }
+
+        .table-explanation {
+            display: block;
+            -webkit-column-break-inside: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .table-explanation h3 {
+            margin-bottom: 22.5px;
+        }
+
+        .separator {
+            margin: 17.5px 0;
+            height: 2px;
+            width: 100%;
+            background: #efefef;
+        }
+
+        @page {
+            margin: 1cm 5mm;
+            size: A4;
+        }
+
+        @supports (-webkit-overflow-scrolling: touch) {
+            @media print {
+                body {
+                    padding: 1rem 1rem 2rem;
+                }
+
+                .footer {
+                    position: absolute;
+                    bottom: -2.5rem;
+                }
+            }
+        }
+
+        @media screen {
+            body {
+                padding: 3rem 4rem;
+            }
+
+            .footer {
+                position: absolute;
+                bottom: -1.5rem;
+            }
+
+            .footer::after {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="container sheet">
+    <div class="row" style="margin-bottom: 45px;">
+        <div class="col-6 align-left">
+            <svg class="logo" width="100" height="22" viewBox="0 0 138 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M98.992 0H93.6205V29.748H98.992V0Z" fill="#191C1F"/>
+                <path d="M137.119 7.91665V12.5329H131.565V22.9156C131.565 23.7814 131.751 24.5333 132.039 24.8309C132.353 25.1561 132.894 25.3208 133.649 25.3208H137.119V29.9371H132.377C130.289 29.9371 128.719 29.4225 127.712 28.4074C126.704 27.3931 126.193 25.8566 126.193 23.8405V1.89793H131.565V7.91665H137.119Z" fill="#191C1F"/>
+                <path d="M57.1345 23.9578L62.6882 7.91602H68.3311L60.3138 29.7483H53.9552L45.9378 7.91602H51.5808L57.1345 23.9578Z" fill="#191C1F"/>
+                <path d="M116.811 22.4269C117.227 21.4376 117.438 20.2352 117.438 18.853V7.91661H122.81V29.7479H118.095L117.614 27.2028C116.979 27.918 116.169 28.5558 115.201 29.1013C114.14 29.6977 112.75 30 111.071 30C109.905 30 108.788 29.8356 107.749 29.5109C106.704 29.1845 105.768 28.6302 104.966 27.8627C104.164 27.0943 103.519 26.0592 103.05 24.7867C102.581 23.5181 102.343 21.9181 102.343 20.0317V7.91661H107.715V19.4424C107.715 21.4273 108.099 22.94 108.856 23.9381C109.606 24.9256 110.764 25.4266 112.3 25.4266C113.373 25.4266 114.3 25.1714 115.053 24.6682C115.807 24.1651 116.398 23.4108 116.811 22.4269Z" fill="#191C1F"/>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M85.4095 9.06792C83.7168 8.13631 81.7067 7.66434 79.436 7.66434C77.1931 7.66434 75.1905 8.13631 73.4838 9.06763C71.775 10.0013 70.4325 11.3199 69.4931 12.9867C68.5552 14.652 68.0797 16.6258 68.0797 18.8531C68.0797 21.053 68.5552 23.013 69.4931 24.6783C70.4319 26.3445 71.7748 27.6628 73.4838 28.5964C75.1905 29.5277 77.1931 29.9997 79.436 29.9997C81.7067 29.9997 83.7168 29.5277 85.4095 28.5961C87.1041 27.663 88.4395 26.3447 89.3787 24.6782C90.3169 23.012 90.7926 21.0521 90.7926 18.853C90.7926 16.6266 90.3169 14.6528 89.3787 12.9866C88.439 11.3196 87.1038 10.001 85.4095 9.06792ZM82.5718 24.6671C81.7065 25.2264 80.6515 25.5102 79.4363 25.5102C78.249 25.5102 77.2008 25.2264 76.321 24.6668C75.4396 24.1066 74.7485 23.3159 74.2662 22.3163C73.7818 21.3159 73.5359 20.1508 73.5359 18.8531C73.5359 17.5286 73.7815 16.3567 74.2662 15.3698C74.7482 14.3838 75.4399 13.5928 76.3221 13.0185C77.2017 12.4448 78.2495 12.1539 79.4363 12.1539C80.6509 12.1539 81.7052 12.4448 82.5708 13.0179C83.4389 13.5925 84.1238 14.3838 84.6069 15.3701C85.091 16.3594 85.3366 17.5313 85.3366 18.8531C85.3366 20.1479 85.091 21.3133 84.6069 22.3163C84.1238 23.3161 83.4392 24.1069 82.5718 24.6671Z" fill="#191C1F"/>
+                <path d="M0.305664 7.34171H5.88786V29.7483H0.305664V7.34171Z" fill="#191C1F"/>
+                <path d="M23.3934 8.623C23.3934 3.86848 19.493 0.000320435 14.6985 0.000320435H0.305664V4.7854H14.0142C16.1839 4.7854 17.9812 6.47747 18.0209 8.55711C18.0408 9.59841 17.6471 10.5812 16.9124 11.3243C16.1774 12.0677 15.1954 12.4774 14.1472 12.4774H8.80706C8.61746 12.4774 8.46313 12.6303 8.46313 12.8185V17.0713C8.46313 17.1437 8.48565 17.2128 8.528 17.271L17.5884 29.7484H24.2208L15.1393 17.2369C19.7128 17.0089 23.3934 13.1946 23.3934 8.623Z" fill="#191C1F"/>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M34.8833 7.66434C37.0408 7.66434 38.9501 8.09367 40.5582 8.94088C42.1659 9.78807 43.4445 11.007 44.3584 12.5636C45.2687 14.1183 45.7451 15.9789 45.7738 18.0941C45.7738 18.407 45.7661 18.7169 45.7528 19.0272C45.7371 19.3457 45.701 19.6623 45.6447 19.9697L45.6266 20.0676H29.4915V20.2429C29.5469 21.3641 29.8058 22.3519 30.2609 23.173C30.7141 23.991 31.3686 24.6333 32.2055 25.0823C33.0465 25.534 34.0191 25.7631 35.0959 25.7631C36.3665 25.7631 37.4633 25.4585 38.3561 24.858C39.188 24.2995 39.7586 23.51 40.0527 22.5107L40.0779 22.4248H45.4196L45.3902 22.5677C45.1177 23.9075 44.5608 25.1391 43.7351 26.228C42.8659 27.3737 41.7031 28.2991 40.2788 28.9787C38.8548 29.6566 37.1964 30 35.3496 30C33.0216 30 30.9766 29.5351 29.2717 28.6179C27.5635 27.7007 26.2275 26.3891 25.3011 24.7197C24.3768 23.0541 23.9085 21.0947 23.9085 18.8957C23.9085 16.6393 24.3697 14.6517 25.2798 12.9879C26.1908 11.3202 27.4904 10.0013 29.1423 9.06852C30.7915 8.13661 32.723 7.66434 34.8833 7.66434ZM40.2989 16.2926C40.0895 14.9084 39.5186 13.8189 38.6009 13.0523C37.6526 12.2606 36.416 11.8592 34.9256 11.8592C34.0439 11.8592 33.213 12.0466 32.4561 12.4156C31.7001 12.7835 31.0658 13.3093 30.5708 13.9786C30.0989 14.6167 29.7984 15.3945 29.677 16.2926H40.2989Z" fill="#191C1F"/>
+            </svg>
+        </div>
+        <div class="col-6 align-right">
+            <div>
+                <h1>{{header}}</h1>
+                <span>{{statementPeriodDate}}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>{{footer}}</p>
+    </div>
+    <div class="row">
+        <div class="col-6 align-left">
+            <h4>{{fullName}}</h4>
+            <ul>
+                <li>{{streetLine1}} {{streetLine2}}</li>
+                <li>{{city}}</li>
+                <li>{{postCode}}</li>
+                <li>{{country}}</li>
+            </ul>
+        </div>
+        <div class="col-6 align-right">
+            <div class="box">
+                <ul>
+                    <li>
+                        <span>{{summaryEntity}}</span>
+                        <span>Revolut Payments UAB</span>
+                    </li>
+                    <li>
+                        <span>{{summaryCurrency}}</span>
+                        <span>{{currency}} · {{currencySymbol}}</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="box">
+                <ul>
+                    <li class="highlight">
+                        <span>{{summaryAccountOverview}}</span>
+                        <span style="visibility:hidden;">-</span>
+                    </li>
+                    <li>
+                        <span>{{summaryTotalBalance}}</span>
+                        <span>{{totalBalance}}</span>
+                    </li>
+                    <li>
+                        <span>{{summaryTotalOutgoings}}</span>
+                        <span>{{totalOutgoings}}</span>
+                    </li>
+                    <li>
+                        <span>{{summaryTotalDeposits}}</span>
+                        <span>{{totalDeposits}}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <h3>{{transactionsTitle}}</h3>
+            <table>
+                <thead>
+                <th>{{transactionsDate}}</th>
+                <th>{{transactionsDescription}}</th>
+                <th>{{transactionsAmount}}</th>
+                <th>{{transactionsBalance}}</th>
+                </thead>
+                <tbody>
+                {{#otherTransactions}}
+                    <tr>
+                        <td>{{date}}</td>
+                        <td style="text-transform: capitalize;">
+                            {{description}}
+                        </td>
+                        <td style="text-align: right;">{{amount}}</td>
+                        <td style="text-align: right;">{{balance}}</td>
+                    </tr>
+                {{/otherTransactions}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <div class="get-in-touch" style="padding-left: 0;">
+                <h3>{{contactUsTitle}}</h3>
+                <ul>
+                    <li>
+                        <img width="12px"
+                             src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAVCAYAAABR915hAAAACXBIWXMAACE4AAAhOAFFljFgAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAJoSURBVHgB5VXBchJBEO2exVJKIHAjijj5Ail/IKsfoNEfkKLKKm+SLwD8ARN/QPIH4eZJ5eYt5JZbhogFVR4ykrWyVcK2PQsLxMBuEuIpr2prZ3Z6+r3u6ekFuGnARQvZXM5GEBtsss5GkgDS46UWIH3tfj/ahCUQm09oVXhoB99o1oCoeeqIWjCVUoI7GAQiH8JEIO0TwZ77WzS0VvpfnjMRrz7IvwfCMiwAAdV6naPqxD4n3yJQdSYbc4EIde8P1no9pc4RR5Eydrud9gszyGalxBh9hJmsRILgkIb4NCD3ie/lZIWjqYbuG+Ca2ZROy3T8Lu3xTgmXxzH7eWz8CKOe3ZZDSYnqgdJ40tu6IqlBBi36bAYCLdiIOqMhiG3z9kUSvoJlwKJX7+fLgq/G8whT/fOHavmjmFeE5YFcbc8EH3IhzIrMvZ3uWIfrQUFEpfk/IW0i1mEWOCOMi6wN1wMtZlO5ANJcoZEIEWV7QVBTcJU2IqzSdxIDvw5u34J6VIYuwkrgbQnjjENRYZbj3g1KKU2ENbg6yO8JnU7T0lq7iVRmnyMphmyQiVSy6fT7yjnR35LJlTW+EoVL05oAB6LkOFpbZu70tWJy7uWLey+SsGNWZsd1teuc/NqNsp8D7sr0rtdtfzITMf08VBCuVsYT9CUotF5HVU3/5tTtnHF+/pkuIqwE4ykxooRoFMwPYtTfmZz795vXpeKpgxkCfMJONs2v03+TV2KfLzkrxxMBJA6ncYyRzeWr3JkqE3VcBChEAzzPJsRHI22o2YNGgla3o7ajVNq2DQcHSoIFNp9Livd8CNb+AsRe/bkSJPsXAAAAAElFTkSuQmCC" />
+                        <strong>{{contactUsChat}}</strong>
+                    </li>
+                    <li>{{contactUsWorkingHours}}</li>
+                    <li>{{contactUsPremium}}</li>
+                </ul>
+                <ul>
+                    <li>
+                        <img style="position: relative; bottom: -2px;" width="12px"
+                             src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAACXBIWXMAACE4AAAhOAFFljFgAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAOOSURBVHgB7VbNThNRFD5npmBRih1FrdrIEEhUEkMXPkDLhp0aNrohII/gAwj4AsJSF6S4cwPizg3UHTurcaErRmihxiBjaUSZ9h7PbWdKWzrTaWSnX9Lkdu695zv/9wD8a8B2DofDejjYXYwBoQ7Iv4qAPQLxPpfJpKAN+CKORKNxBHWaD8eI+V2FISUFiUU/SngSRyK6jh30FAjuQRtAhKSwcDaXMwzXM24bV6/qMQG0zCd08EMGYNZ5g2CjCDj2LWukm51X3EgJac0vqYQAeEdF7CeiRVuT/gDS6gWW5YtYulda6hXLJiBOuEXp2mCHMkmAs/Z3LQC0JGU2XlAbP4S0njlWNw4esN26zksDEdNM+jyXNZ7JPdM0IXKxN2VZlOeDo/zTUIG+Qv7HywYZNdZGdc5ednFL8yCVy3xJeJ0ZGBjAn4elJSCSiUkEpZHabK9zNaKYhBPC+Pg4nVJhSnqnLBrUx7X79TEmnIATwszMDPzu7DQF0Yr9KSYbkLMfcBbSzWUnQpPSgHL2zFb/FJUk+EEoRMrBwQpVDKp0PRNSdcRIEHMiTiXxEAKKbBy6s5/LbM5Am7geCsGn7G4aA2QLRt3Zq7qaUFQt3NnZekUWJlgRA/4CqVQKgsGqDHT6u0TA7ZKsSa6/BLfMNWn55WgfgTs4EvRoJ7s5Bz5xlFxEhrPketcdctvyjRZykBDvNH4cGhoCywKnc3EzLGd4AzGqRlWHQxh21jb5iA/yY9jr6gJSSnpVLor0MeJgANJ2zYGCIiHLoZHc2feN/X2+gnercpo1EMMwZAlVNEKcmJtParUyyuTOvg/E43Gg/KFulxJHkpK1+3UNpKa5h7vO0MLg4GC9NHS3mE1LyAS8Eu37fiV6bfrz9jYqHWL6SLR4UXu+7pEo5E0jdFaT8b3JvxuWVcr3ntfWZeOX6O7RvjLBBHgPEF3lR6ZYGuagPnCszWW35l2JJXrPhd+UCO7zUmOXjwpB2B259Pb2rVvw8UPa6D6tLSoqcRgwBt64YbtigzvdVKFgmg0eOg57EFglSQ72LGUpT7Cn04D9EJG66+sVk4Mg19lItskU4j36KMTPGvRXD7MCUKLXqKphbv4L4M26oQgcy7qMPi2HPVDFND/2reLaiOWDAk6ZpuGVjK1RfrlITNgKNL0ra1yUy42ny4yRaiWzrYHeUYIvDfMQX6lz2Wq56/0qQNrLwv/4A47khJK9Tfb+AAAAAElFTkSuQmCC" />
+                        <strong>revolut.com</strong>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+
+</html>

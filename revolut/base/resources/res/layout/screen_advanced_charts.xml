@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/advancedChartsScreen_container"
+    android:background="?attr/uikit_colorGroupedBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:id="@+id/advancedChartsScreen_navBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.rxdiffadapter.AsyncDiffRecyclerView
+        android:id="@+id/advanced_charts_screen_chart_recycler_view"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@+id/advanced_charts_screen_bottom_recycler_view"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/advancedChartsScreen_navBar"/>
+    <com.revolut.rxdiffadapter.AsyncDiffRecyclerView
+        android:id="@+id/advanced_charts_screen_bottom_recycler_view"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@+id/advanced_charts_screen_trade_recycler_view"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+    <com.revolut.rxdiffadapter.AsyncDiffRecyclerView
+        android:id="@+id/advanced_charts_screen_trade_recycler_view"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="parent"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

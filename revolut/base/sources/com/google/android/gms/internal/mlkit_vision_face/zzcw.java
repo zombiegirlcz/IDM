@@ -1,0 +1,398 @@
+package com.google.android.gms.internal.mlkit_vision_face;
+
+import androidx.annotation.NonNull;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.nearby.uwb.RangingPosition;
+import com.google.firebase.encoders.EncodingException;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import org.bouncycastle.asn1.eac.CertificateBody;
+import ve.b;
+import ve.c;
+import ve.d;
+import ve.e;
+
+/* JADX INFO: loaded from: classes.dex */
+final class zzcw implements d {
+
+    /* JADX INFO: renamed from: zza, reason: collision with root package name */
+    private static final Charset f43547zza = Charset.forName("UTF-8");
+
+    /* JADX INFO: renamed from: zzb, reason: collision with root package name */
+    private static final b f43548zzb;
+
+    /* JADX INFO: renamed from: zzc, reason: collision with root package name */
+    private static final b f43549zzc;
+
+    /* JADX INFO: renamed from: zzd, reason: collision with root package name */
+    private static final c f43550zzd;
+
+    /* JADX INFO: renamed from: zze, reason: collision with root package name */
+    private OutputStream f43551zze;
+
+    /* JADX INFO: renamed from: zzf, reason: collision with root package name */
+    private final Map f43552zzf;
+
+    /* JADX INFO: renamed from: zzg, reason: collision with root package name */
+    private final Map f43553zzg;
+
+    /* JADX INFO: renamed from: zzh, reason: collision with root package name */
+    private final c f43554zzh;
+
+    /* JADX INFO: renamed from: zzi, reason: collision with root package name */
+    private final zzda f43555zzi = new zzda(this);
+
+    static {
+        zzcu zzcuVarD = a.d(1);
+        HashMap map = new HashMap();
+        map.put(zzcuVarD.annotationType(), zzcuVarD);
+        f43548zzb = new b("key", v0.a.r(map));
+        zzcu zzcuVarD2 = a.d(2);
+        HashMap map2 = new HashMap();
+        map2.put(zzcuVarD2.annotationType(), zzcuVarD2);
+        f43549zzc = new b("value", v0.a.r(map2));
+        f43550zzd = new c() { // from class: com.google.android.gms.internal.mlkit_vision_face.zzcv
+            @Override // ve.a
+            public final void encode(Object obj2, Object obj3) throws IOException {
+                zzcw.zzg((Map.Entry) obj2, (d) obj3);
+            }
+        };
+    }
+
+    public zzcw(OutputStream outputStream, Map map, Map map2, c cVar) {
+        this.f43551zze = outputStream;
+        this.f43552zzf = map;
+        this.f43553zzg = map2;
+        this.f43554zzh = cVar;
+    }
+
+    public static /* synthetic */ void zzg(Map.Entry entry, d dVar) throws IOException {
+        dVar.add(f43548zzb, entry.getKey());
+        dVar.add(f43549zzc, entry.getValue());
+    }
+
+    private static int zzh(b bVar) {
+        zzcu zzcuVar = (zzcu) bVar.b(zzcu.class);
+        if (zzcuVar != null) {
+            return zzcuVar.zza();
+        }
+        throw new EncodingException("Field has no @Protobuf config");
+    }
+
+    private final long zzi(c cVar, Object obj2) throws IOException {
+        zzcr zzcrVar = new zzcr();
+        try {
+            OutputStream outputStream = this.f43551zze;
+            this.f43551zze = zzcrVar;
+            try {
+                cVar.encode(obj2, this);
+                this.f43551zze = outputStream;
+                long jZza = zzcrVar.zza();
+                zzcrVar.close();
+                return jZza;
+            } catch (Throwable th10) {
+                this.f43551zze = outputStream;
+                throw th10;
+            }
+        } catch (Throwable th11) {
+            try {
+                zzcrVar.close();
+            } catch (Throwable th12) {
+                try {
+                    Throwable.class.getDeclaredMethod("addSuppressed", Throwable.class).invoke(th11, th12);
+                } catch (Exception unused) {
+                }
+            }
+            throw th11;
+        }
+    }
+
+    private static zzcu zzj(b bVar) {
+        zzcu zzcuVar = (zzcu) bVar.b(zzcu.class);
+        if (zzcuVar != null) {
+            return zzcuVar;
+        }
+        throw new EncodingException("Field has no @Protobuf config");
+    }
+
+    private final zzcw zzk(c cVar, b bVar, Object obj2, boolean z) throws IOException {
+        long jZzi = zzi(cVar, obj2);
+        if (z && jZzi == 0) {
+            return this;
+        }
+        zzn((zzh(bVar) << 3) | 2);
+        zzo(jZzi);
+        cVar.encode(obj2, this);
+        return this;
+    }
+
+    private final zzcw zzl(e eVar, b bVar, Object obj2, boolean z) throws IOException {
+        this.f43555zzi.zza(bVar, z);
+        eVar.encode(obj2, this.f43555zzi);
+        return this;
+    }
+
+    private static ByteBuffer zzm(int i) {
+        return ByteBuffer.allocate(i).order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    private final void zzn(int i) throws IOException {
+        while ((i & RangingPosition.RSSI_UNKNOWN) != 0) {
+            this.f43551zze.write((i & CertificateBody.profileType) | 128);
+            i >>>= 7;
+        }
+        this.f43551zze.write(i & CertificateBody.profileType);
+    }
+
+    private final void zzo(long j2) throws IOException {
+        while (((-128) & j2) != 0) {
+            this.f43551zze.write((((int) j2) & CertificateBody.profileType) | 128);
+            j2 >>>= 7;
+        }
+        this.f43551zze.write(((int) j2) & CertificateBody.profileType);
+    }
+
+    @Override // ve.d
+    @NonNull
+    public final d add(@NonNull b bVar, double d) throws IOException {
+        zza(bVar, d, true);
+        return this;
+    }
+
+    @NonNull
+    public final d inline(Object obj2) throws IOException {
+        zzf(obj2);
+        return this;
+    }
+
+    @NonNull
+    public final d nested(@NonNull b bVar) throws IOException {
+        throw new EncodingException("nested() is not implemented for protobuf encoding.");
+    }
+
+    public final d zza(@NonNull b bVar, double d, boolean z) throws IOException {
+        if (z && d == 0.0d) {
+            return this;
+        }
+        zzn((zzh(bVar) << 3) | 1);
+        this.f43551zze.write(zzm(8).putDouble(d).array());
+        return this;
+    }
+
+    public final d zzb(@NonNull b bVar, float f, boolean z) throws IOException {
+        if (z && f == BitmapDescriptorFactory.HUE_RED) {
+            return this;
+        }
+        zzn((zzh(bVar) << 3) | 5);
+        this.f43551zze.write(zzm(4).putFloat(f).array());
+        return this;
+    }
+
+    public final d zzc(@NonNull b bVar, Object obj2, boolean z) throws IOException {
+        if (obj2 != null) {
+            if (obj2 instanceof CharSequence) {
+                CharSequence charSequence = (CharSequence) obj2;
+                if (!z || charSequence.length() != 0) {
+                    zzn((zzh(bVar) << 3) | 2);
+                    byte[] bytes = charSequence.toString().getBytes(f43547zza);
+                    zzn(bytes.length);
+                    this.f43551zze.write(bytes);
+                    return this;
+                }
+            } else if (obj2 instanceof Collection) {
+                Iterator it8 = ((Collection) obj2).iterator();
+                while (it8.hasNext()) {
+                    zzc(bVar, it8.next(), false);
+                }
+            } else if (obj2 instanceof Map) {
+                Iterator it9 = ((Map) obj2).entrySet().iterator();
+                while (it9.hasNext()) {
+                    zzk(f43550zzd, bVar, (Map.Entry) it9.next(), false);
+                }
+            } else {
+                if (obj2 instanceof Double) {
+                    zza(bVar, ((Double) obj2).doubleValue(), z);
+                    return this;
+                }
+                if (obj2 instanceof Float) {
+                    zzb(bVar, ((Float) obj2).floatValue(), z);
+                    return this;
+                }
+                if (obj2 instanceof Number) {
+                    zze(bVar, ((Number) obj2).longValue(), z);
+                    return this;
+                }
+                if (obj2 instanceof Boolean) {
+                    zzd(bVar, ((Boolean) obj2).booleanValue() ? 1 : 0, z);
+                    return this;
+                }
+                if (!(obj2 instanceof byte[])) {
+                    c cVar = (c) this.f43552zzf.get(obj2.getClass());
+                    if (cVar != null) {
+                        zzk(cVar, bVar, obj2, z);
+                        return this;
+                    }
+                    e eVar = (e) this.f43553zzg.get(obj2.getClass());
+                    if (eVar != null) {
+                        zzl(eVar, bVar, obj2, z);
+                        return this;
+                    }
+                    if (obj2 instanceof zzcs) {
+                        zzd(bVar, ((zzcs) obj2).zza(), true);
+                        return this;
+                    }
+                    if (obj2 instanceof Enum) {
+                        zzd(bVar, ((Enum) obj2).ordinal(), true);
+                        return this;
+                    }
+                    zzk(this.f43554zzh, bVar, obj2, z);
+                    return this;
+                }
+                byte[] bArr = (byte[]) obj2;
+                if (!z || bArr.length != 0) {
+                    zzn((zzh(bVar) << 3) | 2);
+                    zzn(bArr.length);
+                    this.f43551zze.write(bArr);
+                    return this;
+                }
+            }
+        }
+        return this;
+    }
+
+    public final zzcw zzd(@NonNull b bVar, int i, boolean z) throws IOException {
+        if (!z || i != 0) {
+            zzcu zzcuVarZzj = zzj(bVar);
+            zzct zzctVar = zzct.DEFAULT;
+            int iOrdinal = zzcuVarZzj.zzb().ordinal();
+            if (iOrdinal == 0) {
+                zzn(zzcuVarZzj.zza() << 3);
+                zzn(i);
+                return this;
+            }
+            if (iOrdinal == 1) {
+                zzn(zzcuVarZzj.zza() << 3);
+                zzn((i + i) ^ (i >> 31));
+                return this;
+            }
+            if (iOrdinal == 2) {
+                zzn((zzcuVarZzj.zza() << 3) | 5);
+                this.f43551zze.write(zzm(4).putInt(i).array());
+                return this;
+            }
+        }
+        return this;
+    }
+
+    public final zzcw zze(@NonNull b bVar, long j2, boolean z) throws IOException {
+        if (!z || j2 != 0) {
+            zzcu zzcuVarZzj = zzj(bVar);
+            zzct zzctVar = zzct.DEFAULT;
+            int iOrdinal = zzcuVarZzj.zzb().ordinal();
+            if (iOrdinal == 0) {
+                zzn(zzcuVarZzj.zza() << 3);
+                zzo(j2);
+                return this;
+            }
+            if (iOrdinal == 1) {
+                zzn(zzcuVarZzj.zza() << 3);
+                zzo((j2 >> 63) ^ (j2 + j2));
+                return this;
+            }
+            if (iOrdinal == 2) {
+                zzn((zzcuVarZzj.zza() << 3) | 1);
+                this.f43551zze.write(zzm(8).putLong(j2).array());
+                return this;
+            }
+        }
+        return this;
+    }
+
+    public final zzcw zzf(Object obj2) throws IOException {
+        if (obj2 == null) {
+            return this;
+        }
+        c cVar = (c) this.f43552zzf.get(obj2.getClass());
+        if (cVar == null) {
+            throw new EncodingException("No encoder for ".concat(String.valueOf(obj2.getClass())));
+        }
+        cVar.encode(obj2, this);
+        return this;
+    }
+
+    @NonNull
+    public final d add(@NonNull b bVar, float f) throws IOException {
+        zzb(bVar, f, true);
+        return this;
+    }
+
+    @Override // ve.d
+    @NonNull
+    public final /* synthetic */ d add(@NonNull b bVar, int i) throws IOException {
+        zzd(bVar, i, true);
+        return this;
+    }
+
+    @Override // ve.d
+    @NonNull
+    public final /* synthetic */ d add(@NonNull b bVar, long j2) throws IOException {
+        zze(bVar, j2, true);
+        return this;
+    }
+
+    @NonNull
+    public final d nested(@NonNull String str) throws IOException {
+        return nested(b.c(str));
+    }
+
+    @Override // ve.d
+    @NonNull
+    public final d add(@NonNull b bVar, Object obj2) throws IOException {
+        zzc(bVar, obj2, true);
+        return this;
+    }
+
+    @Override // ve.d
+    @NonNull
+    public final /* synthetic */ d add(@NonNull b bVar, boolean z) throws IOException {
+        zzd(bVar, z ? 1 : 0, true);
+        return this;
+    }
+
+    @NonNull
+    public final d add(@NonNull String str, double d) throws IOException {
+        zza(b.c(str), d, true);
+        return this;
+    }
+
+    @NonNull
+    public final d add(@NonNull String str, int i) throws IOException {
+        zzd(b.c(str), i, true);
+        return this;
+    }
+
+    @NonNull
+    public final d add(@NonNull String str, long j2) throws IOException {
+        zze(b.c(str), j2, true);
+        return this;
+    }
+
+    @NonNull
+    public final d add(@NonNull String str, Object obj2) throws IOException {
+        zzc(b.c(str), obj2, true);
+        return this;
+    }
+
+    @NonNull
+    public final d add(@NonNull String str, boolean z) throws IOException {
+        zzd(b.c(str), z ? 1 : 0, true);
+        return this;
+    }
+}

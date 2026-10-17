@@ -1,0 +1,8 @@
+package p78;
+
+import sf8.m;
+
+/* JADX INFO: loaded from: classes4.dex */
+public interface c {
+    m a();
+}

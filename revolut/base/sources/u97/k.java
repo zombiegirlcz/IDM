@@ -1,0 +1,23 @@
+package u97;
+
+/* JADX INFO: loaded from: classes21.dex */
+public final class k extends gim.c {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ q97.e v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public int f278413w;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public k(q97.e eVar, gim.c cVar) {
+        super(cVar);
+        this.v = eVar;
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        this.u = obj2;
+        this.f278413w |= Integer.MIN_VALUE;
+        return this.v.g(this);
+    }
+}

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/containerBack"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    style="@style/MainToolbar">
+    <LinearLayout
+        android:gravity="center"
+        android:id="@+id/root_toolbar_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_centerVertical="true">
+        <com.revolut.core_ui_custom_font.TypefaceTextView
+            android:ellipsize="end"
+            android:id="@+id/main_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="72dp"
+            android:lines="1"
+            app:ttv_typeface="medium"
+            style="@style/ToolbarTitle"/>
+    </LinearLayout>
+    <ImageButton
+        android:id="@+id/back_button"
+        android:layout_centerVertical="true"
+        app:srcCompat="@drawable/uikit_icn_24_back_button_arrow"
+        style="@style/ToolbarLeftButton"/>
+</RelativeLayout>

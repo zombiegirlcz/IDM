@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.facebook.shimmer.ShimmerFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/actionLoading_shimmeringView"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <View
+        android:id="@+id/actionLoading_action"
+        android:background="@drawable/internal_rectangle_gradient_action_button"
+        android:layout_width="82dp"
+        android:layout_height="?attr/uikit_small_action_height"/>
+</com.facebook.shimmer.ShimmerFrameLayout>

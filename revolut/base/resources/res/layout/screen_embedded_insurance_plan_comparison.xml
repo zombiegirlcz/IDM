@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/screenEmbeddedInsurancePlanComparison_container"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/screenEmbeddedInsurancePlanComparison_navBarWithToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.Tabs
+        android:id="@+id/screenEmbeddedInsurancePlanComparison_tabsView"
+        android:paddingTop="?attr/uikit_dp8"
+        android:paddingBottom="?attr/uikit_dp8"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="?attr/uikit_dp16"
+        android:layout_marginRight="?attr/uikit_dp16"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/screenEmbeddedInsurancePlanComparison_navBarWithToolbar"/>
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/screenEmbeddedInsurancePlanComparison_viewPager"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="?attr/uikit_dp8"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/screenEmbeddedInsurancePlanComparison_tabsView"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:id="@+id/screenEmbeddedInsurancePlanComparison_goToButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="?attr/uikit_dp16"
+        android:layout_marginRight="?attr/uikit_dp16"
+        android:layout_marginBottom="?attr/uikit_dp24"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

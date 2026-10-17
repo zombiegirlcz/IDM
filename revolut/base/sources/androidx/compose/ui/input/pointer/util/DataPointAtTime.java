@@ -1,0 +1,57 @@
+package androidx.compose.ui.input.pointer.util;
+
+import ch.qos.logback.core.CoreConstants;
+import kotlin.Metadata;
+import m72.b;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes15.dex */
+@Metadata(d1 = {"\u0000.\n\u0002\u0018\u0002\n\u0002\u0010\u0000\n\u0002\u0010\t\n\u0000\n\u0002\u0010\u0007\n\u0002\b\u0003\n\u0002\u0010\u000e\n\u0002\b\u0002\n\u0002\u0010\b\n\u0002\b\u0003\n\u0002\u0010\u000b\n\u0002\b\r\b\u0081\b\u0018\u00002\u00020\u0001B\u0017\u0012\u0006\u0010\u0003\u001a\u00020\u0002\u0012\u0006\u0010\u0005\u001a\u00020\u0004¢\u0006\u0004\b\u0006\u0010\u0007J\u0010\u0010\t\u001a\u00020\bHÖ\u0001¢\u0006\u0004\b\t\u0010\nJ\u0010\u0010\f\u001a\u00020\u000bHÖ\u0001¢\u0006\u0004\b\f\u0010\rJ\u001a\u0010\u0010\u001a\u00020\u000f2\b\u0010\u000e\u001a\u0004\u0018\u00010\u0001HÖ\u0003¢\u0006\u0004\b\u0010\u0010\u0011R\"\u0010\u0003\u001a\u00020\u00028\u0006@\u0006X\u0086\u000e¢\u0006\u0012\n\u0004\b\u0003\u0010\u0012\u001a\u0004\b\u0013\u0010\u0014\"\u0004\b\u0015\u0010\u0016R\"\u0010\u0005\u001a\u00020\u00048\u0006@\u0006X\u0086\u000e¢\u0006\u0012\n\u0004\b\u0005\u0010\u0017\u001a\u0004\b\u0018\u0010\u0019\"\u0004\b\u001a\u0010\u001b¨\u0006\u001c"}, d2 = {"Landroidx/compose/ui/input/pointer/util/DataPointAtTime;", "", "", "time", "", "dataPoint", "<init>", "(JF)V", "", "toString", "()Ljava/lang/String;", "", "hashCode", "()I", "other", "", "equals", "(Ljava/lang/Object;)Z", "J", "getTime", "()J", "setTime", "(J)V", "F", "getDataPoint", "()F", "setDataPoint", "(F)V", "ui"}, k = 1, mv = {2, 0, 0}, xi = 48)
+public final /* data */ class DataPointAtTime {
+    private float dataPoint;
+    private long time;
+
+    public DataPointAtTime(long j2, float f) {
+        this.time = j2;
+        this.dataPoint = f;
+    }
+
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof DataPointAtTime)) {
+            return false;
+        }
+        DataPointAtTime dataPointAtTime = (DataPointAtTime) other;
+        return this.time == dataPointAtTime.time && Float.compare(this.dataPoint, dataPointAtTime.dataPoint) == 0;
+    }
+
+    public final float getDataPoint() {
+        return this.dataPoint;
+    }
+
+    public final long getTime() {
+        return this.time;
+    }
+
+    public int hashCode() {
+        return Float.hashCode(this.dataPoint) + (Long.hashCode(this.time) * 31);
+    }
+
+    public final void setDataPoint(float f) {
+        this.dataPoint = f;
+    }
+
+    public final void setTime(long j2) {
+        this.time = j2;
+    }
+
+    @NotNull
+    public String toString() {
+        StringBuilder sb6 = new StringBuilder("DataPointAtTime(time=");
+        sb6.append(this.time);
+        sb6.append(", dataPoint=");
+        return b.s(sb6, this.dataPoint, CoreConstants.RIGHT_PARENTHESIS_CHAR);
+    }
+}

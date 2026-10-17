@@ -1,0 +1,33 @@
+package com.google.android.gms.internal.fido;
+
+import java.io.Serializable;
+
+/* JADX INFO: loaded from: classes16.dex */
+final class zzcw extends zzcs implements Serializable {
+
+    /* JADX INFO: renamed from: zza, reason: collision with root package name */
+    static final zzcw f39353zza = new zzcw();
+
+    private zzcw() {
+    }
+
+    @Override // com.google.android.gms.internal.fido.zzcs, java.util.Comparator
+    public final /* bridge */ /* synthetic */ int compare(Object obj2, Object obj3) {
+        Comparable comparable = (Comparable) obj2;
+        Comparable comparable2 = (Comparable) obj3;
+        comparable.getClass();
+        if (comparable == comparable2) {
+            return 0;
+        }
+        return comparable2.compareTo(comparable);
+    }
+
+    public final String toString() {
+        return "Ordering.natural().reverse()";
+    }
+
+    @Override // com.google.android.gms.internal.fido.zzcs
+    public final zzcs zza() {
+        return zzcq.f39340zza;
+    }
+}

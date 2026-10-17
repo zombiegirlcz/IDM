@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/tab_accounts_contentContainer"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithContainer
+        android:id="@+id/tab_accounts_navBarWithContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.feature.productintro.view.AccountsNavBarContentView
+            android:id="@+id/tab_accounts_accountSelectionContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:particlesThemeHost="true"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithContainer>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/tab_accounts_recyclerView"
+        android:paddingBottom="@dimen/uikit_solid_bottom_bar"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarOverlappingScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.internal.views.SmallActionButton
+        android:layout_gravity="bottom|center_horizontal"
+        android:id="@+id/tab_accounts_smallActionButton"
+        android:visibility="gone"
+        android:fitsSystemWindows="true"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/dp_80"
+        app:layout_behavior="com.revolut.core.ui_kit.views.scrolling.HideOnScrollViewBehavior"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

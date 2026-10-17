@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="card_divider_height">1dp</dimen>
+    <dimen name="choose_card_pager_padding_top">52dp</dimen>
+    <dimen name="choose_card_promo_text_padding_bottom">86dp</dimen>
+    <dimen name="choose_card_text_padding_bottom">102dp</dimen>
+    <dimen name="header_height">338dp</dimen>
+    <dimen name="insights_bottom_text">14sp</dimen>
+    <dimen name="insights_footer_text">14sp</dimen>
+    <dimen name="insights_horizontal_margin">32dp</dimen>
+    <dimen name="insights_linespaceExtra">4dp</dimen>
+    <dimen name="insights_subtitle">16sp</dimen>
+    <dimen name="insights_title">22sp</dimen>
+    <dimen name="insights_title_margin">40dp</dimen>
+    <dimen name="pincode_bottom_margin">42dp</dimen>
+    <dimen name="sign_phone_screen_logo_top_margin">56dp</dimen>
+    <dimen name="support_banner_top_margin">48dp</dimen>
+    <dimen name="transaction_date_max_width">170dp</dimen>
+    <dimen name="tutorial_height">286dp</dimen>
+    <dimen name="tutorial_width">397dp</dimen>
+</resources>

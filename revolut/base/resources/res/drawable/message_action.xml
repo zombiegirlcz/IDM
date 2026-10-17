@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="?attr/selectableItemBackground_res_0x7f04060d"/>
+    <item
+        android:left="@dimen/message_bubble_outer_mask_padding"
+        android:top="@dimen/message_bubble_outer_mask_padding"
+        android:right="@dimen/message_bubble_outer_mask_padding"
+        android:bottom="@dimen/message_bubble_outer_mask_padding">
+        <shape android:shape="rectangle">
+            <stroke
+                android:width="@dimen/message_bubble_outer_mask_width"
+                android:color="?attr/uikit_colorBackground"/>
+            <corners android:radius="@dimen/message_bubble_outer_mask_corner_radius"/>
+            <solid android:color="?attr/uikit_colorTransparent"/>
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="@dimen/message_bubble_corner_radius_normal"/>
+            <stroke
+                android:width="@dimen/message_bubble_border"
+                android:color="?attr/uikit_colorGreyTone10"/>
+            <padding
+                android:left="@dimen/margin_xl"
+                android:top="@dimen/margin_m"
+                android:right="@dimen/margin_xl"
+                android:bottom="@dimen/margin_m"/>
+            <solid android:color="?attr/uikit_colorTransparent"/>
+        </shape>
+    </item>
+</layer-list>

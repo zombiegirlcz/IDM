@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/headerBottomSheetLoading_image"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="?attr/uikit_shimmerBackgroundCircle"/>
+    <com.revolut.core.ui_kit.internal.views.SimpleLimitProgressBarWithText
+        android:id="@+id/headerBottomSheetLoading_progress"
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/headerBottomSheetLoading_assetBarrier"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:barrierDirection="bottom"
+        app:constraint_referenced_ids="headerBottomSheetLoading_progress,headerBottomSheetLoading_image"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/headerBottomSheetLoading_title"
+        android:background="@drawable/internal_rectangle_gradient_grey"
+        android:layout_width="160dp"
+        android:layout_height="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginHorizontal="16dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/headerBottomSheetLoading_assetBarrier"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/headerBottomSheetLoading_description"
+        android:background="@drawable/internal_rectangle_gradient_grey"
+        android:layout_width="80dp"
+        android:layout_height="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginHorizontal="16dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/headerBottomSheetLoading_title"/>
+</merge>

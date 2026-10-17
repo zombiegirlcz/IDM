@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/displayCurrencyPreview_root"
+    android:clipChildren="false"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.internal.views.navbar.preview.NavBarScalableSilhouetteView
+        android:id="@+id/displayCurrencyPreview_navbarSilhouette"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.TextSwitcherView
+        android:id="@+id/displayCurrencyPreview_textSwitcher"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@+id/displayCurrencyPreview_actionsSilhouette"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/displayCurrencyPreview_navbarSilhouette"
+        style="?attr/internal_textAppearanceHeading1"/>
+    <com.revolut.core.ui_kit.internal.views.navbar.preview.ActionsScalableSilhouetteView
+        android:id="@+id/displayCurrencyPreview_actionsSilhouette"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@+id/displayCurrencyPreview_contentOverlay"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+    <com.revolut.core.ui_kit.internal.views.navbar.preview.ContentScalableSilhouetteView
+        android:id="@+id/displayCurrencyPreview_contentOverlay"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

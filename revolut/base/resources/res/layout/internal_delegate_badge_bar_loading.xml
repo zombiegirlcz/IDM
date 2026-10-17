@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.facebook.shimmer.ShimmerFrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/badgeBarLoading_shimmeringView"
+    android:paddingTop="?attr/uikit_dp8"
+    android:paddingBottom="?attr/uikit_dp8"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <View
+            android:id="@+id/badgeBarLoading_item1"
+            android:background="@drawable/internal_rectangle_gradient_grey"
+            android:layout_width="91dp"
+            android:layout_height="24dp"
+            app:layout_constraintEnd_toStartOf="@+id/badgeBarLoading_item2"
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintStart_toStartOf="parent"/>
+        <View
+            android:id="@+id/badgeBarLoading_item2"
+            android:background="@drawable/internal_rectangle_gradient_grey"
+            android:layout_width="91dp"
+            android:layout_height="24dp"
+            android:layout_marginHorizontal="@dimen/dp_8"
+            app:layout_constraintEnd_toStartOf="@+id/badgeBarLoading_item3"
+            app:layout_constraintStart_toEndOf="@+id/badgeBarLoading_item1"/>
+        <View
+            android:id="@+id/badgeBarLoading_item3"
+            android:background="@drawable/internal_rectangle_gradient_grey"
+            android:layout_width="91dp"
+            android:layout_height="24dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/badgeBarLoading_item2"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.facebook.shimmer.ShimmerFrameLayout>

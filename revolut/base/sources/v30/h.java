@@ -1,0 +1,40 @@
+package v30;
+
+import kotlin.jvm.internal.Intrinsics;
+
+/* JADX INFO: loaded from: classes19.dex */
+public final class h implements q0 {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final String f285775a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final String f285776b;
+
+    public h(String entityId, String messageId) {
+        Intrinsics.checkNotNullParameter(entityId, "entityId");
+        Intrinsics.checkNotNullParameter(messageId, "messageId");
+        this.f285775a = entityId;
+        this.f285776b = messageId;
+    }
+
+    @Override // v30.q0
+    public final String a() {
+        return this.f285775a;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        if (!(obj2 instanceof h)) {
+            return false;
+        }
+        h hVar = (h) obj2;
+        return Intrinsics.f(this.f285775a, hVar.f285775a) && Intrinsics.f(this.f285776b, hVar.f285776b);
+    }
+
+    public final int hashCode() {
+        return this.f285776b.hashCode() + (this.f285775a.hashCode() * 31);
+    }
+}

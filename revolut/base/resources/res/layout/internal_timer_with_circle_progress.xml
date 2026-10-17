@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <com.revolut.core.ui_kit.internal.views.CircleProgressBar
+        android:id="@+id/timerWithCircleProgress_progress"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:internal_backgroundColor="?attr/uikit_colorSegmentedBackground"
+        app:internal_backgroundThickness="6dp"
+        app:internal_endColor="?attr/uikit_colorAccent"
+        app:internal_progressBarThickness="6dp"
+        app:internal_startColor="?attr/uikit_colorAccent"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:gravity="center"
+        android:id="@+id/timerWithCircleProgress_countdown"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:maxLines="1"
+        android:includeFontPadding="false"
+        app:autoSizeMaxTextSize="24sp"
+        app:autoSizeMinTextSize="10sp"
+        app:autoSizeTextType="uniform"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+</merge>

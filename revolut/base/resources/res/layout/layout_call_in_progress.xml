@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/screenContainer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.rxdiffadapter.AsyncDiffRecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"/>
+    <include
+        android:id="@+id/inProgress"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        layout="@layout/layout_call_in_progress_normal"/>
+</com.revolut.kompot.view.ControllerContainerFrameLayout>

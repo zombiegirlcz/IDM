@@ -1,0 +1,22 @@
+package vrg;
+
+import e4m.e;
+import ecm.q;
+
+/* JADX INFO: loaded from: classes9.dex */
+public final class b {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final q f291594a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final a31.a f291595b;
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name */
+    public final e f291596c = e4m.b.b(new a(this, 0));
+
+    public b(a31.a aVar, q qVar) {
+        this.f291594a = qVar;
+        this.f291595b = aVar;
+    }
+}

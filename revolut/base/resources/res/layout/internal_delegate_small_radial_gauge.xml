@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.RadialGaugeView
+        android:id="@+id/radialGaugeChart"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@+id/radialGaugeChart_label"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_chainStyle="packed"/>
+    <TextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:id="@+id/radialGaugeChart_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp16"
+        app:layout_constraintBottom_toTopOf="@+id/radialGaugeChart_description"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/radialGaugeChart"
+        style="?attr/internal_textAppearanceHeading3"/>
+    <TextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:ellipsize="end"
+        android:gravity="center_horizontal"
+        android:id="@+id/radialGaugeChart_description"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp4"
+        android:maxLines="2"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/radialGaugeChart_label"
+        style="?attr/internal_textAppearanceBody2"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

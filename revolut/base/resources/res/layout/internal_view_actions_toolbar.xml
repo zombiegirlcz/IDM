@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.SmallActionButton
+        android:id="@+id/actionToolbarView_startActionButton"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.buttons.ActionsRowView
+        android:id="@+id/actionToolbarView_actionsRow"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:layout_marginStart="?attr/uikit_dp8"
+        android:layout_marginEnd="?attr/uikit_dp8"
+        app:layout_constrainedWidth="true"
+        app:layout_constraintEnd_toStartOf="@+id/actionToolbarView_endActionButton"
+        app:layout_constraintHorizontal_bias="0"
+        app:layout_constraintStart_toEndOf="@+id/actionToolbarView_startActionButton"
+        app:layout_goneMarginEnd="0dp"
+        app:layout_goneMarginStart="0dp"/>
+    <com.revolut.core.ui_kit.internal.views.SmallActionButton
+        android:id="@+id/actionToolbarView_endActionButton"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+</merge>

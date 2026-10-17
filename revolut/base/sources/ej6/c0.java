@@ -1,0 +1,25 @@
+package ej6;
+
+import kotlin.coroutines.Continuation;
+
+/* JADX INFO: loaded from: classes3.dex */
+public final class c0 extends gim.c {
+    public /* synthetic */ Object u;
+    public int v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public final /* synthetic */ egh.e f126726w;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public c0(egh.e eVar, Continuation continuation) {
+        super(continuation);
+        this.f126726w = eVar;
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        this.u = obj2;
+        this.v |= Integer.MIN_VALUE;
+        return this.f126726w.emit(null, this);
+    }
+}

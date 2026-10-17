@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.layout.UIKitConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/internalIdDocumentLoadingDelegate_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/internalIdDocumentLoadingDelegate_shimmeringView"
+        android:background="@drawable/internal_box_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <ImageView
+            android:id="@+id/internalIdDocumentLoadingDelegate_background"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+</com.revolut.core.ui_kit.internal.views.layout.UIKitConstraintLayout>

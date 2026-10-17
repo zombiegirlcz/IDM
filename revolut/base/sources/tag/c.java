@@ -1,0 +1,5 @@
+package tag;
+
+/* JADX INFO: loaded from: classes9.dex */
+public interface c extends wki.b {
+}

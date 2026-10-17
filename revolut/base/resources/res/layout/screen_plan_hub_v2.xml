@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/planHubV2Screen_root"
+    android:background="?attr/uikit_windowBackground"
+    android:fitsSystemWindows="false"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.background.AnimatedBackgroundView
+        android:id="@+id/planHubV2Screen_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithContainer
+        android:theme="@style/PlanHubV2NavBarContainer"
+        android:id="@+id/planHubV2Screen_navBarWithContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.navbar.AccountSelectionNavBarContentView
+            android:id="@+id/planHubV2Screen_navBarAccountContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithContainer>
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/planHubV2Screen_navBarWithToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithBigTile
+        android:id="@+id/planHubV2Screen_navBarWithBigTile"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/planHubV2Screen_recyclerView"
+        android:paddingBottom="@dimen/dp_24"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarOverlappingScrollingViewBehavior"/>
+    <com.revolut.feature.productintro.view.FullscreenProductIntroView
+        android:id="@+id/planHubV2Screen_introView"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

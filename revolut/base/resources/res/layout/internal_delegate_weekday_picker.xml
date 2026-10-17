@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <TextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/weekdayPicker_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/weekdayPicker_recyclerView"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:overScrollMode="never"
+        android:nestedScrollingEnabled="false"/>
+    <TextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/weekdayPicker_bottomText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+</LinearLayout>

@@ -1,0 +1,5 @@
+package a2i;
+
+/* JADX INFO: loaded from: classes10.dex */
+public interface g extends rri.a {
+}

@@ -1,0 +1,35 @@
+package androidx.compose.ui.text.android;
+
+import android.text.Layout;
+import android.text.TextDirectionHeuristic;
+import android.text.TextDirectionHeuristics;
+import kotlin.Metadata;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes15.dex */
+@Metadata(d1 = {"\u0000\u001c\n\u0002\u0018\u0002\n\u0002\u0010\u0000\n\u0002\b\u0002\n\u0002\u0018\u0002\n\u0002\b\u0004\n\u0002\u0018\u0002\n\u0002\b\u0005\bÁ\u0002\u0018\u00002\u00020\u0001B\t\b\u0002¢\u0006\u0004\b\u0002\u0010\u0003R\u001a\u0010\u0005\u001a\u00020\u00048\u0000X\u0080\u0004¢\u0006\f\n\u0004\b\u0005\u0010\u0006\u001a\u0004\b\u0007\u0010\bR\u001a\u0010\n\u001a\u00020\t8\u0000X\u0080\u0004¢\u0006\f\n\u0004\b\n\u0010\u000b\u001a\u0004\b\f\u0010\r¨\u0006\u000e"}, d2 = {"Landroidx/compose/ui/text/android/LayoutCompat;", "", "<init>", "()V", "Landroid/text/Layout$Alignment;", "DEFAULT_LAYOUT_ALIGNMENT", "Landroid/text/Layout$Alignment;", "getDEFAULT_LAYOUT_ALIGNMENT$ui_text", "()Landroid/text/Layout$Alignment;", "Landroid/text/TextDirectionHeuristic;", "DEFAULT_TEXT_DIRECTION_HEURISTIC", "Landroid/text/TextDirectionHeuristic;", "getDEFAULT_TEXT_DIRECTION_HEURISTIC$ui_text", "()Landroid/text/TextDirectionHeuristic;", "ui-text"}, k = 1, mv = {2, 0, 0}, xi = 48)
+public final class LayoutCompat {
+
+    @NotNull
+    public static final LayoutCompat INSTANCE = new LayoutCompat();
+
+    @NotNull
+    private static final Layout.Alignment DEFAULT_LAYOUT_ALIGNMENT = Layout.Alignment.ALIGN_NORMAL;
+
+    @NotNull
+    private static final TextDirectionHeuristic DEFAULT_TEXT_DIRECTION_HEURISTIC = TextDirectionHeuristics.FIRSTSTRONG_LTR;
+    public static final int $stable = 8;
+
+    private LayoutCompat() {
+    }
+
+    @NotNull
+    public final Layout.Alignment getDEFAULT_LAYOUT_ALIGNMENT$ui_text() {
+        return DEFAULT_LAYOUT_ALIGNMENT;
+    }
+
+    @NotNull
+    public final TextDirectionHeuristic getDEFAULT_TEXT_DIRECTION_HEURISTIC$ui_text() {
+        return DEFAULT_TEXT_DIRECTION_HEURISTIC;
+    }
+}

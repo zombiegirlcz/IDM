@@ -1,0 +1,11 @@
+package d7a;
+
+/* JADX INFO: loaded from: classes5.dex */
+public final class i implements l {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final i f111902a = new i();
+
+    private i() {
+    }
+}

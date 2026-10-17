@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="24dp"
+    android:width="24dp"
+    android:autoMirrored="true"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="?attr/uikit_colorForeground"
+        android:pathData="M9.5 10.504c3.038 0 5.5-1.904 5.5-4.252S12.538 2 9.5 2C6.463 2 4 3.904 4 6.252s2.463 4.252 5.5 4.252z"/>
+    <path
+        android:fillColor="?attr/uikit_colorForeground"
+        android:pathData="M15 10.264c0-0.197-0.25-0.288-0.38-0.145C13.407 11.45 11.564 12.3 9.5 12.3s-3.908-0.85-5.119-2.18c-0.13-0.144-0.38-0.053-0.38 0.145v0.725c0 2.348 2.462 4.252 5.5 4.252 0.426 0 0.842-0.038 1.24-0.11 0.361-0.063 0.644-0.32 0.877-0.603 0.103-0.124 0.218-0.24 0.345-0.348l0.007-0.006 2.425-2.004c0.064-0.053 0.13-0.104 0.199-0.152 0.182-0.127 0.334-0.304 0.367-0.524C14.987 11.33 15 11.161 15 10.99v-0.726zm-4.213 6.682c0.16-0.028 0.317 0.07 0.373 0.224 0.156 0.432 0.428 0.832 0.82 1.153l0.599 0.498c0.158 0.131 0.14 0.38-0.044 0.473C11.665 19.74 10.622 20 9.5 20 6.463 20 4 18.096 4 15.748v-0.725c0-0.197 0.25-0.289 0.381-0.145 1.211 1.33 3.054 2.18 5.12 2.18 0.44 0 0.87-0.038 1.286-0.112z"/>
+    <path
+        android:fillColor="?attr/uikit_colorForeground"
+        android:pathData="M18.2 14.234c0-0.7 0.617-0.952 1.128-0.525l2.421 2.002c0.335 0.282 0.335 0.797 0 1.069l-2.421 2.01c-0.502 0.419-1.128 0.195-1.128-0.534v-4.022z"
+        android:fillType="evenOdd"/>
+    <path
+        android:fillColor="?attr/uikit_colorForeground"
+        android:pathData="M16.8 14.234c0-0.7-0.616-0.952-1.127-0.525l-2.422 2.002c-0.334 0.282-0.334 0.797 0 1.069l2.422 2.01c0.502 0.419 1.127 0.195 1.127-0.534v-4.022z"/>
+</vector>

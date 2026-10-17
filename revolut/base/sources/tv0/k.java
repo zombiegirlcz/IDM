@@ -1,0 +1,19 @@
+package tv0;
+
+/* JADX INFO: loaded from: classes19.dex */
+public final class k implements l {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final k f274676a = new k();
+
+    private k() {
+    }
+
+    public final boolean equals(Object obj2) {
+        return this == obj2 || (obj2 instanceof k);
+    }
+
+    public final int hashCode() {
+        return 582579549;
+    }
+}

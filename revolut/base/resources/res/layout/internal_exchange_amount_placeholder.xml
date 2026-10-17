@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="@drawable/internal_rounded_rectangle_background"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:minHeight="46dp"
+    android:backgroundTint="?attr/uikit_colorSearchBackground"
+    android:paddingVertical="12dp">
+    <com.revolut.core.ui_kit.internal.views.ShimmeringTextView
+        android:layout_gravity="center_vertical"
+        android:id="@+id/exchangeAmountPlaceholder_textView"
+        android:layout_width="122dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        style="@style/InternalTextAppearance.Emphasis1"/>
+</FrameLayout>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/studentHubScreen_root"
+    android:background="?attr/uikit_windowBackground"
+    android:fitsSystemWindows="false"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.background.AnimatedBackgroundView
+        android:id="@+id/studentHubScreen_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithBigTile
+        android:id="@+id/studentHubScreen_navBarWithBigTile"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/studentHubScreen_recyclerView"
+        android:paddingTop="18dp"
+        android:paddingBottom="@dimen/dp_24"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarOverlappingScrollingViewBehavior"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

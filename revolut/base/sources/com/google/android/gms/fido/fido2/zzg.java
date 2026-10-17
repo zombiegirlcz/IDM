@@ -1,0 +1,23 @@
+package com.google.android.gms.fido.fido2;
+
+import android.app.PendingIntent;
+import android.os.RemoteException;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.common.api.internal.TaskUtil;
+import com.google.android.gms.tasks.TaskCompletionSource;
+
+/* JADX INFO: loaded from: classes16.dex */
+final class zzg extends com.google.android.gms.internal.fido.zzq {
+
+    /* JADX INFO: renamed from: zza, reason: collision with root package name */
+    final /* synthetic */ TaskCompletionSource f38651zza;
+
+    public zzg(Fido2ApiClient fido2ApiClient, TaskCompletionSource taskCompletionSource) {
+        this.f38651zza = taskCompletionSource;
+    }
+
+    @Override // com.google.android.gms.internal.fido.zzr
+    public final void zzb(Status status, PendingIntent pendingIntent) throws RemoteException {
+        TaskUtil.setResultOrApiException(status, pendingIntent, this.f38651zza);
+    }
+}

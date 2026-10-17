@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/blockedPaymentsListFlow_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.DraggableTabsView
+            android:id="@+id/blockedPaymentsListFlow_tabs"
+            android:paddingBottom="?attr/uikit_dp16"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="?attr/uikit_dp16"
+            android:paddingEnd="?attr/uikit_dp16"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar>
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/blockedPaymentsListFlow_viewPager"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

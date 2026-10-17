@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_gravity="center"
+    android:focusable="true"
+    android:clickable="true"
+    android:clipToPadding="false"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.views.AvatarView
+        android:layout_gravity="center"
+        android:id="@+id/navBarMenuItem_avatar"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_margin="4dp"
+        android:scaleType="fitCenter"/>
+</FrameLayout>

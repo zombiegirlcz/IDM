@@ -1,0 +1,8 @@
+package com.google.android.gms.internal.mlkit_vision_barcode;
+
+/* JADX INFO: loaded from: classes16.dex */
+public interface zzek {
+    void zza(Throwable th10);
+
+    void zzb(Object obj2);
+}

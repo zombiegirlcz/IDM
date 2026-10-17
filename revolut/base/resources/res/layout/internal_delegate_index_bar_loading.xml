@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/indexBarLoading_bar"
+        android:layout_width="4dp"
+        android:layout_height="44dp"
+        android:tint="?attr/uikit_colorGreyTone20"/>
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/indexBarLoading_shimmeringView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <View
+            android:background="?attr/uikit_shimmerBackgroundRect"
+            android:layout_width="40dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginStart="?attr/uikit_dp12"
+            android:layout_marginEnd="?attr/uikit_dp16"/>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+</LinearLayout>

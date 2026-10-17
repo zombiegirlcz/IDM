@@ -1,0 +1,82 @@
+package com.revolut.feature.travel.flights.impl;
+
+/* JADX INFO: loaded from: classes9.dex */
+public final class R$id {
+    public static int travelFlightsAirlinesFilterScreen_button = 2131369725;
+    public static int travelFlightsAirlinesFilterScreen_container = 2131369726;
+    public static int travelFlightsAirlinesFilterScreen_navBar = 2131369727;
+    public static int travelFlightsAirlinesFilterScreen_recyclerView = 2131369728;
+    public static int travelFlightsBaggageSelectionScreen_button = 2131369729;
+    public static int travelFlightsBaggageSelectionScreen_container = 2131369730;
+    public static int travelFlightsBaggageSelectionScreen_footer = 2131369731;
+    public static int travelFlightsBaggageSelectionScreen_navBar = 2131369732;
+    public static int travelFlightsBaggageSelectionScreen_price = 2131369733;
+    public static int travelFlightsBaggageSelectionScreen_priceFiat = 2131369734;
+    public static int travelFlightsBaggageSelectionScreen_priceLabel = 2131369735;
+    public static int travelFlightsBaggageSelectionScreen_pricePoints = 2131369736;
+    public static int travelFlightsBaggageSelectionScreen_priceProgress = 2131369737;
+    public static int travelFlightsBaggageSelectionScreen_recyclerView = 2131369738;
+    public static int travelFlightsBookingDetailsScreen_recyclerView = 2131369739;
+    public static int travelFlightsBookings_recyclerView = 2131369740;
+    public static int travelFlightsCheckInScreen_recyclerView = 2131369741;
+    public static int travelFlightsCheckoutScreen_container = 2131369742;
+    public static int travelFlightsCheckoutScreen_navBar = 2131369743;
+    public static int travelFlightsCheckoutScreen_recyclerView = 2131369744;
+    public static int travelFlightsCheckoutScreen_twinVerticalButtonView = 2131369745;
+    public static int travelFlightsDatesSelectionScreen_container = 2131369746;
+    public static int travelFlightsDatesSelection_button = 2131369747;
+    public static int travelFlightsDatesSelection_calendarPickerRangeView = 2131369748;
+    public static int travelFlightsDatesSelection_navBar = 2131369749;
+    public static int travelFlightsDiscover_recyclerView = 2131369750;
+    public static int travelFlightsFareSelectionScreen_button = 2131369751;
+    public static int travelFlightsFareSelectionScreen_container = 2131369752;
+    public static int travelFlightsFareSelectionScreen_navBar = 2131369753;
+    public static int travelFlightsFareSelectionScreen_recyclerView = 2131369754;
+    public static int travelFlightsHome_floatingBottomBar = 2131369755;
+    public static int travelFlightsHome_navBar = 2131369756;
+    public static int travelFlightsHome_viewPager = 2131369757;
+    public static int travelFlightsItineraryPreviewScreen_navBar = 2131369758;
+    public static int travelFlightsItineraryPreviewScreen_recyclerView = 2131369759;
+    public static int travelFlightsItineraryScreen_actionFooterView = 2131369760;
+    public static int travelFlightsItineraryScreen_container = 2131369761;
+    public static int travelFlightsItineraryScreen_navBar = 2131369762;
+    public static int travelFlightsItineraryScreen_recyclerView = 2131369763;
+    public static int travelFlightsLocationPicker_closeButton = 2131369764;
+    public static int travelFlightsLocationPicker_container = 2131369765;
+    public static int travelFlightsLocationPicker_recyclerView = 2131369766;
+    public static int travelFlightsLocationPicker_searchInput = 2131369767;
+    public static int travelFlightsManageBookingScreen_recyclerView = 2131369768;
+    public static int travelFlightsPassengersDetailsScreen_button = 2131369769;
+    public static int travelFlightsPassengersDetailsScreen_container = 2131369770;
+    public static int travelFlightsPassengersDetailsScreen_navBar = 2131369771;
+    public static int travelFlightsPassengersDetailsScreen_recyclerView = 2131369772;
+    public static int travelFlightsPassengersPickerScreen_button = 2131369773;
+    public static int travelFlightsPassengersPickerScreen_container = 2131369774;
+    public static int travelFlightsPassengersPickerScreen_navBar = 2131369775;
+    public static int travelFlightsPassengersPickerScreen_recyclerView = 2131369776;
+    public static int travelFlightsPastBookings_navBar = 2131369777;
+    public static int travelFlightsPastBookings_recyclerView = 2131369778;
+    public static int travelFlightsPostBookingScreen_navBar = 2131369779;
+    public static int travelFlightsPostBookingScreen_pager = 2131369780;
+    public static int travelFlightsPostBookingScreen_tabs = 2131369781;
+    public static int travelFlightsSearchFiltersScreen_button = 2131369782;
+    public static int travelFlightsSearchFiltersScreen_container = 2131369783;
+    public static int travelFlightsSearchFiltersScreen_navBar = 2131369784;
+    public static int travelFlightsSearchFiltersScreen_recyclerView = 2131369785;
+    public static int travelFlightsSearchResultsScreen_container = 2131369786;
+    public static int travelFlightsSearchResultsScreen_navBar = 2131369787;
+    public static int travelFlightsSearchResultsScreen_quickFiltersActions = 2131369788;
+    public static int travelFlightsSearchResultsScreen_recyclerView = 2131369789;
+    public static int travelFlightsSearchResultsScreen_searchFieldsInputView = 2131369790;
+    public static int travelFlightsSearchResultsScreen_searchInputView = 2131369791;
+    public static int travelFlightsSearchResultsScreen_searchInputsContainer = 2131369792;
+    public static int travelFlightsSelfTransferScreen_container = 2131369793;
+    public static int travelFlightsSelfTransferScreen_navBar = 2131369794;
+    public static int travelFlightsSelfTransferScreen_recyclerView = 2131369795;
+    public static int travelFlightsTicketRulesScreen_container = 2131369796;
+    public static int travelFlightsTicketRulesScreen_navBar = 2131369797;
+    public static int travelFlightsTicketRulesScreen_recyclerView = 2131369798;
+
+    private R$id() {
+    }
+}

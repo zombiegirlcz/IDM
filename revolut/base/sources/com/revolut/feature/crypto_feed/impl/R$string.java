@@ -1,0 +1,81 @@
+package com.revolut.feature.crypto_feed.impl;
+
+/* JADX INFO: loaded from: classes3.dex */
+public final class R$string {
+    public static int crypto_feed_widget_catalog_alerts_title = 2131966912;
+    public static int crypto_feed_widget_catalog_all_crypto_title = 2131966913;
+    public static int crypto_feed_widget_catalog_cards_title = 2131966914;
+    public static int crypto_feed_widget_catalog_most_traded_title = 2131966915;
+    public static int crypto_feed_widget_catalog_newly_added_title = 2131966916;
+    public static int crypto_feed_widget_catalog_news_title = 2131966917;
+    public static int crypto_feed_widget_catalog_orders_title = 2131966918;
+    public static int crypto_feed_widget_catalog_receive_title = 2131966919;
+    public static int crypto_feed_widget_catalog_symbol_title = 2131966920;
+    public static int crypto_feed_widget_catalog_top_movers_title = 2131966921;
+    public static int crypto_feed_widget_catalog_transactions_title = 2131966922;
+    public static int crypto_feed_widget_catalog_watchlist_title = 2131966923;
+    public static int crypto_home_feed_widget_all_crypto_error_title = 2131968352;
+    public static int crypto_home_feed_widget_cards_config_select_card = 2131968353;
+    public static int crypto_home_feed_widget_cards_get_card = 2131968354;
+    public static int crypto_home_feed_widget_cards_header_title = 2131968355;
+    public static int crypto_home_feed_widget_catalog_crypto_card_subtitle = 2131968370;
+    public static int crypto_home_feed_widget_catalog_mosttraded_subtitle = 2131968371;
+    public static int crypto_home_feed_widget_catalog_rates_subtitle = 2131968372;
+    public static int crypto_home_feed_widget_catalog_rates_title = 2131968373;
+    public static int crypto_home_feed_widget_catalog_receive_subtitle = 2131968374;
+    public static int crypto_home_feed_widget_catalog_receive_title = 2131968375;
+    public static int crypto_home_feed_widget_common_currency_chooser_title = 2131968356;
+    public static int crypto_home_feed_widget_common_error_action = 2131968357;
+    public static int crypto_home_feed_widget_common_error_title = 2131968358;
+    public static int crypto_home_feed_widget_dynamic_footer = 2131968359;
+    public static int crypto_home_feed_widget_mosttraded_error_title = 2131968360;
+    public static int crypto_home_feed_widget_newly_added_error_title = 2131968361;
+    public static int crypto_home_feed_widget_news_error_title = 2131968362;
+    public static int crypto_home_feed_widget_orders_error_title = 2131968363;
+    public static int crypto_home_feed_widget_rates_header_title = 2131968364;
+    public static int crypto_home_feed_widget_receive_config_select_crypto = 2131968365;
+    public static int crypto_home_feed_widget_receive_error_title = 2131968367;
+    public static int crypto_home_feed_widget_receive_placeholder = 2131968368;
+    public static int crypto_home_feed_widget_top_movers_error_title = 2131968369;
+    public static int crypto_home_portfolio_orders_empty_title = 2131967099;
+    public static int crypto_home_portfolio_transactions_empty_title = 2131967100;
+    public static int crypto_home_widget_all_crypto_title = 2131967112;
+    public static int crypto_home_widget_catalog_all_crypto_subtitle = 2131967155;
+    public static int crypto_home_widget_catalog_all_crypto_title = 2131967156;
+    public static int crypto_home_widget_catalog_features_subtitle = 2131967157;
+    public static int crypto_home_widget_catalog_newly_added_subtitle = 2131967158;
+    public static int crypto_home_widget_catalog_newly_added_title = 2131967159;
+    public static int crypto_home_widget_catalog_news_subtitle = 2131967160;
+    public static int crypto_home_widget_catalog_news_title = 2131967161;
+    public static int crypto_home_widget_catalog_orders_subtitle = 2131967162;
+    public static int crypto_home_widget_catalog_top_movers_subtitle = 2131967163;
+    public static int crypto_home_widget_catalog_top_movers_title = 2131967164;
+    public static int crypto_home_widget_catalog_transactions_subtitle = 2131967165;
+    public static int crypto_home_widget_features_card_subtitle = 2131967117;
+    public static int crypto_home_widget_features_card_title = 2131967118;
+    public static int crypto_home_widget_features_earn_subtitle = 2131967119;
+    public static int crypto_home_widget_features_error_title = 2131967120;
+    public static int crypto_home_widget_features_futures_subtitle = 2131967121;
+    public static int crypto_home_widget_features_futures_title = 2131967122;
+    public static int crypto_home_widget_features_learn_subtitle = 2131967123;
+    public static int crypto_home_widget_features_learn_subtitleWith = 2131967124;
+    public static int crypto_home_widget_features_learn_title = 2131967125;
+    public static int crypto_home_widget_features_rev_x_subtitle = 2131967126;
+    public static int crypto_home_widget_features_rev_x_title = 2131967127;
+    public static int crypto_home_widget_features_staking_subtitle = 2131967128;
+    public static int crypto_home_widget_features_staking_subtitle_generic = 2131967129;
+    public static int crypto_home_widget_features_staking_title = 2131967130;
+    public static int crypto_home_widget_features_strategies_subtitle = 2131967131;
+    public static int crypto_home_widget_features_strategies_title = 2131967132;
+    public static int crypto_home_widget_features_title = 2131967133;
+    public static int crypto_home_widget_newly_added_title = 2131967135;
+    public static int crypto_home_widget_news_title = 2131967141;
+    public static int crypto_home_widget_receive_crypto_address_copied = 2131967143;
+    public static int retail_revolut_x_dialog_futures_view_in_revx_action_download = 2131994354;
+    public static int retail_revolut_x_dialog_futures_view_in_revx_action_web = 2131994355;
+    public static int retail_revolut_x_dialog_futures_view_in_revx_subtitle = 2131994356;
+    public static int retail_revolut_x_dialog_futures_view_in_revx_title = 2131994357;
+
+    private R$string() {
+    }
+}

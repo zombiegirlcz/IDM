@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.AppCompatTextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:textColor="?attr/uikit_colorAccent"
+    android:ellipsize="end"
+    android:gravity="center_vertical"
+    android:id="@+id/internal_text"
+    android:layout_width="match_parent"
+    android:layout_height="?attr/uikit_dp72"
+    android:maxLines="1"
+    android:paddingStart="?attr/uikit_dp16"
+    android:paddingEnd="?attr/uikit_dp16"
+    style="?attr/internal_textAppearanceHeading3"/>

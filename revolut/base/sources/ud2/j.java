@@ -1,0 +1,32 @@
+package ud2;
+
+import java.util.List;
+import kotlin.jvm.internal.Intrinsics;
+
+/* JADX INFO: loaded from: classes20.dex */
+public final class j implements cli.p {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final List f279078a;
+
+    public j(List items) {
+        Intrinsics.checkNotNullParameter(items, "items");
+        this.f279078a = items;
+    }
+
+    @Override // cli.p
+    public final List c() {
+        return this.f279078a;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        return (obj2 instanceof j) && Intrinsics.f(this.f279078a, ((j) obj2).f279078a);
+    }
+
+    public final int hashCode() {
+        return this.f279078a.hashCode();
+    }
+}

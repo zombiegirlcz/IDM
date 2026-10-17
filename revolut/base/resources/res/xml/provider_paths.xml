@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <files-path
+        name="kyc"
+        path="KYC/"/>
+    <files-path
+        name="filesext"
+        path="SOF/"/>
+    <files-path
+        name="sot_documents"
+        path="sot_documents/"/>
+    <files-path
+        name="vaults"
+        path="vaults/"/>
+    <files-path
+        name="junior_vaults"
+        path="junior_vaults/"/>
+    <files-path
+        name="form_wizard"
+        path="/FormWizard"/>
+    <files-path
+        name="revolut_chat"
+        path="RevolutChat/"/>
+    <files-path
+        name="poa"
+        path="POA/"/>
+    <files-path
+        name="root"
+        path="."/>
+    <external-path
+        name="external_files"
+        path="/Revolut"/>
+    <cache-path
+        name="internalCache"
+        path="/internalCache"/>
+    <external-cache-path
+        name="revolut_cache"
+        path="Share"/>
+    <external-files-path
+        name="pictures"
+        path="Pictures"/>
+</paths>

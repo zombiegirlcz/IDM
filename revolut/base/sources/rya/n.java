@@ -1,0 +1,21 @@
+package rya;
+
+import android.view.View;
+import kotlin.jvm.functions.Function1;
+import kotlin.jvm.internal.Intrinsics;
+
+/* JADX INFO: loaded from: classes5.dex */
+public final /* synthetic */ class n extends kotlin.jvm.internal.q implements Function1 {
+    public static final n f = new n();
+
+    public n() {
+        super(1, jii.u.class, "bind", "bind(Landroid/view/View;)Lcom/revolut/kompot/common/databinding/ScreenRecyclerNavbarNextbuttonBinding;", 0);
+    }
+
+    @Override // kotlin.jvm.functions.Function1
+    public final Object invoke(Object obj2) {
+        View p0 = (View) obj2;
+        Intrinsics.checkNotNullParameter(p0, "p0");
+        return jii.u.a(p0);
+    }
+}

@@ -1,0 +1,21 @@
+package n6b;
+
+/* JADX INFO: loaded from: classes6.dex */
+public abstract /* synthetic */ class e {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final /* synthetic */ int[] f212761a;
+
+    static {
+        int[] iArr = new int[yja.b.values().length];
+        try {
+            iArr[yja.b.NEXT_CLICK.ordinal()] = 1;
+        } catch (NoSuchFieldError unused) {
+        }
+        try {
+            iArr[yja.b.NOT_FOUND.ordinal()] = 2;
+        } catch (NoSuchFieldError unused2) {
+        }
+        f212761a = iArr;
+    }
+}

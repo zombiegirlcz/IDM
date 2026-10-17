@@ -1,0 +1,5 @@
+package wth;
+
+/* JADX INFO: loaded from: classes10.dex */
+public interface i extends tki.d {
+}

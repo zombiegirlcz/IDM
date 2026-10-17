@@ -1,0 +1,15 @@
+package wlh;
+
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes10.dex */
+public final class b implements wlh.a {
+
+    @NotNull
+    public static final a Companion = new a();
+
+    public static final class a {
+        private a() {
+        }
+    }
+}

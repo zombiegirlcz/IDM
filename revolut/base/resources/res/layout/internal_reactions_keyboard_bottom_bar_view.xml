@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/internal_reactions_keyboard_bottom_bar_height">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:layout_gravity="center"
+        android:id="@+id/ReactionsKeyboardBottomBarView_startIcon"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="@dimen/internal_reactions_keyboard_bottom_bar_item_padding"
+        android:visibility="invisible"
+        android:layout_width="@dimen/internal_reactions_keyboard_bottom_bar_item_size"
+        android:layout_height="@dimen/internal_reactions_keyboard_bottom_bar_item_size"
+        android:contentDescription="@null"
+        android:layout_marginStart="4dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/uikit_icn_24_search"/>
+    <LinearLayout
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:id="@+id/ReactionsKeyboardBottomBarView_selectableIconsContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/ReactionsKeyboardBottomBarView_endIcon"
+        app:layout_constraintStart_toEndOf="@+id/ReactionsKeyboardBottomBarView_startIcon"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/ReactionsKeyboardBottomBarView_endIcon"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="@dimen/internal_reactions_keyboard_bottom_bar_item_padding"
+        android:visibility="invisible"
+        android:layout_width="@dimen/internal_reactions_keyboard_bottom_bar_item_size"
+        android:layout_height="@dimen/internal_reactions_keyboard_bottom_bar_item_size"
+        android:tint="?attr/uikit_colorGrey50"
+        android:contentDescription="@null"
+        android:layout_marginEnd="4dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

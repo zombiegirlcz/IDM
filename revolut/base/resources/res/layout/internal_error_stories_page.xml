@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="?attr/uikit_colorBlack"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.FullScreenStateView
+        android:theme="@style/UiKitColorsTheme.Night"
+        android:id="@+id/errorStoriesPage_errorState"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</FrameLayout>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="internal_action_button_notification_icon_translation_x">-18dp</dimen>
+    <dimen name="internal_banner_close_icon_translation_x">-16dp</dimen>
+    <dimen name="internal_row_badge_translation_x">-6dp</dimen>
+</resources>

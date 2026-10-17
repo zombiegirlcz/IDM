@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:textSize="@dimen/material_text_size_ss"
+    android:textColor="?attr/uikit_colorBackground"
+    android:gravity="center"
+    android:id="@+id/showMoreCounter"
+    android:background="@drawable/circle_blue"
+    android:layout_width="32dp"
+    android:layout_height="32dp"
+    android:layout_marginLeft="-8dp"/>

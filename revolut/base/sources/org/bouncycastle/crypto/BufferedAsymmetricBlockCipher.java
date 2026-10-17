@@ -1,0 +1,85 @@
+package org.bouncycastle.crypto;
+
+/* JADX INFO: loaded from: classes14.dex */
+public class BufferedAsymmetricBlockCipher {
+
+    /* JADX INFO: renamed from: buf, reason: collision with root package name */
+    protected byte[] f228253buf;
+    protected int bufOff;
+    private final AsymmetricBlockCipher cipher;
+
+    public BufferedAsymmetricBlockCipher(AsymmetricBlockCipher asymmetricBlockCipher) {
+        this.cipher = asymmetricBlockCipher;
+    }
+
+    public byte[] doFinal() throws InvalidCipherTextException {
+        byte[] bArrProcessBlock = this.cipher.processBlock(this.f228253buf, 0, this.bufOff);
+        reset();
+        return bArrProcessBlock;
+    }
+
+    public int getBufferPosition() {
+        return this.bufOff;
+    }
+
+    public int getInputBlockSize() {
+        return this.cipher.getInputBlockSize();
+    }
+
+    public int getOutputBlockSize() {
+        return this.cipher.getOutputBlockSize();
+    }
+
+    public AsymmetricBlockCipher getUnderlyingCipher() {
+        return this.cipher;
+    }
+
+    public void init(boolean z, CipherParameters cipherParameters) {
+        reset();
+        this.cipher.init(z, cipherParameters);
+        this.f228253buf = new byte[this.cipher.getInputBlockSize() + (z ? 1 : 0)];
+        this.bufOff = 0;
+    }
+
+    public void processByte(byte b4) {
+        int i = this.bufOff;
+        byte[] bArr = this.f228253buf;
+        if (i >= bArr.length) {
+            throw new DataLengthException("attempt to process message too long for cipher");
+        }
+        this.bufOff = i + 1;
+        bArr[i] = b4;
+    }
+
+    public void processBytes(byte[] bArr, int i, int i2) {
+        if (i2 == 0) {
+            return;
+        }
+        if (i2 < 0) {
+            throw new IllegalArgumentException("Can't have a negative input length!");
+        }
+        int i3 = this.bufOff;
+        int i5 = i3 + i2;
+        byte[] bArr2 = this.f228253buf;
+        if (i5 > bArr2.length) {
+            throw new DataLengthException("attempt to process message too long for cipher");
+        }
+        System.arraycopy(bArr, i, bArr2, i3, i2);
+        this.bufOff += i2;
+    }
+
+    public void reset() {
+        if (this.f228253buf != null) {
+            int i = 0;
+            while (true) {
+                byte[] bArr = this.f228253buf;
+                if (i >= bArr.length) {
+                    break;
+                }
+                bArr[i] = 0;
+                i++;
+            }
+        }
+        this.bufOff = 0;
+    }
+}

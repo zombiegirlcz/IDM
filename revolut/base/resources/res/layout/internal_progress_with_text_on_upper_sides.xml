@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <TextView
+        android:textColor="?attr/uikit_colorPerformancePositive"
+        android:gravity="center_vertical"
+        android:id="@+id/progressWithTextOnUpperSides_startText"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minHeight="46dp"
+        android:paddingStart="?attr/uikit_dp16"
+        app:layout_constraintBottom_toTopOf="@+id/progressWithTextOnUpperSides_progress"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+    <ProgressBar
+        android:id="@+id/progressWithTextOnUpperSides_progress"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:progressDrawable="@drawable/internal_linear_progress_4dp"
+        android:minHeight="14dp"
+        android:paddingStart="?attr/uikit_dp16"
+        android:paddingEnd="?attr/uikit_dp16"
+        android:progressTint="?attr/uikit_colorPerformancePositive"
+        android:progressTintMode="src_over"
+        android:progressBackgroundTint="?attr/uikit_colorPerformanceNegative"
+        android:progressBackgroundTintMode="src_over"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        style="?android:attr/progressBarStyleHorizontal"/>
+    <TextView
+        android:textColor="?attr/uikit_colorPerformanceNegative"
+        android:gravity="center_vertical"
+        android:id="@+id/progressWithTextOnUpperSides_endText"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minHeight="46dp"
+        android:paddingEnd="?attr/uikit_dp16"
+        app:layout_constraintBottom_toTopOf="@+id/progressWithTextOnUpperSides_progress"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+</merge>

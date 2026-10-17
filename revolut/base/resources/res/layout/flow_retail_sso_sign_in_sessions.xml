@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/retailSsoSignInSessions_container"
+    android:background="?attr/uikit_colorTransparent"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"/>

@@ -1,0 +1,83 @@
+package com.revolut.feature.add_card_to_google_pay_shared.impl;
+
+/* JADX INFO: loaded from: classes20.dex */
+public final class R$string {
+    public static int apple_pay_in_app_verification_fraud_warning_description = 2131954838;
+    public static int apple_pay_in_app_verification_fraud_warning_title = 2131954839;
+    public static int apple_pay_in_app_verification_success_title = 2131954840;
+    public static int apple_pay_in_app_verification_title = 2131954841;
+    public static int card_add_to_gpay_screen_brazil_local_debit_title = 2131958155;
+    public static int card_add_to_gpay_screen_credit_title = 2131958156;
+    public static int card_add_to_gpay_screen_not_eligible_subtitle = 2131958157;
+    public static int card_add_to_gpay_screen_prepaid_title = 2131958158;
+    public static int card_add_to_gpay_screen_standard_virtual_not_eligible_subtitle = 2131958159;
+    public static int card_add_to_gpay_screen_standard_virtual_subtitle = 2131958160;
+    public static int card_add_to_gpay_screen_standard_virtual_title = 2131958161;
+    public static int card_add_to_gpay_screen_subtitle = 2131958162;
+    public static int card_add_to_gpay_screen_success_subtitle = 2131958163;
+    public static int card_add_to_gpay_screen_success_virtual_title = 2131958164;
+    public static int card_add_to_gpay_screen_title = 2131958165;
+    public static int card_add_to_xpay_dialog_description = 2131958166;
+    public static int card_add_to_xpay_dialog_faster_and_easier_google_description = 2131958167;
+    public static int card_add_to_xpay_dialog_faster_and_easier_title = 2131958168;
+    public static int card_add_to_xpay_dialog_more_secure_description = 2131958169;
+    public static int card_add_to_xpay_dialog_more_secure_title = 2131958170;
+    public static int card_add_to_xpay_dialog_title = 2131958171;
+    public static int card_apple_wallet_confirmation_title = 2131958184;
+    public static int card_apple_wallet_virtual_post_activation_short_us_subtitle = 2131958188;
+    public static int card_apple_wallet_virtual_post_activation_short_us_title = 2131958189;
+    public static int card_google_pay_confirmation_continue_without_cta = 2131958519;
+    public static int card_google_pay_confirmation_subtitle = 2131958520;
+    public static int card_gpay_combo_subtitle = 2131958523;
+    public static int card_gpay_combo_title = 2131958524;
+    public static int card_gpay_global_subtitle = 2131958525;
+    public static int card_gpay_global_title = 2131958526;
+    public static int card_gpay_local_debit_subtitle = 2131958527;
+    public static int card_gpay_local_debit_title = 2131958528;
+    public static int card_reactivation_add_to_google_pay_description = 2131959244;
+    public static int card_reactivation_add_to_google_pay_title = 2131959245;
+    public static int google_pay_confirm_add_button = 2131975730;
+    public static int google_pay_confirm_decline_button = 2131975731;
+    public static int google_pay_confirm_declined_activation_dialog_message = 2131975732;
+    public static int google_pay_confirm_declined_activation_dialog_ok_button = 2131975734;
+    public static int google_pay_confirm_declined_activation_dialog_title = 2131975733;
+    public static int google_pay_confirm_step_head_title = 2131975735;
+    public static int google_pay_confirm_successful_activation_dialog_message = 2131975736;
+    public static int google_pay_confirm_successful_activation_dialog_ok_button = 2131975737;
+    public static int google_pay_confirm_successful_activation_dialog_title = 2131975738;
+    public static int google_pay_confirm_wrong_gp_params_dialog_message = 2131975739;
+    public static int google_pay_confirm_wrong_gp_params_dialog_ok_button = 2131975740;
+    public static int google_pay_confirm_wrong_gp_params_dialog_title = 2131975741;
+    public static int google_pay_in_app_verification_success_title = 2131975742;
+    public static int google_pay_in_app_verification_title = 2131975743;
+    public static int google_pay_location_mismatch_title = 2131975729;
+    public static int google_pay_otp_verification_title = 2131975744;
+    public static int google_pay_verification_button_copy_code = 2131975745;
+    public static int google_pay_verification_button_dont_add = 2131975746;
+    public static int google_pay_verification_toast_title = 2131975747;
+    public static int google_pay_verification_warning_description = 2131975748;
+    public static int google_pay_verification_warning_title = 2131975749;
+    public static int samsung_wallet_in_app_verification = 2131998102;
+    public static int samsung_wallet_in_app_verification_success_title = 2131998103;
+    public static int x_pay_otp_verification_title = 2132016339;
+    public static int x_pay_otp_verification_title_with_requestor_name = 2132016340;
+    public static int x_pay_otp_verification_warning_description = 2132016341;
+    public static int xpay_card_security_description = 2132016342;
+    public static int xpay_card_security_primary_button = 2132016343;
+    public static int xpay_card_security_replace_card_button = 2132016344;
+    public static int xpay_card_security_replace_card_description = 2132016345;
+    public static int xpay_card_security_secondary_button = 2132016346;
+    public static int xpay_card_security_success_dialog_card_frozen = 2132016347;
+    public static int xpay_card_security_success_dialog_card_terminated = 2132016348;
+    public static int xpay_card_security_title = 2132016349;
+    public static int xpay_confirmation_action_is_it_you = 2132016359;
+    public static int xpay_location_mismatch_button_cancel = 2132016353;
+    public static int xpay_location_mismatch_button_confirm = 2132016354;
+    public static int xpay_location_mismatch_cell_card = 2132016355;
+    public static int xpay_location_mismatch_cell_device = 2132016356;
+    public static int xpay_location_mismatch_cell_location = 2132016357;
+    public static int xpay_location_mismatch_generic_title = 2132016358;
+
+    private R$string() {
+    }
+}

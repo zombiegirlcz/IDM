@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@drawable/internal_box_background"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:ellipsize="end"
+        android:id="@+id/cellDetailsActionableIcon_startLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:maxLines="2"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        android:layout_marginVertical="?attr/uikit_dp12"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/cellDetailsActionableIcon_endLabel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:ellipsize="end"
+        android:gravity="end"
+        android:layout_gravity="center_vertical"
+        android:id="@+id/cellDetailsActionableIcon_endLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLines="2"
+        android:layout_marginEnd="?attr/uikit_dp4"
+        android:layout_marginVertical="?attr/uikit_dp12"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/cellDetailsActionableIcon_endImage"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_max="200dp"
+        app:layout_goneMarginEnd="?attr/uikit_dp0"
+        style="?attr/internal_textAppearanceBody2"/>
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/cellDetailsActionableIcon_endImage"
+        android:padding="?attr/uikit_dp8"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        app:layout_constraintBottom_toBottomOf="@+id/cellDetailsActionableIcon_endLabel"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/cellDetailsActionableIcon_endLabel"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

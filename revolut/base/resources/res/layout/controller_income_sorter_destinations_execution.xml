@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithContainer
+        android:id="@+id/controllerIncomeSorterDestinationsExecution_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.navbar.HeaderWithGaugeBarContentView
+            android:id="@+id/controllerIncomeSorterDestinationsExecution_navBarContentView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithContainer>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/controllerIncomeSorterDestinationsExecution_recyclerView"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

@@ -1,0 +1,33 @@
+package androidx.camera.camera2.pipe.compat;
+
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
+import java.util.Set;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes15.dex */
+@Metadata(d1 = {"\u00002\n\u0002\u0018\u0002\n\u0002\u0010\u0000\n\u0002\b\u0002\n\u0002\u0018\u0002\n\u0000\n\u0002\u0010\"\n\u0002\u0010\u000e\n\u0002\b\u0002\n\u0002\u0018\u0002\n\u0000\n\u0002\u0010\b\n\u0000\n\u0002\u0010\u0002\n\u0002\b\u0003\bÁ\u0002\u0018\u00002\u00020\u0001B\t\b\u0002¢\u0006\u0004\b\u0002\u0010\u0003J#\u0010\b\u001a\u000e\u0012\n\u0012\b\u0012\u0004\u0012\u00020\u00070\u00060\u00062\u0006\u0010\u0005\u001a\u00020\u0004H\u0007¢\u0006\u0004\b\b\u0010\tJ\u001f\u0010\u000f\u001a\u00020\u000e2\u0006\u0010\u000b\u001a\u00020\n2\u0006\u0010\r\u001a\u00020\fH\u0007¢\u0006\u0004\b\u000f\u0010\u0010¨\u0006\u0011"}, d2 = {"Landroidx/camera/camera2/pipe/compat/Api30Compat;", "", "<init>", "()V", "Landroid/hardware/camera2/CameraManager;", "cameraManager", "", "", "getConcurrentCameraIds", "(Landroid/hardware/camera2/CameraManager;)Ljava/util/Set;", "Landroid/hardware/camera2/CameraDevice;", "cameraDevice", "", "mode", "", "setCameraAudioRestriction", "(Landroid/hardware/camera2/CameraDevice;I)V", "camera-camera2-pipe"}, k = 1, mv = {2, 1, 0}, xi = 48)
+public final class Api30Compat {
+
+    @NotNull
+    public static final Api30Compat INSTANCE = new Api30Compat();
+
+    private Api30Compat() {
+    }
+
+    @NotNull
+    public static final Set<Set<String>> getConcurrentCameraIds(@NotNull CameraManager cameraManager) throws CameraAccessException {
+        Intrinsics.checkNotNullParameter(cameraManager, "cameraManager");
+        Set<Set<String>> concurrentCameraIds = cameraManager.getConcurrentCameraIds();
+        Intrinsics.checkNotNullExpressionValue(concurrentCameraIds, "getConcurrentCameraIds(...)");
+        return concurrentCameraIds;
+    }
+
+    public static final void setCameraAudioRestriction(@NotNull CameraDevice cameraDevice, int mode) throws CameraAccessException {
+        Intrinsics.checkNotNullParameter(cameraDevice, "cameraDevice");
+        cameraDevice.setCameraAudioRestriction(mode);
+    }
+}

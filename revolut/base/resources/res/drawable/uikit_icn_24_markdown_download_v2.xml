@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="24dp"
+    android:width="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="?attr/uikit_colorBackground"
+        android:pathData="M0 0h24v24H0z"
+        android:fillAlpha="0.01"/>
+    <path
+        android:fillColor="?attr/uikit_colorForeground"
+        android:pathData="M22 4.5c0.552 0 1 0.448 1 1v14c0 0.552-0.448 1-1 1H2c-0.552 0-1-0.448-1-1v-14c0-0.552 0.448-1 1-1h20zM16.75 7C16.334 7 16 7.336 16 7.75v6.012l-1.447-1.308c-0.297-0.268-0.751-0.257-1.034 0.026l-0.109 0.109c-0.293 0.293-0.293 0.768 0 1.06l3.059 3.058c0.293 0.293 0.767 0.293 1.06 0l3.06-3.058c0.292-0.293 0.292-0.767 0-1.06l-0.091-0.09c-0.28-0.28-0.729-0.295-1.026-0.034l-1.473 1.297V7.75C18 7.336 17.663 7 17.25 7h-0.5zM11 7.566c0-0.399-0.445-0.637-0.777-0.416L7 9.298 3.777 7.15C3.445 6.93 3 7.167 3 7.566v8.684C3 16.664 3.336 17 3.75 17h0.5C4.664 17 5 16.664 5 16.25v-5.882l1.723 1.15c0.168 0.111 0.387 0.111 0.554 0L9 10.367v5.882C9 16.664 9.336 17 9.75 17h0.5c0.414 0 0.75-0.336 0.75-0.75V7.566z"
+        android:fillType="evenOdd"/>
+</vector>

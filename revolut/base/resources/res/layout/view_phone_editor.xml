@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/phone_editor_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:orientation="horizontal"
+        android:id="@+id/phoneContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.input.InputText
+            android:id="@+id/uic_edit_country_code"
+            android:layout_width="118dp"
+            android:layout_height="wrap_content"
+            android:layout_marginRight="16dp"/>
+        <com.revolut.core.ui_kit.views.input.InputText
+            android:id="@+id/uic_edit_phone_number"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+</merge>

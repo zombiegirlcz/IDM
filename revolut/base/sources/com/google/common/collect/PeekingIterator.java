@@ -1,0 +1,19 @@
+package com.google.common.collect;
+
+import com.google.common.annotations.GwtCompatible;
+import java.util.Iterator;
+
+/* JADX INFO: loaded from: classes17.dex */
+@GwtCompatible
+@ElementTypesAreNonnullByDefault
+public interface PeekingIterator<E> extends Iterator<E> {
+    @Override // java.util.Iterator
+    @ParametricNullness
+    E next();
+
+    @ParametricNullness
+    E peek();
+
+    @Override // java.util.Iterator
+    void remove();
+}

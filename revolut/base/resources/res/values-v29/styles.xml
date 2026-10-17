@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Base.Theme" parent="@style/Base.V29.Theme">
+    </style>
+    <style name="Base.Theme.SplashScreen" parent="@android:style/Theme.DeviceDefault.DayNight">
+        <item name="android:windowLayoutInDisplayCutoutMode">1</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+    </style>
+    <style name="Base.Theme.SplashScreen.Light" parent="@style/Base.Theme.SplashScreen">
+    </style>
+    <style name="Base.Theme.Translucent" parent="@style/Base.Theme.V29.Translucent">
+    </style>
+    <style name="Base.Theme.V29.Translucent" parent="@style/Base.Theme.V23.Translucent">
+        <item name="android:navigationBarColor">?attr/uikit_colorBackground</item>
+        <item name="android:windowLightNavigationBar">@bool/windowLightNavigationBar</item>
+        <item name="android:navigationBarDividerColor">?attr/uikit_colorGreyTone5</item>
+    </style>
+    <style name="Base.V29.Theme" parent="@style/Base.V23.Theme">
+        <item name="android:navigationBarColor">?attr/uikit_colorBackground</item>
+        <item name="android:windowLightNavigationBar">@bool/windowLightNavigationBar</item>
+        <item name="android:navigationBarDividerColor">?attr/uikit_colorGreyTone5</item>
+    </style>
+    <style name="BottomSheetDialog.Theme" parent="@style/Theme.MaterialComponents.Light.BottomSheetDialog">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:statusBarColor">?attr/uikit_colorTransparent</item>
+        <item name="android:navigationBarColor">?attr/uikit_colorBackground</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:navigationBarDividerColor">?attr/uikit_colorGreyTone5</item>
+        <item name="bottomSheetStyle">@style/BottomSheetDialog.Style</item>
+    </style>
+    <style name="CustomDialog" parent="@style/Theme.AppCompat.DayNight.Dialog">
+        <item name="android:windowBackground">?attr/uikit_colorTransparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:navigationBarColor">?attr/uikit_colorBackground</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:navigationBarDividerColor">?attr/uikit_colorGreyTone5</item>
+    </style>
+    <style name="Glance.AppWidget.Theme" parent="@android:style/Theme.DeviceDefault.DayNight">
+    </style>
+    <style name="InternalCustomDialog" parent="@style/Theme.AppCompat.DayNight.Dialog">
+        <item name="android:windowBackground">?attr/uikit_colorTransparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:statusBarColor">@color/colorTransparent</item>
+        <item name="android:navigationBarColor">@color/colorTransparent</item>
+        <item name="android:navigationBarDividerColor">@color/colorTransparent</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+    </style>
+    <style name="UiKitTheme.Day" parent="@style/UiKitColorsTheme.Day">
+        <item name="android:isLightTheme">true</item>
+        <item name="internal_colorAccentNeutralButtonRipple">?attr/uikit_colorBlack</item>
+        <item name="internal_colorForegroundTintOnDarkBackground">?attr/uikit_colorWhite</item>
+        <item name="internal_colorForegroundTintOnDarkBackgroundDisabled">?attr/uikit_colorWhite_30</item>
+        <item name="internal_colorForegroundTintOnLightBackground">?attr/uikit_colorBlack</item>
+        <item name="internal_colorForegroundTintOnLightBackgroundDisabled">?attr/uikit_colorBlack_30</item>
+        <item name="internal_colorModalPopupDimmer">?attr/uikit_colorBlack_60</item>
+        <item name="internal_colorPopupOverlay">?attr/uikit_colorGreyTone50</item>
+        <item name="internal_colorPopupOverlayAlpha">@dimen/uikit_popup_overlay_alpha_day</item>
+        <item name="internal_colorPopupShadow">?attr/uikit_colorGreyTone20</item>
+        <item name="internal_colorSwipeableOverlayDimmer">?attr/uikit_colorBlack_30</item>
+        <item name="internal_colorsThemeOverlay_dayNight">@style/UiKitColorsThemeOverlay.Day</item>
+        <item name="internal_forceBoldLinks">false</item>
+        <item name="internal_nightTheme">false</item>
+        <item name="uikit_colorBlackWidgetBackground">?attr/uikit_colorBlack</item>
+        <item name="uikit_colorLink">?attr/uikit_colorAccent</item>
+        <item name="uikit_colorOverlayFill">?attr/uikit_colorBlack_50</item>
+        <item name="uikit_equivalentTransparentTheme">@style/UiKitTheme.TransparentLight</item>
+    </style>
+    <style name="UiKitTheme.Night" parent="@style/UiKitColorsTheme.Night">
+        <item name="android:isLightTheme">false</item>
+        <item name="internal_colorAccentNeutralButtonRipple">?attr/uikit_colorBlack</item>
+        <item name="internal_colorForegroundTintOnDarkBackground">?attr/uikit_colorWhite</item>
+        <item name="internal_colorForegroundTintOnDarkBackgroundDisabled">?attr/uikit_colorWhite_30</item>
+        <item name="internal_colorForegroundTintOnLightBackground">?attr/uikit_colorBlack</item>
+        <item name="internal_colorForegroundTintOnLightBackgroundDisabled">?attr/uikit_colorBlack_30</item>
+        <item name="internal_colorModalPopupDimmer">?attr/uikit_colorBackground_50</item>
+        <item name="internal_colorPopupOverlay">?attr/uikit_colorBackground</item>
+        <item name="internal_colorPopupOverlayAlpha">@dimen/uikit_popup_overlay_alpha_night</item>
+        <item name="internal_colorPopupShadow">@android:color/black</item>
+        <item name="internal_colorSwipeableOverlayDimmer">?attr/uikit_colorBlack_50</item>
+        <item name="internal_colorsThemeOverlay_dayNight">@style/UiKitColorsThemeOverlay.Night</item>
+        <item name="internal_forceBoldLinks">false</item>
+        <item name="internal_nightTheme">true</item>
+        <item name="uikit_colorBlackWidgetBackground">?attr/uikit_colorBlack</item>
+        <item name="uikit_colorLink">?attr/uikit_colorAccent</item>
+        <item name="uikit_colorOverlayFill">?attr/uikit_colorBlack_50</item>
+        <item name="uikit_equivalentTransparentTheme">@style/UiKitTheme.TransparentNight</item>
+    </style>
+    <style name="UiKitTheme.TransparentLight" parent="@style/UiKitColorsTheme.MonoLight">
+        <item name="android:isLightTheme">true</item>
+        <item name="internal_colorAccentNeutralButtonRipple">?attr/uikit_colorWhite</item>
+        <item name="internal_colorForegroundTintOnDarkBackground">?attr/uikit_colorWhite</item>
+        <item name="internal_colorForegroundTintOnDarkBackgroundDisabled">?attr/uikit_colorWhite_30</item>
+        <item name="internal_colorForegroundTintOnLightBackground">?attr/uikit_colorBlack</item>
+        <item name="internal_colorForegroundTintOnLightBackgroundDisabled">?attr/uikit_colorBlack_30</item>
+        <item name="internal_colorModalPopupDimmer">?attr/uikit_colorBlack_60</item>
+        <item name="internal_colorPopupOverlay">?attr/uikit_colorGreyTone50</item>
+        <item name="internal_colorPopupOverlayAlpha">@dimen/uikit_popup_overlay_alpha_day</item>
+        <item name="internal_colorPopupShadow">?attr/uikit_colorGreyTone20</item>
+        <item name="internal_colorSwipeableOverlayDimmer">?attr/uikit_colorBlack_30</item>
+        <item name="internal_colorsThemeOverlay_dayNight">@style/UiKitColorsThemeOverlay.Day</item>
+        <item name="internal_forceBoldLinks">false</item>
+        <item name="internal_monoTheme">true</item>
+        <item name="internal_nightTheme">false</item>
+        <item name="internal_readyForAccentNeutral">false</item>
+        <item name="uikit_colorBlackWidgetBackground">?attr/uikit_colorBlack</item>
+        <item name="uikit_colorBlackWidgetBackground">@color/internal_black_10</item>
+        <item name="uikit_colorLink">?attr/uikit_colorAccent</item>
+        <item name="uikit_colorOverlayFill">?attr/uikit_colorBlack_50</item>
+        <item name="uikit_colorProgressNeutral">@color/internal_black</item>
+        <item name="uikit_colorRevPointsGradientEnd">@color/internal_black</item>
+        <item name="uikit_colorRevPointsGradientStart">@color/internal_black</item>
+        <item name="uikit_colorSliderOverlay">?attr/uikit_colorGroupedBackground</item>
+    </style>
+    <style name="UiKitTheme.TransparentNight" parent="@style/UiKitColorsTheme.Mono">
+        <item name="android:isLightTheme">false</item>
+        <item name="internal_colorAccentNeutralButtonRipple">?attr/uikit_colorBlack</item>
+        <item name="internal_colorForegroundTintOnDarkBackground">?attr/uikit_colorWhite</item>
+        <item name="internal_colorForegroundTintOnDarkBackgroundDisabled">?attr/uikit_colorWhite_30</item>
+        <item name="internal_colorForegroundTintOnLightBackground">?attr/uikit_colorBlack</item>
+        <item name="internal_colorForegroundTintOnLightBackgroundDisabled">?attr/uikit_colorBlack_30</item>
+        <item name="internal_colorModalPopupDimmer">?attr/uikit_colorBackground_50</item>
+        <item name="internal_colorPopupOverlay">?attr/uikit_colorBackground</item>
+        <item name="internal_colorPopupOverlayAlpha">@dimen/uikit_popup_overlay_alpha_night</item>
+        <item name="internal_colorPopupShadow">@android:color/black</item>
+        <item name="internal_colorSwipeableOverlayDimmer">?attr/uikit_colorBlack_50</item>
+        <item name="internal_colorsThemeOverlay_dayNight">@style/UiKitColorsThemeOverlay.Night</item>
+        <item name="internal_forceBoldLinks">false</item>
+        <item name="internal_monoTheme">true</item>
+        <item name="internal_nightTheme">true</item>
+        <item name="internal_readyForAccentNeutral">false</item>
+        <item name="uikit_colorBlackWidgetBackground">?attr/uikit_colorBlack</item>
+        <item name="uikit_colorBlackWidgetBackground">@color/internal_white_10</item>
+        <item name="uikit_colorLink">?attr/uikit_colorAccent</item>
+        <item name="uikit_colorOverlayFill">?attr/uikit_colorBlack_50</item>
+        <item name="uikit_colorProgressNeutral">@color/internal_white</item>
+        <item name="uikit_colorRevPointsGradientEnd">@color/internal_white</item>
+        <item name="uikit_colorRevPointsGradientStart">@color/internal_white</item>
+        <item name="uikit_colorSliderOverlay">@color/internal_black_night</item>
+        <item name="uikit_drawableRevPoints">@drawable/uikit_icn_24_rev_points_mono</item>
+        <item name="uikit_shimmerBackgroundCircle">@drawable/internal_background_shimmer_circle_mono</item>
+        <item name="uikit_shimmerBackgroundRect">@drawable/internal_background_shimmer_rect_mono</item>
+        <item name="uikit_shimmerBackgroundRectSquared">@drawable/internal_background_shimmer_rect_mono_squared</item>
+    </style>
+    <style name="UiKitThemeInternal" parent="@style/Theme.MaterialComponents.Light.NoActionBar.Bridge">
+        <item name="android:textColorHint">@null</item>
+        <item name="android:colorControlHighlight">?attr/uikit_colorSelectableItemBackground</item>
+        <item name="android:spotShadowAlpha">0.4</item>
+        <item name="android:colorEdgeEffect">?attr/uikit_colorGroupedBackground</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="colorControlHighlight">?attr/uikit_colorSelectableItemBackground</item>
+        <item name="internal_monoTheme">false</item>
+        <item name="internal_textAppearanceAirBody1">@style/InternalTextAppearance.AirBody1</item>
+        <item name="internal_textAppearanceBody1">@style/InternalTextAppearance.Body1</item>
+        <item name="internal_textAppearanceBody1Spaced">@style/InternalTextAppearance.Body1.Spaced</item>
+        <item name="internal_textAppearanceBody2">@style/InternalTextAppearance.Body2</item>
+        <item name="internal_textAppearanceBody3">@style/InternalTextAppearance.Body3</item>
+        <item name="internal_textAppearanceCircleButton">@style/InternalTextAppearance.CircleButton</item>
+        <item name="internal_textAppearanceDisplay1">@style/InternalTextAppearance.Display1</item>
+        <item name="internal_textAppearanceDisplay2">@style/InternalTextAppearance.Display2</item>
+        <item name="internal_textAppearanceEmphasis1">@style/InternalTextAppearance.Emphasis1</item>
+        <item name="internal_textAppearanceEmphasis2">@style/InternalTextAppearance.Emphasis2</item>
+        <item name="internal_textAppearanceEmphasis3">@style/InternalTextAppearance.Emphasis3</item>
+        <item name="internal_textAppearanceEmphasis4">@style/InternalTextAppearance.Emphasis4</item>
+        <item name="internal_textAppearanceFcaDisclaimerEmphasised">@style/InternalTextAppearance.Fca.Disclaimer.Emphasised</item>
+        <item name="internal_textAppearanceFcaDisclaimerLarge">@style/InternalTextAppearance.Fca.Disclaimer.Large</item>
+        <item name="internal_textAppearanceFcaDisclaimerMedium">@style/InternalTextAppearance.Fca.Disclaimer.Medium</item>
+        <item name="internal_textAppearanceFcaDisclaimerRegular">@style/InternalTextAppearance.Fca.Disclaimer.Regular</item>
+        <item name="internal_textAppearanceHeading1">@style/InternalTextAppearance.Heading1</item>
+        <item name="internal_textAppearanceHeading2">@style/InternalTextAppearance.Heading2</item>
+        <item name="internal_textAppearanceHeading3">@style/InternalTextAppearance.Heading3</item>
+        <item name="internal_textAppearanceLargeDecorativeText">@style/InternalTextAppearance.LargeDecorativeText</item>
+        <item name="internal_textAppearanceLargeSubheader">@style/InternalTextAppearance.LargeSubheader</item>
+        <item name="internal_textAppearanceMarketingDisplay1_noXmlUsage">@style/InternalTextAppearance.MarketingDisplay1_legacy</item>
+        <item name="internal_textAppearanceMarketingDisplay2_noXmlUsage">@style/InternalTextAppearance.MarketingDisplay2_legacy</item>
+        <item name="internal_textAppearanceMarketingDisplay3_noXmlUsage">@style/InternalTextAppearance.MarketingDisplay3_legacy</item>
+        <item name="internal_textAppearanceNumPadKeyboardDigit">@style/InternalTextAppearance.NumPadKeyboardDigit</item>
+        <item name="internal_textAppearanceStoriesSubtitle">@style/InternalTextAppearance.StoriesSubtitle</item>
+        <item name="internal_textAppearanceStoriesTitle">@style/InternalTextAppearance.MarketingDisplay3_legacy</item>
+        <item name="internal_textAppearanceWidgetAmount">@style/InternalTextAppearance.Heading2</item>
+        <item name="internal_textAppearanceWidgetAmountResizable">@style/InternalTextAppearance.WidgetAmountResizable</item>
+        <item name="uikit_box_corner_radius">@dimen/internal_box_corner_radius</item>
+        <item name="uikit_centered_fixed_tab_corner_radius">@dimen/internal_centered_fixed_tab_corner_radius</item>
+        <item name="uikit_centered_fixed_tab_height">@dimen/internal_centered_fixed_tab_height</item>
+        <item name="uikit_colorProgressNeutral">?attr/uikit_colorBlue</item>
+        <item name="uikit_colorRevPointsGradientEnd">?attr/uikit_colorIndigo</item>
+        <item name="uikit_colorRevPointsGradientStart">?attr/uikit_colorPurple</item>
+        <item name="uikit_colorSelectableItemBackground">?attr/uikit_colorGreyTone8</item>
+        <item name="uikit_colorSliderOverlay">@color/internal_black_night</item>
+        <item name="uikit_colorTransparent">@color/uikit_colorTransparent</item>
+        <item name="uikit_dp0">@dimen/internal_dp0</item>
+        <item name="uikit_dp1">@dimen/internal_dp1</item>
+        <item name="uikit_dp12">@dimen/internal_dp12</item>
+        <item name="uikit_dp14">@dimen/internal_dp14</item>
+        <item name="uikit_dp16">@dimen/internal_dp16</item>
+        <item name="uikit_dp18">@dimen/internal_dp18</item>
+        <item name="uikit_dp2">@dimen/internal_dp2</item>
+        <item name="uikit_dp20">@dimen/internal_dp20</item>
+        <item name="uikit_dp24">@dimen/internal_dp24</item>
+        <item name="uikit_dp32">@dimen/internal_dp32</item>
+        <item name="uikit_dp4">@dimen/internal_dp4</item>
+        <item name="uikit_dp40">@dimen/internal_dp40</item>
+        <item name="uikit_dp48">@dimen/internal_dp48</item>
+        <item name="uikit_dp64">@dimen/internal_dp64</item>
+        <item name="uikit_dp72">@dimen/internal_dp72</item>
+        <item name="uikit_dp8">@dimen/internal_dp8</item>
+        <item name="uikit_dp96">@dimen/internal_dp96</item>
+        <item name="uikit_drawableRevPoints">@drawable/uikit_icn_24_rev_points_default</item>
+        <item name="uikit_fixed_tab_corner_radius">@dimen/internal_fixed_tab_corner_radius</item>
+        <item name="uikit_fixed_tab_height">@dimen/internal_fixed_tab_height</item>
+        <item name="uikit_fixed_tab_layout_corner_radius">@dimen/internal_fixed_tab_layout_corner_radius</item>
+        <item name="uikit_fixed_tab_layout_height">@dimen/internal_fixed_tab_layout_height</item>
+        <item name="uikit_inner_box_corner_radius">@dimen/internal_inner_box_corner_radius</item>
+        <item name="uikit_large_button_corner_radius">@dimen/internal_large_button_corner_radius</item>
+        <item name="uikit_large_button_height">@dimen/internal_large_button_height</item>
+        <item name="uikit_large_button_horizontal_padding">@dimen/internal_large_button_horizontal_padding</item>
+        <item name="uikit_large_button_icon_size">@dimen/internal_large_button_icon_size</item>
+        <item name="uikit_pincode_dot_diameter">@dimen/internal_pincode_dot_diameter</item>
+        <item name="uikit_pincode_dot_margin">@dimen/internal_pincode_dot_margin</item>
+        <item name="uikit_progressBarPrimary">@style/InternalProgressBarPrimary</item>
+        <item name="uikit_prompt_corner_radius">@dimen/internal_prompt_corner_radius</item>
+        <item name="uikit_search_input_corner_radius">@dimen/internal_search_input_corner_radius</item>
+        <item name="uikit_shimmerBackgroundCircle">@drawable/internal_circle_gradient_grey</item>
+        <item name="uikit_shimmerBackgroundRect">@drawable/internal_rectangle_gradient_grey</item>
+        <item name="uikit_shimmerBackgroundRectSquared">@drawable/internal_rectangle_gradient_grey_squared</item>
+        <item name="uikit_small_action_corner_radius">@dimen/internal_small_action_corner_radius</item>
+        <item name="uikit_small_action_height">@dimen/internal_small_action_height</item>
+        <item name="uikit_tab_corner_radius">@dimen/internal_tab_corner_radius</item>
+        <item name="uikit_two_button_margin">@dimen/internal_two_button_margin</item>
+        <item name="uikit_windowBackground">?attr/uikit_colorGroupedBackground</item>
+    </style>
+</resources>

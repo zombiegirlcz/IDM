@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/enterPhoneScreen_screenContainer"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/enterPhoneScreen_navBarWithToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/enterPhoneScreen_recyclerView"
+        android:paddingBottom="@dimen/dp_96"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:overScrollMode="never"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <LinearLayout
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="?attr/uikit_dp16"
+        android:layout_marginRight="?attr/uikit_dp16"
+        android:layout_marginBottom="?attr/uikit_dp24">
+        <com.revolut.core.ui_kit.views.LargeActionButton
+            android:id="@+id/enterPhoneScreen_secondaryActionButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="?attr/uikit_dp4"
+            app:uikit_LargeActionButtonStyle="SemiAccentButton"/>
+        <com.revolut.core.ui_kit.views.LargeActionButton
+            android:id="@+id/enterPhoneScreen_primaryActionButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="?attr/uikit_dp4"
+            app:uikit_LargeActionButtonStyle="AccentButton"/>
+    </LinearLayout>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

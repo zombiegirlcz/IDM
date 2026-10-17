@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="?attr/uikit_colorGreyTone8">
+    <item
+        android:id="@+id/rippleContent"
+        android:drawable="@drawable/internal_keypad_volumetric_button_background"/>
+</ripple>

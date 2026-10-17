@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@drawable/internal_box_background"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:background="@drawable/internal_purple_grey_gradient_background"
+        android:layout_width="match_parent"
+        android:layout_height="116dp"
+        android:alpha="0.2"/>
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/wideCardLoading_shimmeringView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            <View
+                android:background="@drawable/internal_rectangle_white"
+                android:layout_width="0dp"
+                android:layout_height="?attr/uikit_dp24"
+                android:layout_marginBottom="?attr/uikit_dp16"
+                android:layout_marginStart="?attr/uikit_dp16"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintWidth_percent="0.41"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+</FrameLayout>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithAvatar
+        android:id="@+id/goalAmount_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/recyclerView"
+        android:paddingBottom="96dp"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.views.legacy.LegacyButtonContainerConstraintLayout
+        android:layout_gravity="bottom"
+        android:background="@drawable/uikit_bottom_container_gradient"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="@dimen/dp_8"
+        app:fitNavigationBar="true">
+        <com.revolut.core.ui_kit.views.LargeActionButton
+            android:id="@+id/goalAmount_scheduleButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/dp_8"
+            app:layout_constraintBottom_toBottomOf="@+id/goalAmount_submitButton"
+            app:layout_constraintEnd_toStartOf="@+id/goalAmount_submitButton"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/goalAmount_submitButton"
+            app:uikit_LargeActionButtonStyle="AccentButton"/>
+        <com.revolut.core.ui_kit.views.LargeActionButton
+            android:id="@+id/goalAmount_submitButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="@dimen/dp_24"
+            android:layout_marginStart="@dimen/dp_8"
+            android:layout_marginEnd="@dimen/dp_8"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/goalAmount_scheduleButton"
+            app:layout_constraintTop_toTopOf="parent"
+            app:uikit_LargeActionButtonStyle="AccentButton"/>
+    </com.revolut.core.ui_kit.views.legacy.LegacyButtonContainerConstraintLayout>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

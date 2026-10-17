@@ -1,0 +1,100 @@
+package j3k;
+
+import java.util.ArrayList;
+import java.util.List;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes11.dex */
+@Metadata(d1 = {"\u0000$\n\u0002\u0018\u0002\n\u0002\u0010\u0000\n\u0002\u0010\u000e\n\u0002\b\r\n\u0002\u0010\u000b\n\u0002\b\u0003\n\u0002\u0010 \n\u0002\u0018\u0002\n\u0002\b\u0004\b\u0086\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004R\u001a\u0010\b\u001a\u00020\u00028\u0006X\u0087\u0004¢\u0006\f\n\u0004\b\u0005\u0010\u0006\u001a\u0004\b\u0007\u0010\u0004R\u001a\u0010\u000b\u001a\u00020\u00028\u0006X\u0087\u0004¢\u0006\f\n\u0004\b\t\u0010\u0006\u001a\u0004\b\n\u0010\u0004R\u001a\u0010\r\u001a\u00020\u00028\u0006X\u0087\u0004¢\u0006\f\n\u0004\b\u0007\u0010\u0006\u001a\u0004\b\f\u0010\u0004R\u001a\u0010\u000f\u001a\u00020\u00028\u0006X\u0087\u0004¢\u0006\f\n\u0004\b\u000e\u0010\u0006\u001a\u0004\b\u000e\u0010\u0004R\u001a\u0010\u0013\u001a\u00020\u00108\u0006X\u0087\u0004¢\u0006\f\n\u0004\b\f\u0010\u0011\u001a\u0004\b\t\u0010\u0012R \u0010\u0018\u001a\b\u0012\u0004\u0012\u00020\u00150\u00148\u0006X\u0087\u0004¢\u0006\f\n\u0004\b\n\u0010\u0016\u001a\u0004\b\u0005\u0010\u0017¨\u0006\u0019"}, d2 = {"Lj3k/b;", "", "", "toString", "()Ljava/lang/String;", "a", "Ljava/lang/String;", "c", "id", "b", "f", "name", "e", "logoMono", "d", "logoColored", "", "Z", "()Z", "default", "", "Lj3k/a;", "Ljava/util/List;", "()Ljava/util/List;", "corridors", "feature_payments_bank_transfer_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public final /* data */ class b {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name and from kotlin metadata */
+    @lg.b("id")
+    @NotNull
+    private final String id;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name and from kotlin metadata */
+    @lg.b("name")
+    @NotNull
+    private final String name;
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name and from kotlin metadata */
+    @lg.b("logoMono")
+    @NotNull
+    private final String logoMono;
+
+    /* JADX INFO: renamed from: d, reason: from kotlin metadata */
+    @lg.b("logoColored")
+    @NotNull
+    private final String logoColored;
+
+    /* JADX INFO: renamed from: e, reason: from kotlin metadata */
+    @lg.b("default")
+    private final boolean default;
+
+    /* JADX INFO: renamed from: f, reason: from kotlin metadata */
+    @lg.b("corridors")
+    @NotNull
+    private final List<a> corridors;
+
+    public b(String id10, String name, String logoMono, String logoColored, ArrayList corridors, boolean z) {
+        Intrinsics.checkNotNullParameter(id10, "id");
+        Intrinsics.checkNotNullParameter(name, "name");
+        Intrinsics.checkNotNullParameter(logoMono, "logoMono");
+        Intrinsics.checkNotNullParameter(logoColored, "logoColored");
+        Intrinsics.checkNotNullParameter(corridors, "corridors");
+        this.id = id10;
+        this.name = name;
+        this.logoMono = logoMono;
+        this.logoColored = logoColored;
+        this.default = z;
+        this.corridors = corridors;
+    }
+
+    /* JADX INFO: renamed from: a, reason: from getter */
+    public final List getCorridors() {
+        return this.corridors;
+    }
+
+    /* JADX INFO: renamed from: b, reason: from getter */
+    public final boolean getDefault() {
+        return this.default;
+    }
+
+    /* JADX INFO: renamed from: c, reason: from getter */
+    public final String getId() {
+        return this.id;
+    }
+
+    /* JADX INFO: renamed from: d, reason: from getter */
+    public final String getLogoColored() {
+        return this.logoColored;
+    }
+
+    /* JADX INFO: renamed from: e, reason: from getter */
+    public final String getLogoMono() {
+        return this.logoMono;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        if (!(obj2 instanceof b)) {
+            return false;
+        }
+        b bVar = (b) obj2;
+        return Intrinsics.f(this.id, bVar.id) && Intrinsics.f(this.name, bVar.name) && Intrinsics.f(this.logoMono, bVar.logoMono) && Intrinsics.f(this.logoColored, bVar.logoColored) && this.default == bVar.default && Intrinsics.f(this.corridors, bVar.corridors);
+    }
+
+    /* JADX INFO: renamed from: f, reason: from getter */
+    public final String getName() {
+        return this.name;
+    }
+
+    public final int hashCode() {
+        return this.corridors.hashCode() + j6.a.c(p.a.c(p.a.c(p.a.c(this.id.hashCode() * 31, 31, this.name), 31, this.logoMono), 31, this.logoColored), 31, this.default);
+    }
+}

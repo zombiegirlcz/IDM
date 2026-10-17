@@ -1,0 +1,10 @@
+package zp9;
+
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes5.dex */
+public final class a0 {
+
+    @NotNull
+    public static final z Companion = new z();
+}

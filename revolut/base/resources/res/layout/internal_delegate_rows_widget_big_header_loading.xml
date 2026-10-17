@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:background="@drawable/internal_box_background"
+    android:paddingBottom="?attr/uikit_dp12"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/rowsWidgetBigHeaderLoading_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp12"
+        android:layout_marginBottom="?attr/uikit_dp4"
+        android:textAlignment="viewStart"
+        android:layout_marginStart="?attr/uikit_dp16"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/rowsWidgetBigHeaderLoading_shimmeringView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <View
+            android:background="@drawable/internal_rectangle_gradient_grey"
+            android:layout_width="64dp"
+            android:layout_height="28dp"
+            android:layout_marginStart="?attr/uikit_dp16"
+            app:layout_constraintBottom_toBottomOf="@+id/icon"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/icon"/>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+</LinearLayout>

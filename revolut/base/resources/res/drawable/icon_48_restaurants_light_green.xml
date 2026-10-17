@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="48dp"
+    android:width="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="?attr/uikit_colorLightGreen"
+        android:pathData="M20 4c0 -1.05 0.92 -2 2 -2 1.08 0 2 0.7 2 1.75L24 18c0 3 -2 6 -6 6l1 18c0 1.925 -1 4 -4 4 -3 0 -4 -2.075 -4 -4L12 24C8 24 6 20.975 6 18L6 4C6 2.95 7 2 8 2c1 0 2 1 2 2l0 9c0 2 3 2 3 0l0 -9c0 -1.05 0.92 -2 2 -2 1.08 0 2 0.95 2 2l0 9c0 2 3 2 3 0l0 -9zm10 9C30 7.225 34.26 2 40.2 2 41.28 2 42 2.7 42 3.75L42 42c0 1.925 -1 4 -4 4 -3 0 -4 -2.075 -4 -4l1 -12 -3 0c-1.08 0 -2 -0.95 -2 -2l0 -15z"/>
+</vector>

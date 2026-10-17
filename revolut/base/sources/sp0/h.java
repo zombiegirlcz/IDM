@@ -1,0 +1,35 @@
+package sp0;
+
+import kotlin.enums.EnumEntries;
+import vc.s;
+
+/* JADX WARN: Failed to restore enum class, 'enum' modifier and super class removed */
+/* JADX WARN: Unknown enum class pattern. Please report as an issue! */
+/* JADX INFO: loaded from: classes19.dex */
+public final class h {
+    private static final /* synthetic */ EnumEntries $ENTRIES;
+    private static final /* synthetic */ h[] $VALUES;
+    public static final h GIF;
+    public static final h INLINE;
+    public static final h QUANTITY;
+
+    static {
+        h hVar = new h("GIF", 0);
+        GIF = hVar;
+        h hVar2 = new h("QUANTITY", 1);
+        QUANTITY = hVar2;
+        h hVar3 = new h("INLINE", 2);
+        INLINE = hVar3;
+        h[] hVarArr = {hVar, hVar2, hVar3};
+        $VALUES = hVarArr;
+        $ENTRIES = s.n(hVarArr);
+    }
+
+    public static h valueOf(String str) {
+        return (h) Enum.valueOf(h.class, str);
+    }
+
+    public static h[] values() {
+        return (h[]) $VALUES.clone();
+    }
+}

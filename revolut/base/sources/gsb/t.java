@@ -1,0 +1,6 @@
+package gsb;
+
+/* JADX INFO: loaded from: classes6.dex */
+public interface t {
+    boolean isValid();
+}

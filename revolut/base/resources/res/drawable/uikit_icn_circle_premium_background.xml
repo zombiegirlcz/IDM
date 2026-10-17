@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="oval">
+            <gradient
+                android:startColor="?attr/uikit_colorPlanPremiumMid"
+                android:endColor="?attr/uikit_colorPlanPremiumLight"
+                android:angle="315"
+                android:type="linear"/>
+        </shape>
+    </item>
+    <item android:drawable="@drawable/internal_circle_badge_cover_border"/>
+</layer-list>

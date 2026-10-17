@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.framelayout.UIKitFrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/bottomExpandableDialogContainer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <View
+        android:id="@+id/bottomDialogDimOverlay"
+        android:visibility="invisible"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/uikit.collapse.description"
+        android:alpha="0"/>
+    <com.revolut.core.ui_kit.internal.layouts.UIKitCoordinatorLayout
+        android:id="@+id/bottomDialogCoordinatorLayout"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.revolut.core.ui_kit.internal.dialogs.BottomExpandableDialogView
+            android:id="@+id/bottomExpandableDialog"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:accessibilityTraversalAfter="@+id/bottomDialogDimOverlay"
+            app:layout_anchorGravity="bottom"/>
+    </com.revolut.core.ui_kit.internal.layouts.UIKitCoordinatorLayout>
+</com.revolut.core.ui_kit.internal.views.framelayout.UIKitFrameLayout>

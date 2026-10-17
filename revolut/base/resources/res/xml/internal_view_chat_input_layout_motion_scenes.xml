@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MotionScene xmlns:android="http://schemas.android.com/apk/res/android" xmlns:motion="http://schemas.android.com/apk/res-auto">
+    <Transition
+        motion:constraintSetEnd="@+id/textAndLeftButtonVisible"
+        motion:constraintSetStart="@+id/onlyTextVisible"
+        motion:duration="150"/>
+    <ConstraintSet android:id="@+id/onlyTextVisible">
+        <Constraint
+            android:id="@+id/chatInputView_startIcon"
+            android:visibility="invisible"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="16dp"
+            motion:layout_constraintBottom_toBottomOf="@+id/chatInputView_inputContainer"
+            motion:layout_constraintStart_toStartOf="parent"/>
+        <Constraint
+            android:id="@+id/chatInputView_inputContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            motion:layout_constraintBottom_toBottomOf="parent"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintStart_toStartOf="parent"
+            motion:layout_constraintTop_toTopOf="parent"/>
+    </ConstraintSet>
+    <ConstraintSet android:id="@+id/textAndLeftButtonVisible">
+        <Constraint
+            android:id="@+id/chatInputView_startIcon"
+            android:visibility="visible"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="16dp"
+            motion:layout_constraintBottom_toBottomOf="@+id/chatInputView_inputContainer"
+            motion:layout_constraintStart_toStartOf="parent"/>
+        <Constraint
+            android:id="@+id/chatInputView_inputContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="16dp"
+            motion:layout_constraintBottom_toBottomOf="parent"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintStart_toEndOf="@+id/chatInputView_startIcon"
+            motion:layout_constraintTop_toTopOf="parent"/>
+    </ConstraintSet>
+</MotionScene>

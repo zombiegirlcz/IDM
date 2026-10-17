@@ -1,0 +1,28 @@
+package p2c;
+
+/* JADX INFO: loaded from: classes6.dex */
+public final class k extends l {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final int f232215a;
+
+    public k(int i) {
+        this.f232215a = i;
+    }
+
+    @Override // p2c.l
+    public final int a() {
+        return this.f232215a;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        return (obj2 instanceof k) && this.f232215a == ((k) obj2).f232215a;
+    }
+
+    public final int hashCode() {
+        return Integer.hashCode(this.f232215a);
+    }
+}

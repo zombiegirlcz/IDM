@@ -1,0 +1,70 @@
+package androidx.media3.exoplayer.video.spherical;
+
+import android.content.Context;
+import android.graphics.PointF;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+import android.view.View;
+import androidx.media3.exoplayer.video.spherical.OrientationListener;
+
+/* JADX INFO: loaded from: classes15.dex */
+final class TouchTracker extends GestureDetector.SimpleOnGestureListener implements View.OnTouchListener, OrientationListener.Listener {
+    private final GestureDetector gestureDetector;
+    private final Listener listener;
+    private final float pxPerDegrees;
+    private final PointF previousTouchPointPx = new PointF();
+    private final PointF accumulatedTouchOffsetDegrees = new PointF();
+    private volatile float roll = 3.1415927f;
+
+    public interface Listener {
+        void onScrollChange(PointF pointF);
+
+        boolean onSingleTapUp(MotionEvent motionEvent);
+    }
+
+    public TouchTracker(Context context, Listener listener, float f) {
+        this.listener = listener;
+        this.pxPerDegrees = f;
+        this.gestureDetector = new GestureDetector(context, this);
+    }
+
+    @Override // android.view.GestureDetector.SimpleOnGestureListener, android.view.GestureDetector.OnGestureListener
+    public boolean onDown(MotionEvent motionEvent) {
+        this.previousTouchPointPx.set(motionEvent.getX(), motionEvent.getY());
+        return true;
+    }
+
+    @Override // androidx.media3.exoplayer.video.spherical.OrientationListener.Listener
+    public void onOrientationChange(float[] fArr, float f) {
+        this.roll = -f;
+    }
+
+    @Override // android.view.GestureDetector.SimpleOnGestureListener, android.view.GestureDetector.OnGestureListener
+    public boolean onScroll(MotionEvent motionEvent, MotionEvent motionEvent2, float f, float f4) {
+        float x3 = (motionEvent2.getX() - this.previousTouchPointPx.x) / this.pxPerDegrees;
+        float y2 = motionEvent2.getY();
+        PointF pointF = this.previousTouchPointPx;
+        float f5 = (y2 - pointF.y) / this.pxPerDegrees;
+        pointF.set(motionEvent2.getX(), motionEvent2.getY());
+        double d = this.roll;
+        float fCos = (float) Math.cos(d);
+        float fSin = (float) Math.sin(d);
+        PointF pointF2 = this.accumulatedTouchOffsetDegrees;
+        pointF2.x -= (fCos * x3) - (fSin * f5);
+        float f6 = (fCos * f5) + (fSin * x3) + pointF2.y;
+        pointF2.y = f6;
+        pointF2.y = Math.max(-45.0f, Math.min(45.0f, f6));
+        this.listener.onScrollChange(this.accumulatedTouchOffsetDegrees);
+        return true;
+    }
+
+    @Override // android.view.GestureDetector.SimpleOnGestureListener, android.view.GestureDetector.OnGestureListener
+    public boolean onSingleTapUp(MotionEvent motionEvent) {
+        return this.listener.onSingleTapUp(motionEvent);
+    }
+
+    @Override // android.view.View.OnTouchListener
+    public boolean onTouch(View view, MotionEvent motionEvent) {
+        return this.gestureDetector.onTouchEvent(motionEvent);
+    }
+}

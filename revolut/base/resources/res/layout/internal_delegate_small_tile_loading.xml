@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/smallTile_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:animateLayoutChanges="true">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/smallTileLoading_image"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        android:scaleType="centerCrop"
+        android:alpha="0.3"
+        android:layout_marginEnd="?attr/uikit_dp8"
+        app:layout_constraintBottom_toTopOf="@+id/smallTileLoading_title"
+        app:layout_constraintDimensionRatio="H,1:1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/smallTileLoading_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp8"
+        android:maxLines="1"
+        android:lines="1"
+        app:layout_constraintEnd_toEndOf="@+id/smallTileLoading_image"
+        app:layout_constraintStart_toStartOf="@+id/smallTileLoading_image"
+        app:layout_constraintTop_toBottomOf="@+id/smallTileLoading_image"
+        style="?attr/internal_textAppearanceBody2"/>
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/smallTileLoading_shimmeringView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="?attr/uikit_dp24"
+        android:layout_marginEnd="?attr/uikit_dp24"
+        app:layout_constraintEnd_toEndOf="@+id/smallTileLoading_title"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/smallTileLoading_image">
+        <View
+            android:id="@+id/smallTileLoading_titleLoading"
+            android:background="@drawable/internal_rectangle_gradient_grey"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/uikit_dp16"
+            android:layout_marginTop="?attr/uikit_dp8"/>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

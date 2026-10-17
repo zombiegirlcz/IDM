@@ -1,0 +1,35 @@
+package s96;
+
+import kotlin.enums.EnumEntries;
+import vc.s;
+
+/* JADX WARN: Failed to restore enum class, 'enum' modifier and super class removed */
+/* JADX WARN: Unknown enum class pattern. Please report as an issue! */
+/* JADX INFO: loaded from: classes3.dex */
+public final class c {
+    private static final /* synthetic */ EnumEntries $ENTRIES;
+    private static final /* synthetic */ c[] $VALUES;
+    public static final c SCANNER_MODE_BASE;
+    public static final c SCANNER_MODE_BASE_WITH_FILTER;
+    public static final c SCANNER_MODE_FULL;
+
+    static {
+        c cVar = new c("SCANNER_MODE_BASE", 0);
+        SCANNER_MODE_BASE = cVar;
+        c cVar2 = new c("SCANNER_MODE_BASE_WITH_FILTER", 1);
+        SCANNER_MODE_BASE_WITH_FILTER = cVar2;
+        c cVar3 = new c("SCANNER_MODE_FULL", 2);
+        SCANNER_MODE_FULL = cVar3;
+        c[] cVarArr = {cVar, cVar2, cVar3};
+        $VALUES = cVarArr;
+        $ENTRIES = s.n(cVarArr);
+    }
+
+    public static c valueOf(String str) {
+        return (c) Enum.valueOf(c.class, str);
+    }
+
+    public static c[] values() {
+        return (c[]) $VALUES.clone();
+    }
+}

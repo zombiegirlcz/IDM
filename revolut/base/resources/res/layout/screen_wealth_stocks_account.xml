@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithContainer
+        android:id="@+id/screenWealthStocksAccount_navBarWithContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.navbar.AccountSelectionNavBarContentView
+            android:id="@+id/screenWealthStocksAccount_lineChartView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_scrollFlags="exitUntilCollapsed|scroll"/>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithContainer>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/screenWealthStocksAccount_recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

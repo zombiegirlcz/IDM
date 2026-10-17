@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.facebook.shimmer.ShimmerConstraintLayout
+        android:id="@+id/smartTileTextLoading_shimmerContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.internal.views.ShimmeringTextView
+            android:id="@+id/smartTileTextLoading_text"
+            android:layout_width="240dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            style="?attr/internal_textAppearanceBody2"/>
+        <com.revolut.core.ui_kit.internal.views.ShimmeringTextView
+            android:id="@+id/smartTileTextLoading_action"
+            android:layout_width="134dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="44dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/smartTileTextLoading_text"
+            style="?attr/internal_textAppearanceBody2"/>
+    </com.facebook.shimmer.ShimmerConstraintLayout>
+</FrameLayout>

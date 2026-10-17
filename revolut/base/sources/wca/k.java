@@ -1,0 +1,84 @@
+package wca;
+
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlinx.coroutines.CoroutineScope;
+import vkm.z1;
+import yhm.o;
+
+/* JADX INFO: loaded from: classes5.dex */
+public final class k extends gim.i implements Function2 {
+    public final /* synthetic */ int u;
+    public int v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public final /* synthetic */ l f296375w;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public /* synthetic */ k(l lVar, Continuation continuation, int i) {
+        super(2, continuation);
+        this.u = i;
+        this.f296375w = lVar;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        switch (this.u) {
+            case 0:
+                return new k(this.f296375w, continuation, 0);
+            default:
+                return new k(this.f296375w, continuation, 1);
+        }
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        CoroutineScope coroutineScope = (CoroutineScope) obj2;
+        Continuation continuation = (Continuation) obj3;
+        switch (this.u) {
+        }
+        return ((k) create(coroutineScope, continuation)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        switch (this.u) {
+            case 0:
+                fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+                int i = this.v;
+                if (i != 0) {
+                    if (i != 1) {
+                        throw new IllegalStateException("call to 'resume' before 'invoke' with coroutine");
+                    }
+                    o.b(obj2);
+                    return obj2;
+                }
+                o.b(obj2);
+                l lVar = this.f296375w;
+                j jVar = new j(lVar, null, 1);
+                this.v = 1;
+                Object objB = pu7.a.B(lVar.k, "request_code", jVar, this);
+                return objB == aVar ? aVar : objB;
+            default:
+                fim.a aVar2 = fim.a.COROUTINE_SUSPENDED;
+                int i2 = this.v;
+                if (i2 == 0) {
+                    o.b(obj2);
+                    l lVar2 = this.f296375w;
+                    z1 z1Var = lVar2.f296379s;
+                    kotlin.time.b bVar = new kotlin.time.b(lVar2.f296377q.f296368c);
+                    this.v = 1;
+                    if (z1Var.emit(bVar, this) == aVar2) {
+                        return aVar2;
+                    }
+                } else {
+                    if (i2 != 1) {
+                        throw new IllegalStateException("call to 'resume' before 'invoke' with coroutine");
+                    }
+                    o.b(obj2);
+                }
+                return Unit.f186387a;
+        }
+    }
+}

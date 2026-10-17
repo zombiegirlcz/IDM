@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:fitNavigationBar="true">
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:orientation="vertical"
+        android:id="@+id/recyclerView"
+        android:background="?attr/uikit_windowBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:textSize="@dimen/material_text_size_s"
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:gravity="center_horizontal"
+        android:autoLink="all"
+        android:layout_gravity="center"
+        android:id="@+id/empty"
+        android:padding="24dp"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:drawableTop="@drawable/icon_search_gray_104_layer_list"
+        android:drawablePadding="24dp"
+        app:ttv_typeface="regular"/>
+    <com.revolut.uicomponent.toolbar.app_bar.RevolutAppBarLayout
+        android:theme="@style/ThemeOverlay.AppCompat.ActionBar"
+        android:background="?attr/uikit_windowBackground"
+        android:fitsSystemWindows="true"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.uicomponent.toolbar.app_bar.SearchViewRevolutToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </com.revolut.uicomponent.toolbar.app_bar.RevolutAppBarLayout>
+    <com.revolut.core_ui_custom_font.TypefaceButton
+        android:layout_gravity="bottom"
+        android:id="@+id/next_button"
+        android:visibility="gone"
+        android:text="@string/common.action.continue"
+        style="@style/Style.Button.Default"/>
+</com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout>

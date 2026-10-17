@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <io.fotoapparat.view.CameraView
+        android:id="@+id/barcodeScreen_cameraView"
+        android:background="@android:color/black"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.core.ui_kit.views.ScanView
+        android:layout_gravity="center_horizontal"
+        android:id="@+id/barcodeScreen_scanner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/barcodeScreen_navBarWithToolbar"
+        app:layout_goneMarginTop="156dp"/>
+    <FrameLayout
+        android:id="@+id/barcodeScreen_actionContainer"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/barcode_scanner_button_padding"
+        android:animateLayoutChanges="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/barcodeScreen_scanner">
+        <com.revolut.core.ui_kit.internal.views.SmallActionButton
+            android:layout_gravity="center"
+            android:id="@+id/barcodeScreen_actionButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+    </FrameLayout>
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:theme="@style/UiKitColorsTheme.Night"
+        android:id="@+id/barcodeScreen_navBarWithToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

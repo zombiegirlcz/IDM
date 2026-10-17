@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/webview_container"
+    android:tag="tempBG"
+    android:background="?attr/uikit_colorBackground_60"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.WebView
+        android:id="@+id/webView"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+    <ProgressBar
+        android:layout_gravity="center"
+        android:id="@+id/list_t_c_progress"
+        android:background="?attr/uikit_colorTransparent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        style="?android:attr/progressBarStyleLarge"/>
+</com.revolut.core.ui_kit.views.legacy.LegacyContentContainerCoordinatorLayout>

@@ -1,0 +1,150 @@
+package org.bouncycastle.jcajce.provider.symmetric;
+
+import a0.d;
+import java.security.AlgorithmParameters;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.SecureRandom;
+import java.security.spec.AlgorithmParameterSpec;
+import javax.crypto.spec.IvParameterSpec;
+import okl.m;
+import org.bouncycastle.asn1.gm.GMObjectIdentifiers;
+import org.bouncycastle.crypto.BlockCipher;
+import org.bouncycastle.crypto.CipherKeyGenerator;
+import org.bouncycastle.crypto.CryptoServicesRegistrar;
+import org.bouncycastle.crypto.engines.RFC3394WrapEngine;
+import org.bouncycastle.crypto.engines.RFC5649WrapEngine;
+import org.bouncycastle.crypto.engines.SM4Engine;
+import org.bouncycastle.crypto.generators.Poly1305KeyGenerator;
+import org.bouncycastle.crypto.macs.CMac;
+import org.bouncycastle.crypto.macs.GMac;
+import org.bouncycastle.crypto.modes.GCMBlockCipher;
+import org.bouncycastle.jcajce.provider.config.ConfigurableProvider;
+import org.bouncycastle.jcajce.provider.symmetric.util.BaseAlgorithmParameterGenerator;
+import org.bouncycastle.jcajce.provider.symmetric.util.BaseBlockCipher;
+import org.bouncycastle.jcajce.provider.symmetric.util.BaseKeyGenerator;
+import org.bouncycastle.jcajce.provider.symmetric.util.BaseMac;
+import org.bouncycastle.jcajce.provider.symmetric.util.BaseWrapCipher;
+import org.bouncycastle.jcajce.provider.symmetric.util.BlockCipherProvider;
+import org.bouncycastle.jcajce.provider.symmetric.util.IvAlgorithmParameters;
+import v0.a;
+
+/* JADX INFO: loaded from: classes14.dex */
+public final class SM4 {
+
+    public static class AlgParamGen extends BaseAlgorithmParameterGenerator {
+        @Override // java.security.AlgorithmParameterGeneratorSpi
+        public AlgorithmParameters engineGenerateParameters() {
+            byte[] bArr = new byte[16];
+            if (this.random == null) {
+                this.random = CryptoServicesRegistrar.getSecureRandom();
+            }
+            this.random.nextBytes(bArr);
+            try {
+                AlgorithmParameters algorithmParametersCreateParametersInstance = createParametersInstance("SM4");
+                algorithmParametersCreateParametersInstance.init(new IvParameterSpec(bArr));
+                return algorithmParametersCreateParametersInstance;
+            } catch (Exception e) {
+                throw new RuntimeException(e.getMessage());
+            }
+        }
+
+        @Override // java.security.AlgorithmParameterGeneratorSpi
+        public void engineInit(AlgorithmParameterSpec algorithmParameterSpec, SecureRandom secureRandom) throws InvalidAlgorithmParameterException {
+            throw new InvalidAlgorithmParameterException("No supported AlgorithmParameterSpec for SM4 parameter generation.");
+        }
+    }
+
+    public static class AlgParams extends IvAlgorithmParameters {
+        @Override // org.bouncycastle.jcajce.provider.symmetric.util.IvAlgorithmParameters, java.security.AlgorithmParametersSpi
+        public String engineToString() {
+            return "SM4 IV";
+        }
+    }
+
+    public static class CMAC extends BaseMac {
+        public CMAC() {
+            super(new CMac(new SM4Engine()));
+        }
+    }
+
+    public static class ECB extends BaseBlockCipher {
+        public ECB() {
+            super(new BlockCipherProvider() { // from class: org.bouncycastle.jcajce.provider.symmetric.SM4.ECB.1
+                @Override // org.bouncycastle.jcajce.provider.symmetric.util.BlockCipherProvider
+                public BlockCipher get() {
+                    return new SM4Engine();
+                }
+            });
+        }
+    }
+
+    public static class GMAC extends BaseMac {
+        public GMAC() {
+            super(new GMac(GCMBlockCipher.newInstance(new SM4Engine())));
+        }
+    }
+
+    public static class KeyGen extends BaseKeyGenerator {
+        public KeyGen() {
+            super("SM4", 128, new CipherKeyGenerator());
+        }
+    }
+
+    public static class Mappings extends SymmetricAlgorithmProvider {
+        private static final String PREFIX = SM4.class.getName();
+
+        @Override // org.bouncycastle.jcajce.provider.util.AlgorithmProvider
+        public void configure(ConfigurableProvider configurableProvider) {
+            StringBuilder sb6 = new StringBuilder();
+            String str = PREFIX;
+            addCMacAlgorithm(configurableProvider, "SM4", a.i(m.r(str, "$KeyGen", "KeyGenerator.SM4", m.r(str, "$ECB", "Cipher.SM4", m.r(str, "$AlgParamGen", "AlgorithmParameterGenerator.SM4", m.r(str, "$AlgParams", "AlgorithmParameters.SM4", sb6, configurableProvider), configurableProvider), configurableProvider), configurableProvider), str, "$CMAC"), d.r(str, "$KeyGen"));
+            addGMacAlgorithm(configurableProvider, "SM4", d.r(str, "$GMAC"), d.r(str, "$KeyGen"));
+            addPoly1305Algorithm(configurableProvider, "SM4", d.r(str, "$Poly1305"), d.r(str, "$Poly1305KeyGen"));
+            configurableProvider.addAlgorithm("Cipher.SM4WRAP", str + "$Wrap");
+            StringBuilder sb9 = new StringBuilder();
+            sb9.append(str);
+            m.z(sb9, "$WrapPad", configurableProvider, "Cipher.SM4WRAPPAD");
+            m.B(configurableProvider, str, "$Wrap", "Cipher", GMObjectIdentifiers.sms4_wrap);
+            m.B(configurableProvider, str, "$WrapPad", "Cipher", GMObjectIdentifiers.sms4_wrap_pad);
+        }
+    }
+
+    public static class Poly1305 extends BaseMac {
+        public Poly1305() {
+            super(new org.bouncycastle.crypto.macs.Poly1305(new SM4Engine()));
+        }
+    }
+
+    public static class Poly1305KeyGen extends BaseKeyGenerator {
+        public Poly1305KeyGen() {
+            super("Poly1305-SM4", 256, new Poly1305KeyGenerator());
+        }
+    }
+
+    public static class SM4WrapEngine extends RFC3394WrapEngine {
+        public SM4WrapEngine() {
+            super(new SM4Engine());
+        }
+    }
+
+    public static class SM4WrapPadEngine extends RFC5649WrapEngine {
+        public SM4WrapPadEngine() {
+            super(new SM4Engine());
+        }
+    }
+
+    public static class Wrap extends BaseWrapCipher {
+        public Wrap() {
+            super(new SM4WrapEngine());
+        }
+    }
+
+    public static class WrapPad extends BaseWrapCipher {
+        public WrapPad() {
+            super(new SM4WrapPadEngine());
+        }
+    }
+
+    private SM4() {
+    }
+}

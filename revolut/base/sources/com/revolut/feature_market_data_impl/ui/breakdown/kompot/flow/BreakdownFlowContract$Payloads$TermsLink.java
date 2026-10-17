@@ -1,0 +1,59 @@
+package com.revolut.feature_market_data_impl.ui.breakdown.kompot.flow;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+import com.revolut.feature.terms.api.model.TermsScope;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes10.dex */
+@Metadata(d1 = {"\u0000\u000e\n\u0000\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0087\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"com/revolut/feature_market_data_impl/ui/breakdown/kompot/flow/BreakdownFlowContract$Payloads$TermsLink", "Landroid/os/Parcelable;", "", "toString", "()Ljava/lang/String;", "feature_market_data_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public final /* data */ class BreakdownFlowContract$Payloads$TermsLink implements Parcelable {
+
+    @NotNull
+    public static final Parcelable.Creator<BreakdownFlowContract$Payloads$TermsLink> CREATOR = new a();
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final TermsScope f97170a;
+
+    public static final class a implements Parcelable.Creator {
+        @Override // android.os.Parcelable.Creator
+        public final Object createFromParcel(Parcel parcel) {
+            Intrinsics.checkNotNullParameter(parcel, "parcel");
+            return new BreakdownFlowContract$Payloads$TermsLink((TermsScope) parcel.readParcelable(BreakdownFlowContract$Payloads$TermsLink.class.getClassLoader()));
+        }
+
+        @Override // android.os.Parcelable.Creator
+        public final Object[] newArray(int i) {
+            return new BreakdownFlowContract$Payloads$TermsLink[i];
+        }
+    }
+
+    public BreakdownFlowContract$Payloads$TermsLink(TermsScope termsScope) {
+        Intrinsics.checkNotNullParameter(termsScope, "termsScope");
+        this.f97170a = termsScope;
+    }
+
+    @Override // android.os.Parcelable
+    public final int describeContents() {
+        return 0;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        return (obj2 instanceof BreakdownFlowContract$Payloads$TermsLink) && Intrinsics.f(this.f97170a, ((BreakdownFlowContract$Payloads$TermsLink) obj2).f97170a);
+    }
+
+    public final int hashCode() {
+        return this.f97170a.f90390a.hashCode();
+    }
+
+    @Override // android.os.Parcelable
+    public final void writeToParcel(Parcel dest, int i) {
+        Intrinsics.checkNotNullParameter(dest, "dest");
+        dest.writeParcelable(this.f97170a, i);
+    }
+}

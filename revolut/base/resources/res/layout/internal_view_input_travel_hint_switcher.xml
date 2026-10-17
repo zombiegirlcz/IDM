@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextSwitcher xmlns:android="http://schemas.android.com/apk/res/android"
+    android:focusable="false"
+    android:visibility="gone"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:ellipsize="end"
+        android:gravity="start|center_vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:lines="1"
+        android:includeFontPadding="false"
+        android:textAlignment="viewStart"
+        style="?attr/internal_textAppearanceBody1"/>
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:ellipsize="end"
+        android:gravity="start|center_vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:lines="1"
+        android:includeFontPadding="false"
+        android:textAlignment="viewStart"
+        style="?attr/internal_textAppearanceBody1"/>
+</TextSwitcher>

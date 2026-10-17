@@ -1,0 +1,46 @@
+package s55;
+
+import com.revolut.feature.credit.autopay.models.AccountDetails;
+import com.revolut.feature.credit.loan.impl.ui.autopay.flow.LoanAutopayFlowContract$State;
+import gim.i;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import yhm.o;
+
+/* JADX INFO: loaded from: classes21.dex */
+public final class d extends i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ com.revolut.feature.credit.loan.impl.ui.autopay.flow.a v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public d(com.revolut.feature.credit.loan.impl.ui.autopay.flow.a aVar, Continuation continuation) {
+        super(2, continuation);
+        this.v = aVar;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        d dVar = new d(this.v, continuation);
+        dVar.u = obj2;
+        return dVar;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((d) create((wi0.b) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        wi0.b bVar = (wi0.b) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        o.b(obj2);
+        com.revolut.feature.credit.loan.impl.ui.autopay.flow.a aVar2 = this.v;
+        LoanAutopayFlowContract$State loanAutopayFlowContract$State = (LoanAutopayFlowContract$State) aVar2.A2().f98429a;
+        AccountDetails.LinkedAccount linkedAccount = loanAutopayFlowContract$State.f70315a;
+        loanAutopayFlowContract$State.getClass();
+        aVar2.L2(new LoanAutopayFlowContract$State(linkedAccount, bVar));
+        return Unit.f186387a;
+    }
+}

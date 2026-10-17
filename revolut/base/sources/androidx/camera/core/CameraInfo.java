@@ -1,0 +1,110 @@
+package androidx.camera.core;
+
+import android.util.Range;
+import androidx.camera.core.impl.DynamicRanges;
+import androidx.camera.core.internal.compat.MediaActionSoundCompat;
+import androidx.core.util.Consumer;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.Executor;
+
+/* JADX INFO: loaded from: classes15.dex */
+public interface CameraInfo {
+    static boolean mustPlayShutterSound() {
+        return MediaActionSoundCompat.mustPlayShutterSound();
+    }
+
+    default void addCameraStateListener(Executor executor, Consumer<CameraState> consumer) {
+    }
+
+    default CameraIdentifier getCameraIdentifier() {
+        return null;
+    }
+
+    CameraSelector getCameraSelector();
+
+    LiveData<CameraState> getCameraState();
+
+    ExposureState getExposureState();
+
+    String getImplementationType();
+
+    default float getIntrinsicZoomRatio() {
+        return 1.0f;
+    }
+
+    default int getLensFacing() {
+        return -1;
+    }
+
+    default LiveData<Integer> getLowLightBoostState() {
+        return new MutableLiveData(-1);
+    }
+
+    default int getMaxTorchStrengthLevel() {
+        return 0;
+    }
+
+    default Set<CameraInfo> getPhysicalCameraInfos() {
+        return Collections.EMPTY_SET;
+    }
+
+    int getSensorRotationDegrees();
+
+    int getSensorRotationDegrees(int i);
+
+    default Set<Range<Integer>> getSupportedFrameRateRanges() {
+        return Collections.EMPTY_SET;
+    }
+
+    LiveData<Integer> getTorchState();
+
+    default LiveData<Integer> getTorchStrengthLevel() {
+        return new MutableLiveData(0);
+    }
+
+    LiveData<ZoomState> getZoomState();
+
+    boolean hasFlashUnit();
+
+    default boolean isFocusMeteringSupported(FocusMeteringAction focusMeteringAction) {
+        return false;
+    }
+
+    default boolean isLogicalMultiCameraSupported() {
+        return false;
+    }
+
+    default boolean isLowLightBoostSupported() {
+        return false;
+    }
+
+    default boolean isPrivateReprocessingSupported() {
+        return false;
+    }
+
+    default boolean isSessionConfigSupported(SessionConfig sessionConfig) {
+        return false;
+    }
+
+    default boolean isTorchStrengthSupported() {
+        return false;
+    }
+
+    default boolean isZslSupported() {
+        return false;
+    }
+
+    default Set<DynamicRange> querySupportedDynamicRanges(Set<DynamicRange> set) {
+        return DynamicRanges.findAllPossibleMatches(set, Collections.singleton(DynamicRange.SDR));
+    }
+
+    default void removeCameraStateListener(Consumer<CameraState> consumer) {
+    }
+
+    default Set<Range<Integer>> getSupportedFrameRateRanges(SessionConfig sessionConfig) {
+        return Collections.EMPTY_SET;
+    }
+}

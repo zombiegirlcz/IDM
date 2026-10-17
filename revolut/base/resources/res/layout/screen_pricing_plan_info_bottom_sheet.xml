@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.background.AnimatedBackgroundView
+        android:id="@+id/screenPricingPlanInfoBottomSheet_background"
+        android:visibility="gone"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/screenPricingPlanInfoBottomSheet_contentContainer"
+        app:layout_constraintEnd_toEndOf="@+id/screenPricingPlanInfoBottomSheet_contentContainer"
+        app:layout_constraintStart_toStartOf="@+id/screenPricingPlanInfoBottomSheet_contentContainer"
+        app:layout_constraintTop_toTopOf="@+id/screenPricingPlanInfoBottomSheet_contentContainer"/>
+    <com.revolut.kompot.view.ControllerContainerConstraintLayout
+        android:id="@+id/screenPricingPlanInfoBottomSheet_contentContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+        <com.revolut.core.ui_kit.views.navbar.NavBarBottomSheet
+            android:id="@+id/screenPricingPlanInfoBottomSheet_navBar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
+        <com.revolut.core.ui_kit.views.buttons.ActionFooterView
+            android:id="@+id/screenPricingPlanInfoBottomSheet_footer"
+            android:visibility="gone"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/screenPricingPlanInfoBottomSheet_navBar"/>
+    </com.revolut.kompot.view.ControllerContainerConstraintLayout>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="40dp"
+    android:width="40dp"
+    android:viewportWidth="40"
+    android:viewportHeight="40">
+    <group
+        android:translateX="-162"
+        android:translateY="-345">
+        <group
+            android:translateX="162"
+            android:translateY="345">
+            <path
+                android:fillColor="?attr/uikit_colorGreyTone10"
+                android:pathData="M20 40C31.045695 40 40 31.045695 40 20 40 8.954305 31.045695 0 20 0 8.954305 0 0 8.954305 0 20 0 31.045695 8.954305 40 20 40Z"/>
+            <group
+                android:translateX="8"
+                android:translateY="8">
+                <path
+                    android:fillColor="?attr/uikit_colorIndigo"
+                    android:pathData="M20 14l0 4.993154C20 19.550051 19.552285 20 19 20l0 1c0 0.55 -0.45 1 -1 1l-1 0c-0.55 0 -1 -0.45 -1 -1l-8 0c0 0.55 -0.45 1 -1 1L6 22C5.45 22 5 21.55 5 21L5 20C4.453186 20 4 19.54922 4 18.993154L4 14C3.4477153 14 3 13.556647 3 12.990631L3 11.009369C3 10.45191 3.4438648 10 4 10L4 6c0 -3.5 3.58 -4 8 -4 4.42 0 8 0.5 8 4l0 4c0.552285 0 1 0.443353 1 1.009369l0 1.981262C21 13.54809 20.556135 14 20 14ZM7.5 18C8.33 18 9 17.33 9 16.5 9 15.67 8.33 15 7.5 15 6.67 15 6 15.67 6 16.5 6 17.33 6.67 18 7.5 18Zm9 0C17.33 18 18 17.33 18 16.5 18 15.67 17.33 15 16.5 15 15.67 15 15 15.67 15 16.5 15 17.33 15.67 18 16.5 18ZM18 11.997071L18 7.0029293C18 6.4378813 17.551177 6 16.997527 6L7.0024733 6C6.455761 6 6 6.4490268 6 7.0029293L6 11.997071C6 12.562119 6.4488226 13 7.0024733 13l9.9950537 0C17.544239 13 18 12.550973 18 11.997071Z"/>
+            </group>
+        </group>
+    </group>
+</vector>

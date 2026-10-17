@@ -1,0 +1,25 @@
+package bx8;
+
+import com.revolut.core.ui_kit.models.TextLocalisedClause;
+import com.revolut.feature.kyc.api.R$string;
+import kotlin.Pair;
+import zhm.r0;
+import zhm.u;
+import zhm.v;
+
+/* JADX INFO: loaded from: classes4.dex */
+public final class a {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final Object f19510a = r0.k(new Pair("ACT", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_less_than, u.c(10), null, 12), "^.{1,10}$")), new Pair("NT", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_less_than, u.c(10), null, 12), "^.{1,10}$")), new Pair("VIC", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_less_than, u.c(10), null, 12), "^.{1,10}$")), new Pair("NSW", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_in_range, v.k(6, 8), null, 12), "^.{6,8}$")), new Pair("TAS", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_in_range, v.k(6, 8), null, 12), "^.{6,8}$")), new Pair("QLD", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_in_range, v.k(8, 9), null, 12), "^.{8,9}$")), new Pair("SA", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_of_length, u.c(6), null, 12), "^.{6}$")), new Pair("WA", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_of_length, u.c(7), null, 12), "^.{7}$")));
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public static final Object f19511b = r0.k(new Pair("ACT", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_decimal_digits, null, null, 14), "^[0-9]*$")), new Pair("NT", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_decimal_digits, null, null, 14), "^[0-9]*$")), new Pair("VIC", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_decimal_digits, null, null, 14), "^[0-9]*$")), new Pair("NSW", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_alphanumeric, null, null, 14), "^[0-9A-Za-z]*$")), new Pair("TAS", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_alphanumeric, null, null, 14), "^[0-9A-Za-z]*$")), new Pair("QLD", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_decimal_digits, null, null, 14), "^[0-9]*$")), new Pair("SA", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_alphanumeric, null, null, 14), "^[0-9A-Za-z]*$")), new Pair("WA", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_decimal_digits, null, null, 14), "^[0-9]*$")));
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name */
+    public static final Object f19512c = r0.k(new Pair("ACT", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_of_length, u.c(10), null, 12), "^.{10}$")), new Pair("NT", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_in_range, v.k(6, 8), null, 12), "^.{6,8}$")), new Pair("VIC", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_of_length, u.c(8), null, 12), "^.{8}$")), new Pair("NSW", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_of_length, u.c(10), null, 12), "^.{10}$")), new Pair("TAS", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_of_length, u.c(9), null, 12), "^.{9}$")), new Pair("QLD", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_of_length, u.c(10), null, 12), "^.{10}$")), new Pair("SA", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_of_length, u.c(9), null, 12), "^.{9}$")), new Pair("WA", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_in_range, v.k(8, 10), null, 12), "^.{8,10}$")));
+    public static final Object d = r0.k(new Pair("ACT", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_alphanumeric, null, null, 14), "^[0-9A-Za-z]*$")), new Pair("NT", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_decimal_digits, null, null, 14), "^[0-9]*$")), new Pair("VIC", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_alphanumeric, null, null, 14), "^[0-9A-Za-z]*$")), new Pair("NSW", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_decimal_digits, null, null, 14), "^[0-9]*$")), new Pair("TAS", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_alphanumeric, null, null, 14), "^[0-9A-Za-z]*$")), new Pair("QLD", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_alphanumeric, null, null, 14), "^[0-9A-Za-z]*$")), new Pair("SA", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_alphanumeric, null, null, 14), "^[0-9A-Za-z]*$")), new Pair("WA", new b(new TextLocalisedClause(R$string.kyc_document_id_validation_error_alphanumeric, null, null, 14), "^[0-9A-Za-z]*$")));
+
+    private a() {
+    }
+}

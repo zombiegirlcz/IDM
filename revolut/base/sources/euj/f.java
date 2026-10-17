@@ -1,0 +1,49 @@
+package euj;
+
+import com.revolut.core.ui_kit.delegates.PromptMarketingContentDelegate;
+import com.revolut.retail.feature.impl.rewards_hub.ui.screen.direct_reward.RewardsHubDirectRewardScreen;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlin.jvm.internal.Intrinsics;
+
+/* JADX INFO: loaded from: classes11.dex */
+public final class f extends gim.i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ RewardsHubDirectRewardScreen v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public f(RewardsHubDirectRewardScreen rewardsHubDirectRewardScreen, Continuation continuation) {
+        super(2, continuation);
+        this.v = rewardsHubDirectRewardScreen;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        f fVar = new f(this.v, continuation);
+        fVar.u = obj2;
+        return fVar;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((f) create((PromptMarketingContentDelegate.Model) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        PromptMarketingContentDelegate.Model model = (PromptMarketingContentDelegate.Model) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        yhm.o.b(obj2);
+        k kVarE3 = this.v.R2();
+        Intrinsics.h(model);
+        m mVar = (m) kVarE3;
+        mVar.getClass();
+        Intrinsics.checkNotNullParameter(model, "model");
+        Object obj3 = model.f53090n;
+        if (obj3 instanceof o) {
+            mVar.C2(new h(((o) obj3).f129630a));
+        }
+        return Unit.f186387a;
+    }
+}

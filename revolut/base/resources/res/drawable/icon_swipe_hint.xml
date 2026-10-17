@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/circle_blue_10"/>
+    <item
+        android:drawable="@drawable/circle_blue"
+        android:left="16dp"
+        android:top="16dp"
+        android:right="16dp"
+        android:bottom="16dp"/>
+    <item
+        android:drawable="@drawable/ic_back_white_stretched"
+        android:left="32dp"
+        android:top="32dp"
+        android:right="32dp"
+        android:bottom="32dp"/>
+</layer-list>

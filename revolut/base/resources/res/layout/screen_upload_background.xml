@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerFrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:theme="@style/UiKitTheme.Night"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.CroppingLayoutView
+        android:id="@+id/screenUploadBackground_croppingLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:nestedScrollingEnabled="true">
+        <com.revolut.core.ui_kit.views.navbar.NavBarCroppingAreaView
+            android:id="@+id/croppingLayout_croppingAreaView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
+    </com.revolut.core.ui_kit.views.CroppingLayoutView>
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:layout_gravity="top"
+        android:id="@+id/screenUploadBackground_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:layout_gravity="bottom"
+        android:id="@+id/goToButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</com.revolut.kompot.view.ControllerContainerFrameLayout>

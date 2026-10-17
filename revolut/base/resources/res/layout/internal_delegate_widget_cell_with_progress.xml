@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.DraggableWidgetRootFrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:padding="16dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.revolut.core.ui_kit.internal.views.ResizableTileHeaderView
+            android:id="@+id/cellWithProgressWidget_header"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHeight_default="wrap"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
+        <androidx.appcompat.widget.AppCompatTextView
+            android:textColor="?attr/uikit_colorForeground"
+            android:id="@+id/cellWithProgressWidget_bottomLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/cellWithProgressWidget_progress"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            style="?attr/internal_textAppearanceEmphasis2"/>
+        <com.revolut.core.ui_kit.internal.views.SimpleLimitProgressBarWithText
+            android:id="@+id/cellWithProgressWidget_progress"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintDimensionRatio="1:1"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/cellWithProgressWidget_header"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.revolut.core.ui_kit.internal.views.DraggableWidgetRootFrameLayout>

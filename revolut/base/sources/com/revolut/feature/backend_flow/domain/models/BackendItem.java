@@ -1,0 +1,9 @@
+package com.revolut.feature.backend_flow.domain.models;
+
+import android.os.Parcelable;
+import kotlin.Metadata;
+
+/* JADX INFO: loaded from: classes21.dex */
+@Metadata(d1 = {"\u0000J\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0000\bv\u0018\u00002\u00020\u0001\u0082\u0001\u0010\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011¨\u0006\u0012À\u0006\u0003"}, d2 = {"Lcom/revolut/feature/backend_flow/domain/models/BackendItem;", "Landroid/os/Parcelable;", "Lcom/revolut/feature/backend_flow/domain/models/BackendEntityItem;", "Lcom/revolut/feature/backend_flow/domain/models/CardCellItem;", "Lcom/revolut/feature/backend_flow/domain/models/EntitiesSummaryItem;", "Lcom/revolut/feature/backend_flow/domain/models/HtmlItem;", "Lcom/revolut/feature/backend_flow/domain/models/HtmlStringItem;", "Lcom/revolut/feature/backend_flow/domain/models/ImageItem;", "Lcom/revolut/feature/backend_flow/domain/models/InfoListItem;", "Lcom/revolut/feature/backend_flow/domain/models/InputItem;", "Lcom/revolut/feature/backend_flow/domain/models/LinkItem;", "Lcom/revolut/feature/backend_flow/domain/models/MailItem;", "Lcom/revolut/feature/backend_flow/domain/models/SummarySectionItem;", "Lcom/revolut/feature/backend_flow/domain/models/TableItem;", "Lcom/revolut/feature/backend_flow/domain/models/TextItem;", "Lcom/revolut/feature/backend_flow/domain/models/TitleValueItem;", "Lcom/revolut/feature/backend_flow/domain/models/TransactionCellItem;", "Lcom/revolut/feature/backend_flow/domain/models/WidgetProgressionItem;", "core_backend_flow_domain_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public interface BackendItem extends Parcelable {
+}

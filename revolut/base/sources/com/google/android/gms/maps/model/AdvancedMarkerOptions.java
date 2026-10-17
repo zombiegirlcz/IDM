@@ -1,0 +1,128 @@
+package com.google.android.gms.maps.model;
+
+import android.view.View;
+import androidx.annotation.NonNull;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
+/* JADX INFO: loaded from: classes16.dex */
+public class AdvancedMarkerOptions extends MarkerOptions {
+
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface CollisionBehavior {
+        public static final int OPTIONAL_AND_HIDES_LOWER_PRIORITY = 2;
+        public static final int REQUIRED = 0;
+        public static final int REQUIRED_AND_HIDES_OPTIONAL = 1;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions alpha(float f) {
+        super.alpha(f);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions anchor(float f, float f4) {
+        super.anchor(f, f4);
+        return this;
+    }
+
+    @NonNull
+    public AdvancedMarkerOptions collisionBehavior(@CollisionBehavior int i) {
+        zzd(i);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions contentDescription(String str) {
+        super.contentDescription(str);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions draggable(boolean z) {
+        super.draggable(z);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions flat(boolean z) {
+        super.flat(z);
+        return this;
+    }
+
+    public int getCollisionBehavior() {
+        return zza();
+    }
+
+    public View getIconView() {
+        return zzc();
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions icon(BitmapDescriptor bitmapDescriptor) {
+        super.icon(bitmapDescriptor);
+        return this;
+    }
+
+    @NonNull
+    public AdvancedMarkerOptions iconView(View view) {
+        zze(view);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions infoWindowAnchor(float f, float f4) {
+        super.infoWindowAnchor(f, f4);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions position(@NonNull LatLng latLng) {
+        super.position(latLng);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions rotation(float f) {
+        super.rotation(f);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions snippet(String str) {
+        super.snippet(str);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions title(String str) {
+        super.title(str);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions visible(boolean z) {
+        super.visible(z);
+        return this;
+    }
+
+    @Override // com.google.android.gms.maps.model.MarkerOptions
+    @NonNull
+    public AdvancedMarkerOptions zIndex(float f) {
+        super.zIndex(f);
+        return this;
+    }
+}

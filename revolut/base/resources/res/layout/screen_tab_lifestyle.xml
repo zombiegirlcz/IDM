@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithContainer
+        android:id="@+id/tabLifestyle_navBarWithContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.navbar.NavBarContentViewSwitcher
+            android:id="@+id/tabLifestyle_navBarContentSwitcher"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <com.revolut.core.ui_kit.views.navbar.ScrollerNavBarContentView
+                android:id="@+id/tabLifestyle_scrollerContent"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
+            <com.revolut.feature.productintro.view.AccountsNavBarContentView
+                android:id="@+id/tabLifestyle_pointsContent"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:particlesThemeHost="true"/>
+        </com.revolut.core.ui_kit.views.navbar.NavBarContentViewSwitcher>
+    </com.revolut.core.ui_kit.views.navbar.NavBarWithContainer>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/tabLifestyle_recyclerView"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarOverlappingScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.internal.views.SmallActionButton
+        android:layout_gravity="bottom|center_horizontal"
+        android:id="@+id/tabLifestyle_button"
+        android:visibility="gone"
+        android:fitsSystemWindows="true"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/dp_80"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

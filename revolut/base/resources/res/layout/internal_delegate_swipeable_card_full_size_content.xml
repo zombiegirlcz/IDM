@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.swipeablecards.container.SwipeableCardContainerView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <ScrollView
+        android:background="@drawable/internal_background_swipeable_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:paddingTop="24dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+            <com.revolut.core.ui_kit.internal.views.swipeablecards.SwipeableCardContentHeaderView
+                android:id="@+id/swipeableCardFullSizeContent_header"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"/>
+            <androidx.appcompat.widget.AppCompatTextView
+                android:textColor="?attr/uikit_colorForeground"
+                android:gravity="start"
+                android:id="@+id/swipeableCardFullSizeContent_subtitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/swipeableCardFullSizeContent_header"/>
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/swipeableCardFullSizeContent_image"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/internal_swipeableCardFullSizeContent_image_height"
+                android:layout_marginTop="32dp"
+                android:layout_marginBottom="32dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/swipeableCardFullSizeContent_subtitle"
+                app:layout_constraintVertical_bias="1"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </ScrollView>
+</com.revolut.core.ui_kit.internal.views.swipeablecards.container.SwipeableCardContainerView>

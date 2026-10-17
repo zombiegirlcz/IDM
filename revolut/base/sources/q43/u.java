@@ -1,0 +1,26 @@
+package q43;
+
+import kotlin.jvm.internal.Intrinsics;
+
+/* JADX INFO: loaded from: classes21.dex */
+public final class u extends com.revolut.feature.card_payment_method.impl.flows.selector.screens.selector.d {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final wi0.b f242050a;
+
+    public u(wi0.b countryCode) {
+        Intrinsics.checkNotNullParameter(countryCode, "countryCode");
+        this.f242050a = countryCode;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        return (obj2 instanceof u) && Intrinsics.f(this.f242050a, ((u) obj2).f242050a);
+    }
+
+    public final int hashCode() {
+        return this.f242050a.f297794a.hashCode();
+    }
+}

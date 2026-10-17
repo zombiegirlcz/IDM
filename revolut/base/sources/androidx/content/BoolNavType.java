@@ -1,0 +1,62 @@
+package androidx.content;
+
+import android.os.Bundle;
+import androidx.os.SavedStateReader;
+import androidx.os.SavedStateWriter;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes15.dex */
+@Metadata(d1 = {"\u0000*\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000b\n\u0002\b\u0003\n\u0002\u0010\u000e\n\u0002\b\u0003\n\u0002\u0010\u0002\n\u0000\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\b\u0007\b\u0000\u0018\u00002\b\u0012\u0004\u0012\u00020\u00020\u0001B\u0007¢\u0006\u0004\b\u0003\u0010\u0004J$\u0010\t\u001a\u00020\n2\n\u0010\u000b\u001a\u00060\fj\u0002`\r2\u0006\u0010\u000e\u001a\u00020\u00062\u0006\u0010\u000f\u001a\u00020\u0002H\u0016J$\u0010\u0010\u001a\u0004\u0018\u00010\u00022\n\u0010\u000b\u001a\u00060\fj\u0002`\r2\u0006\u0010\u000e\u001a\u00020\u0006H\u0096\u0002¢\u0006\u0002\u0010\u0011J\u0015\u0010\u0012\u001a\u00020\u00022\u0006\u0010\u000f\u001a\u00020\u0006H\u0016¢\u0006\u0002\u0010\u0013R\u0014\u0010\u0005\u001a\u00020\u00068VX\u0096\u0004¢\u0006\u0006\u001a\u0004\b\u0007\u0010\b¨\u0006\u0014"}, d2 = {"Landroidx/navigation/BoolNavType;", "Landroidx/navigation/NavType;", "", "<init>", "()V", "name", "", "getName", "()Ljava/lang/String;", "put", "", "bundle", "Landroid/os/Bundle;", "Landroidx/savedstate/SavedState;", "key", "value", "get", "(Landroid/os/Bundle;Ljava/lang/String;)Ljava/lang/Boolean;", "parseValue", "(Ljava/lang/String;)Ljava/lang/Boolean;", "navigation-common_release"}, k = 1, mv = {2, 0, 0}, xi = 48)
+public final class BoolNavType extends NavType<Boolean> {
+    public BoolNavType() {
+        super(false);
+    }
+
+    @Override // androidx.content.NavType
+    @NotNull
+    public String getName() {
+        return "boolean";
+    }
+
+    @Override // androidx.content.NavType
+    public /* bridge */ /* synthetic */ void put(Bundle bundle, String str, Boolean bool) {
+        put(bundle, str, bool.booleanValue());
+    }
+
+    /* JADX WARN: Can't rename method to resolve collision */
+    @Override // androidx.content.NavType
+    public Boolean get(@NotNull Bundle bundle, @NotNull String key) {
+        Intrinsics.checkNotNullParameter(bundle, "bundle");
+        Intrinsics.checkNotNullParameter(key, "key");
+        Bundle bundleM3590constructorimpl = SavedStateReader.m3590constructorimpl(bundle);
+        if (!SavedStateReader.m3591containsimpl(bundleM3590constructorimpl, key) || SavedStateReader.m3612isNullimpl(bundleM3590constructorimpl, key)) {
+            return null;
+        }
+        return Boolean.valueOf(SavedStateReader.m3594getBooleanimpl(bundleM3590constructorimpl, key));
+    }
+
+    /* JADX WARN: Can't rename method to resolve collision */
+    @Override // androidx.content.NavType
+    @NotNull
+    public Boolean parseValue(@NotNull String value) {
+        boolean z;
+        Intrinsics.checkNotNullParameter(value, "value");
+        if (Intrinsics.f(value, "true")) {
+            z = true;
+        } else {
+            if (!Intrinsics.f(value, "false")) {
+                throw new IllegalArgumentException("A boolean NavType only accepts \"true\" or \"false\" values.");
+            }
+            z = false;
+        }
+        return Boolean.valueOf(z);
+    }
+
+    public void put(@NotNull Bundle bundle, @NotNull String key, boolean value) {
+        Intrinsics.checkNotNullParameter(bundle, "bundle");
+        Intrinsics.checkNotNullParameter(key, "key");
+        SavedStateWriter.m3617putBooleanimpl(SavedStateWriter.m3615constructorimpl(bundle), key, value);
+    }
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android" android:ordering="together">
+    <objectAnimator
+        android:interpolator="@interpolator/login_splash_revolut_bank_easing"
+        android:duration="@integer/login_splash_revolut_bank_motion_duration"
+        android:startOffset="@integer/login_splash_revolut_bank_motion_start_delay"
+        android:valueFrom="1.08"
+        android:valueTo="0.66"
+        android:valueType="floatType"
+        android:propertyName="scaleX"/>
+    <objectAnimator
+        android:interpolator="@interpolator/login_splash_revolut_bank_easing"
+        android:duration="@integer/login_splash_revolut_bank_motion_duration"
+        android:startOffset="@integer/login_splash_revolut_bank_motion_start_delay"
+        android:valueFrom="1.08"
+        android:valueTo="0.66"
+        android:valueType="floatType"
+        android:propertyName="scaleY"/>
+</set>

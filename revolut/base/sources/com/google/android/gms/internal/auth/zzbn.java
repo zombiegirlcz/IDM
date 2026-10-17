@@ -1,0 +1,23 @@
+package com.google.android.gms.internal.auth;
+
+import android.os.RemoteException;
+import com.google.android.gms.auth.api.proxy.AuthApiStatusCodes;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.common.api.internal.TaskUtil;
+import com.google.android.gms.tasks.TaskCompletionSource;
+
+/* JADX INFO: loaded from: classes16.dex */
+final class zzbn extends zzbd {
+
+    /* JADX INFO: renamed from: zza, reason: collision with root package name */
+    final /* synthetic */ TaskCompletionSource f38899zza;
+
+    public zzbn(zzbo zzboVar, TaskCompletionSource taskCompletionSource) {
+        this.f38899zza = taskCompletionSource;
+    }
+
+    @Override // com.google.android.gms.internal.auth.zzbd, com.google.android.gms.internal.auth.zzbg
+    public final void zzc(String str) throws RemoteException {
+        TaskUtil.setResultOrApiException(str != null ? Status.RESULT_SUCCESS : new Status(AuthApiStatusCodes.AUTH_APP_CERT_ERROR), str, this.f38899zza);
+    }
+}

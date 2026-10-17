@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <com.revolut.core.ui_kit.internal.views.UiKitMediaView
+        android:id="@+id/lightPromptFullScreenContent_media"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:id="@+id/lightPromptFullScreenContent_contentContainer"
+        android:visibility="visible"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.revolut.rxdiffadapter.AsyncDiffRecyclerView
+            android:id="@+id/lightPromptFullScreenContent_recycler"
+            android:clipToPadding="false"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
+        <com.revolut.core.ui_kit.internal.views.FcaDisclaimerView
+            android:layout_gravity="top"
+            android:id="@+id/lightPromptFullScreenContent_headerDisclaimer"
+            android:visibility="gone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="56dp"
+            android:layout_marginBottom="8dp"
+            android:layout_marginHorizontal="16dp"/>
+        <com.revolut.core.ui_kit.views.buttons.ActionFooterView
+            android:layout_gravity="bottom"
+            android:id="@+id/lightPromptFullScreenContent_actionFooter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_behavior="com.revolut.core.ui_kit.views.buttons.CollapsibleButtonBehavior"/>
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:id="@+id/lightPromptFullScreenContent_navbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.core.ui_kit.internal.views.BottomSwipeView
+        android:layout_gravity="bottom|center_horizontal"
+        android:id="@+id/lightPromptFullScreenContent_swipeIndicator"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="72dp"/>
+</merge>

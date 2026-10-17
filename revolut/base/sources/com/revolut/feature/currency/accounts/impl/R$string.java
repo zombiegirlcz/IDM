@@ -1,0 +1,85 @@
+package com.revolut.feature.currency.accounts.impl;
+
+/* JADX INFO: loaded from: classes3.dex */
+public final class R$string {
+    public static int account_switcher_favourite_main_account_title = 2131952222;
+    public static int account_switcher_product_selection_currency_account_description = 2131952242;
+    public static int account_switcher_product_selection_currency_account_multiple_description = 2131952243;
+    public static int account_switcher_product_selection_currency_account_reduced_count_description = 2131952244;
+    public static int account_switcher_product_selection_currency_account_title = 2131952245;
+    public static int account_switcher_product_selection_currency_account_title_mx = 2131952246;
+    public static int account_switcher_total_item_title = 2131952282;
+    public static int add_new_product_personal_currency_subtitle = 2131952400;
+    public static int add_new_product_personal_currency_subtitle_multiple = 2131952401;
+    public static int add_new_product_personal_currency_subtitle_reduced = 2131952402;
+    public static int alternative_payment_method_core_common_apm_payid_title = 2131953207;
+    public static int currency_account_add_new_widget_action = 2131968818;
+    public static int currency_account_add_new_widget_subtitle_25_currencies = 2131968819;
+    public static int currency_account_add_new_widget_subtitle_30_currencies = 2131968820;
+    public static int currency_account_add_new_widget_subtitle_multiple_currencies = 2131968821;
+    public static int currency_account_add_new_widget_title = 2131968822;
+    public static int home_common_word_inactive = 2131976172;
+    public static int home_currency_account_action_activate = 2131976179;
+    public static int home_currency_account_action_add_money = 2131976180;
+    public static int home_currency_account_action_add_new_account = 2131976181;
+    public static int home_currency_account_action_blik = 2131976182;
+    public static int home_currency_account_action_converter = 2131976183;
+    public static int home_currency_account_action_deactivate = 2131976184;
+    public static int home_currency_account_action_details = 2131976185;
+    public static int home_currency_account_action_exchange = 2131976186;
+    public static int home_currency_account_action_hide = 2131976187;
+    public static int home_currency_account_action_multibanco = 2131976188;
+    public static int home_currency_account_action_salary = 2131976189;
+    public static int home_currency_account_action_statement = 2131976190;
+    public static int home_currency_account_action_statements = 2131976191;
+    public static int home_currency_account_action_unhide = 2131976192;
+    public static int home_currency_account_product_intro_add_money_subtitle = 2131976194;
+    public static int home_currency_account_product_intro_add_money_title = 2131976195;
+    public static int home_currency_account_product_intro_bizum_subtitle = 2131976196;
+    public static int home_currency_account_product_intro_bizum_title = 2131976197;
+    public static int home_currency_account_product_intro_blik_subtitle = 2131976198;
+    public static int home_currency_account_product_intro_blik_title = 2131976199;
+    public static int home_currency_account_product_intro_exchange_subtitle = 2131976200;
+    public static int home_currency_account_product_intro_exchange_title = 2131976201;
+    public static int home_currency_account_product_intro_more_subtitle = 2131976202;
+    public static int home_currency_account_product_intro_more_title = 2131976203;
+    public static int home_currency_account_product_intro_move_subtitle = 2131976204;
+    public static int home_currency_account_product_intro_move_title = 2131976205;
+    public static int home_currency_account_product_intro_v2_account_switcher_title = 2131976206;
+    public static int home_currency_account_product_intro_v2_add_money_title = 2131976208;
+    public static int home_currency_account_product_intro_v2_bizum_title = 2131976209;
+    public static int home_currency_account_product_intro_v2_blik_title = 2131976210;
+    public static int home_currency_account_product_intro_v2_bre_b_title = 2131976211;
+    public static int home_currency_account_product_intro_v2_details_title = 2131976212;
+    public static int home_currency_account_product_intro_v2_mb_way_title = 2131976213;
+    public static int home_currency_account_product_intro_v2_move_title = 2131976214;
+    public static int home_currency_account_product_intro_v2_payd_id_title = 2131976215;
+    public static int home_currency_account_product_intro_v2_pix_title = 2131976216;
+    public static int home_currency_account_product_intro_v2_student_access_title = 2131976217;
+    public static int home_currency_account_product_intro_v2_student_unlock_title = 2131976218;
+    public static int home_currency_account_product_intro_v2_upi_title = 2131976219;
+    public static int home_currency_account_product_intro_v2_wero_title = 2131976220;
+    public static int home_currency_account_product_name = 2131976221;
+    public static int home_currency_account_product_space_name = 2131976222;
+    public static int home_currency_account_restricted_account_subtitle = 2131976223;
+    public static int home_currency_account_spaces_total_item_title = 2131976177;
+    public static int home_currency_account_spaces_total_item_title_mx = 2131976178;
+    public static int home_currency_account_subtitle_overdraft_active = 2131976224;
+    public static int home_currency_account_subtitle_overdraft_limit_exceeded = 2131976225;
+    public static int home_currency_account_subtitle_overdraft_restricted = 2131976226;
+    public static int home_currency_account_subtitle_overdraft_terminated = 2131976227;
+    public static int home_currency_account_title_choose_account = 2131976228;
+    public static int home_currency_account_title_choose_account_personal = 2131976229;
+    public static int home_currency_account_title_choose_account_personal_mx = 2131976230;
+    public static int home_currency_account_total_item_secondary_title = 2131976232;
+    public static int home_product_intro_manage_your_plan_benefits_title = 2131976272;
+    public static int home_total_wealth_category_cash_title = 2131976281;
+    public static int paymentsHome_tab_transfers_sections_bizum_title = 2131988684;
+    public static int revolut_accounts_action_overdraft_title = 2131995522;
+    public static int revolut_accounts_action_pix = 2131995523;
+    public static int revolut_accounts_action_withdraw = 2131995527;
+    public static int upi_home_scan_qr_title = 2132009891;
+
+    private R$string() {
+    }
+}

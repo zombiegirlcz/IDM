@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
+    android:id="@+id/phone_editor_root"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/input_height">
+    <ImageView
+        android:id="@+id/message_action_icon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="8dp"/>
+    <TextView
+        android:textSize="16dp"
+        android:textColor="?attr/uikit_colorAccent"
+        android:gravity="center"
+        android:id="@+id/message_action_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingStart="8dp"/>
+</merge>

@@ -1,0 +1,26 @@
+package n6k;
+
+import android.view.View;
+import androidx.viewbinding.ViewBinding;
+import com.revolut.core.ui_kit.views.navbar.NavBarWithBigTile;
+import com.revolut.kompot.view.ControllerContainerCoordinatorLayout;
+
+/* JADX INFO: loaded from: classes11.dex */
+public final class b implements ViewBinding {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final ControllerContainerCoordinatorLayout f212834a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final NavBarWithBigTile f212835b;
+
+    public b(ControllerContainerCoordinatorLayout controllerContainerCoordinatorLayout, NavBarWithBigTile navBarWithBigTile) {
+        this.f212834a = controllerContainerCoordinatorLayout;
+        this.f212835b = navBarWithBigTile;
+    }
+
+    @Override // androidx.viewbinding.ViewBinding
+    public final View getRoot() {
+        return this.f212834a;
+    }
+}

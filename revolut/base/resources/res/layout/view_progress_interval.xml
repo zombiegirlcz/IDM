@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<View xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="?attr/uikit_colorGreyTone10"
+    android:layout_width="30dp"
+    android:layout_height="4dp"
+    android:layout_marginTop="6dp"/>

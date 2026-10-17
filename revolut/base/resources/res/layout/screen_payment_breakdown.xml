@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/paymentBreakdown_Container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.views.navbar.NavBarBottomSheet
+        android:id="@+id/paymentBreakdown_NavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/paymentBreakdown_RecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <com.revolut.core.ui_kit.views.FooterTextView
+        android:layout_gravity="bottom"
+        android:id="@+id/paymentBreakdown_footerView"
+        android:paddingTop="?attr/uikit_dp8"
+        android:paddingBottom="?attr/uikit_dp24"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="?attr/uikit_dp16"/>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

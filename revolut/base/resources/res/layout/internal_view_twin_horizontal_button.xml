@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout
+        android:orientation="horizontal"
+        android:id="@+id/twinHorizontalButton_buttonsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.LargeActionButton
+            android:id="@+id/primaryActionButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"/>
+        <Space
+            android:id="@+id/space"
+            android:layout_width="16dp"
+            android:layout_height="0dp"/>
+        <com.revolut.core.ui_kit.views.LargeActionButton
+            android:id="@+id/secondaryActionButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"/>
+    </LinearLayout>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:gravity="center_horizontal"
+        android:id="@+id/twinHorizontalButton_text"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="?attr/internal_textAppearanceBody2"/>
+</merge>

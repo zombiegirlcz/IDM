@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/juniorAddPhoneNumberScreen_navBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.PhoneInputTextView
+        android:id="@+id/juniorAddPhoneNumberScreen_phoneInput"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp8"
+        android:layout_marginStart="?attr/uikit_dp16"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/juniorAddPhoneNumberScreen_navBar"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:id="@+id/juniorAddPhoneNumberScreen_button"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="?attr/uikit_dp16"
+        android:layout_marginBottom="?attr/uikit_dp24"
+        android:layout_marginStart="?attr/uikit_dp16"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

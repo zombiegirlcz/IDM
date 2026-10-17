@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/vaultsProgressLoading_topShimmeringView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+        <androidx.appcompat.widget.AppCompatTextView
+            android:layout_gravity="start"
+            android:id="@+id/vaultsProgressLoading_startLabel"
+            android:background="@drawable/internal_rectangle_gradient_grey"
+            android:layout_width="72dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="22dp"
+            android:layout_marginStart="16dp"/>
+        <androidx.appcompat.widget.AppCompatTextView
+            android:layout_gravity="end"
+            android:id="@+id/vaultsProgressLoading_endLabel"
+            android:background="@drawable/internal_rectangle_gradient_grey"
+            android:layout_width="43dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="22dp"
+            android:layout_marginEnd="16dp"
+            style="?attr/internal_textAppearanceBody2"/>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/vaultsProgressLoading_bottomShimmeringView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/vaultsProgressLoading_topShimmeringView">
+        <androidx.appcompat.widget.AppCompatTextView
+            android:layout_gravity="start"
+            android:id="@+id/vaultsProgressLoading_loader"
+            android:background="@drawable/internal_rectangle_gradient_grey"
+            android:layout_width="160dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="45dp"
+            android:layout_marginBottom="19dp"
+            android:layout_marginStart="16dp"/>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="?attr/uikit_colorBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:textColor="@color/internal_color_large_button_text_accent"
+        android:id="@+id/delegate_button_title"
+        android:background="@drawable/internal_large_button_flat_states"
+        style="@style/Style.Button.Base"/>
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:gravity="center"
+        android:id="@+id/delegate_button_bottom_text"
+        android:background="?attr/selectableItemBackground_res_0x7f04060d"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/dp_2"
+        android:paddingStart="@dimen/dp_32"
+        android:paddingEnd="@dimen/dp_32"/>
+</LinearLayout>

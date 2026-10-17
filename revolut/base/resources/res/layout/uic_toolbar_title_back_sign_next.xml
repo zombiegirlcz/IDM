@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:background="?attr/uikit_colorTransparent"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <include layout="@layout/uic_toolbar_title_back_sign"/>
+    <com.revolut.core_ui_custom_font.TypefaceButton
+        android:id="@+id/uic_header_next"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        app:ttv_typeface="regular"
+        style="@style/UIC_ToolbarRightTextButton"/>
+</LinearLayout>

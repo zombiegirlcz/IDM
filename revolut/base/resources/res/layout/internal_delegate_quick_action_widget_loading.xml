@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.DraggableWidgetRootFrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@drawable/internal_box_background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/quickActionWidgetLoading_shimmeringView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_gravity="center"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/quickActionWidgetLoading_image"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginStart="22dp"
+                android:layout_marginEnd="22dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:srcCompat="@drawable/internal_circle_gradient_grey"/>
+            <View
+                android:id="@+id/quickActionWidgetLoading_title"
+                android:background="@drawable/internal_rectangle_gradient_grey"
+                android:layout_width="56dp"
+                android:layout_height="16dp"
+                android:layout_marginTop="@dimen/dp_8"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/quickActionWidgetLoading_image"/>
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/quickActionWidgetLoading_mainAction"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="12dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/quickActionWidgetLoading_title"
+                app:srcCompat="@drawable/internal_circle_gradient_grey"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </com.facebook.shimmer.ShimmerFrameLayout>
+</com.revolut.core.ui_kit.internal.views.DraggableWidgetRootFrameLayout>

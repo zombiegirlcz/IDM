@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/new_plan_adjust_funding"
+        android:visible="false"
+        android:title="@string/form_builder.wealth_assets_fund_menu"
+        app:showAsAction="ifRoom"/>
+    <item
+        android:id="@+id/new_plan_create_not_now"
+        android:visible="false"
+        android:title="@string/common.action.notnow"
+        app:actionLayout="@layout/toolbar_text_menu_item"
+        app:showAsAction="ifRoom"/>
+</menu>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="?attr/actionBarSize">
+    <ImageView
+        android:id="@+id/backButton"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:layout_width="?attr/actionBarSize"
+        android:layout_height="56dp"
+        android:scaleType="center"
+        android:alpha="0"
+        app:srcCompat="@drawable/uikit_icn_24_cross"/>
+    <com.revolut.core_ui_custom_font.TypefaceTextView
+        android:gravity="center_horizontal"
+        android:layout_gravity="center_vertical"
+        android:id="@+id/titleView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="48dp"
+        android:paddingEnd="48dp"/>
+</FrameLayout>

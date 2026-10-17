@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/paymentProfile_pager"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:nestedScrollingEnabled="false"/>
+    <com.revolut.core.ui_kit.internal.views.CutoutImageView
+        android:id="@+id/paymentProfile_footerLogoView"
+        android:layout_width="206.25dp"
+        android:layout_height="50dp"
+        android:layout_marginBottom="?attr/uikit_dp32"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:id="@+id/paymentProfile_navBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

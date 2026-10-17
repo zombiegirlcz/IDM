@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:id="@+id/chartButtonHeaderView_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+    <com.revolut.core.ui_kit.internal.views.animated_numbers.AnimatedNumbersView
+        android:textSize="@dimen/internal_H0_Rev10_text_size"
+        android:textColor="?attr/uikit_colorForeground"
+        android:id="@+id/chartButtonHeaderView_display"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.core.ui_kit.internal.views.chart.ChartHeaderBottomValueView
+        android:id="@+id/chartButtonHeaderView_bottomValue"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+</merge>

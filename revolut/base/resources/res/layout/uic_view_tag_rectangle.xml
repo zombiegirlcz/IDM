@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <RelativeLayout
+        android:id="@+id/transaction_category_root"
+        android:background="@drawable/uic_rounded_categorization_button_stroke"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp">
+        <ImageView
+            android:id="@+id/transaction_category_image"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginRight="8dp"
+            android:layout_centerVertical="true"/>
+        <com.revolut.core_ui_custom_font.TypefaceTextView
+            android:textSize="@dimen/material_text_size_ss"
+            android:textColor="?attr/uikit_colorForeground"
+            android:id="@+id/transaction_category_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/transaction_category_image"
+            android:layout_centerVertical="true"
+            app:ttv_typeface="bold"/>
+    </RelativeLayout>
+</LinearLayout>

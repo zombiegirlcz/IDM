@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarLargeCentred
+        android:id="@+id/conciergeAlbertineDetailsScreen_navBarLargeCentred"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/conciergeAlbertineDetailsScreen_recyclerView"
+        android:paddingBottom="@dimen/dp_96"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"/>
+    <FrameLayout
+        android:layout_gravity="bottom"
+        android:id="@+id/conciergeAlbertineDetailsScreen_largeActionButtonContainer"
+        android:background="@drawable/uikit_bottom_button_gradient"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.core.ui_kit.views.LargeActionButton
+            android:layout_gravity="bottom"
+            android:id="@+id/conciergeAlbertineDetailsScreen_largeActionButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="@dimen/dp_24"
+            android:layout_marginStart="@dimen/dp_16"
+            android:layout_marginEnd="@dimen/dp_16"
+            app:uikit_LargeActionButtonStyle="AccentButton"/>
+    </FrameLayout>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

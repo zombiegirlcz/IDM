@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerCoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/atmListScreen_container"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.revolut.recyclerkit.ScreenContentRecyclerView
+            android:id="@+id/atmListScreen_recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/dp_16"/>
+        <com.revolut.core.ui_kit.views.navbar.NavBarBottomSheet
+            android:id="@+id/atmListScreen_navigationBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="-10dp"/>
+    </FrameLayout>
+</com.revolut.kompot.view.ControllerContainerCoordinatorLayout>

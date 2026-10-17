@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt" android:drawable="@drawable/_uikit_icn_24_arrow_bounce_anim__0_res_0x7f080042">
+    <target
+        android:name="_R_G_L_0_G"
+        android:animation="@drawable/_uikit_icn_24_arrow_bounce_anim__1_res_0x7f080043"/>
+</animated-vector>

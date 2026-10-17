@@ -1,0 +1,5 @@
+package xq4;
+
+/* JADX INFO: loaded from: classes22.dex */
+public interface f extends jki.i {
+}

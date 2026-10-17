@@ -1,0 +1,34 @@
+package rtj;
+
+import com.google.common.collect.ImmutableSet;
+import com.revolut.retail.feature.impl.rewards_hub.ui.screen.challenge_history.RewardsHubChallengeHistoryScreenContract$InputData;
+import java.util.Set;
+
+/* JADX INFO: loaded from: classes11.dex */
+public final class c implements xki.e {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final RewardsHubChallengeHistoryScreenContract$InputData f257269a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final g f257270b;
+
+    /* JADX INFO: renamed from: c, reason: collision with root package name */
+    public final e4m.e f257271c;
+
+    public c(g gVar, h hVar, RewardsHubChallengeHistoryScreenContract$InputData rewardsHubChallengeHistoryScreenContract$InputData) {
+        this.f257270b = gVar;
+        this.f257269a = rewardsHubChallengeHistoryScreenContract$InputData;
+        this.f257271c = e4m.b.b(new r6e.m(gVar, this, 11));
+    }
+
+    @Override // xki.e
+    public final Set f() {
+        return ImmutableSet.of();
+    }
+
+    @Override // xki.e
+    public final Set g() {
+        return ImmutableSet.of();
+    }
+}

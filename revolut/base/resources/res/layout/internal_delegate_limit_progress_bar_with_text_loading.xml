@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.facebook.shimmer.ShimmerFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/limitProgressBarWithTextLoading_shimmerLayout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.LimitProgressBarWithChartHeader
+        android:id="@+id/limitProgressBarWithTextLoading_chart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/dp_16"/>
+</com.facebook.shimmer.ShimmerFrameLayout>

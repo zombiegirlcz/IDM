@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<font-family xmlns:app="http://schemas.android.com/apk/res-auto">
+    <font
+        app:font="@font/inter_variable"
+        app:fontVariationSettings="&apos;wght&apos; 500, &apos;opsz&apos; 12"/>
+</font-family>

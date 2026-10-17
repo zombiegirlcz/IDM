@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/swipeableCardsCoverHeader_smallTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAlignment="viewStart"
+        style="?attr/internal_textAppearanceBody2"/>
+    <com.revolut.core.ui_kit.internal.views.DynamicWidthHeightAutosizeTextView
+        android:textColor="?attr/uikit_colorWhite"
+        android:ellipsize="end"
+        android:id="@+id/swipeableCardsCoverHeader_bigTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/internal_dp24"
+        android:maxLines="4"
+        android:textAlignment="viewStart"
+        android:autoSizeTextType="uniform"
+        android:autoSizeStepGranularity="1sp"
+        android:autoSizeMinTextSize="@dimen/internal_heading3_text_size"
+        android:autoSizeMaxTextSize="@dimen/internal_heading1_text_size"
+        style="?attr/internal_textAppearanceHeading1"/>
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:ellipsize="end"
+        android:id="@+id/swipeableCardsCoverHeader_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/internal_dp8"
+        android:maxLines="5"
+        android:textAlignment="viewStart"
+        style="?attr/internal_textAppearanceBody1"/>
+</merge>

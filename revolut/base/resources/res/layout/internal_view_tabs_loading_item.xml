@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="96dp"
+    android:layout_height="36dp">
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:layout_gravity="center"
+        android:background="?attr/uikit_shimmerBackgroundRect"
+        android:layout_width="64dp"
+        android:layout_height="12dp"/>
+</FrameLayout>

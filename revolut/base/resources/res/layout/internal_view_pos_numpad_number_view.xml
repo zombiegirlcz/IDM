@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:gravity="center"
+        android:id="@+id/posNumpadNumberView_numberText"
+        android:layout_width="wrap_content"
+        android:layout_height="?attr/uikit_dp64"
+        android:layout_marginTop="?attr/uikit_dp16"
+        android:maxLines="1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        style="?attr/internal_textAppearanceDisplay2"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:gravity="center"
+        android:id="@+id/posNumpadNumberView_hintText"
+        android:visibility="gone"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="?attr/uikit_dp16"
+        app:layout_constraintBottom_toTopOf="@+id/posNumpadNumberView_numpad"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/posNumpadNumberView_numberText"
+        style="?attr/internal_textAppearanceBody2"/>
+    <com.revolut.core.ui_kit.views.NumpadView
+        android:id="@+id/posNumpadNumberView_numpad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/posNumpadNumberView_hintText"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

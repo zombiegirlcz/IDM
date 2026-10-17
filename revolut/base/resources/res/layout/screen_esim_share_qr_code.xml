@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/screenEsimShareQrCode_container"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.background.AnimatedBackgroundView
+        android:id="@+id/screenEsimShareQrCode_animatedBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:id="@+id/screenEsimShareQrCode_basicNavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.ProfileCardView
+        android:id="@+id/screenEsimShareQrCode_profileCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="?attr/uikit_dp24"
+        app:layout_constraintBottom_toTopOf="@+id/screenEsimShareQrCode_actionButtonsView"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/screenEsimShareQrCode_basicNavBar"/>
+    <com.revolut.core.ui_kit.views.CircleActionButtonsBarView
+        android:id="@+id/screenEsimShareQrCode_actionButtonsView"
+        android:paddingBottom="24dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

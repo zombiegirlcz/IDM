@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:tint="?attr/uikit_colorPink"
+    android:height="16dp"
+    android:width="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <group
+        android:translateX="-89"
+        android:translateY="-204">
+        <group
+            android:translateX="16"
+            android:translateY="192">
+            <group
+                android:translateX="73"
+                android:translateY="12">
+                <path
+                    android:pathData="M 0 0 H 16 V 16 H 0 V 0 Z"
+                    android:strokeWidth="1"
+                    android:fillType="evenOdd"/>
+                <path
+                    android:pathData="M 6 4 L 10 8 L 6 12 "
+                    android:strokeColor="?attr/uikit_colorForeground"
+                    android:strokeWidth="2"
+                    android:strokeLineCap="round"
+                    android:strokeLineJoin="round"
+                    android:fillType="evenOdd"/>
+            </group>
+        </group>
+    </group>
+    <group
+        android:translateX="-754"
+        android:translateY="-959">
+        <path
+            android:pathData="M961,906 C961,1139.5 673,1213 673,1373"
+            android:strokeColor="?attr/uikit_colorForeground"
+            android:strokeWidth="3"
+            android:strokeAlpha="0.08"
+            android:fillType="evenOdd"/>
+    </group>
+</vector>

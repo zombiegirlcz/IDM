@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core_ui_custom_font.TypefaceTextView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:textSize="@dimen/material_text_size_xl"
+    android:textColor="?attr/uikit_colorForeground"
+    android:gravity="center_vertical"
+    android:id="@+id/title"
+    android:background="@drawable/background_dialog_title"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:maxLines="3"
+    app:ttv_typeface="medium"/>

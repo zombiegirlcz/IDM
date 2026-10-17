@@ -1,0 +1,69 @@
+package com.revolut.feature.wealth.api.domain.model.balance;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+import dj0.d;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes9.dex */
+@Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0087\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"Lcom/revolut/feature/wealth/api/domain/model/balance/WealthAccountBalance;", "Landroid/os/Parcelable;", "", "toString", "()Ljava/lang/String;", "feature_wealth_api_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public final /* data */ class WealthAccountBalance implements Parcelable {
+
+    @NotNull
+    public static final Parcelable.Creator<WealthAccountBalance> CREATOR = new a();
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final d f95257a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final d f95258b;
+
+    public static final class a implements Parcelable.Creator {
+        @Override // android.os.Parcelable.Creator
+        public final Object createFromParcel(Parcel parcel) {
+            Intrinsics.checkNotNullParameter(parcel, "parcel");
+            return new WealthAccountBalance((d) parcel.readSerializable(), (d) parcel.readSerializable());
+        }
+
+        @Override // android.os.Parcelable.Creator
+        public final Object[] newArray(int i) {
+            return new WealthAccountBalance[i];
+        }
+    }
+
+    public WealthAccountBalance(d total, d totalDelta) {
+        Intrinsics.checkNotNullParameter(total, "total");
+        Intrinsics.checkNotNullParameter(totalDelta, "totalDelta");
+        this.f95257a = total;
+        this.f95258b = totalDelta;
+    }
+
+    @Override // android.os.Parcelable
+    public final int describeContents() {
+        return 0;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        if (!(obj2 instanceof WealthAccountBalance)) {
+            return false;
+        }
+        WealthAccountBalance wealthAccountBalance = (WealthAccountBalance) obj2;
+        return Intrinsics.f(this.f95257a, wealthAccountBalance.f95257a) && Intrinsics.f(this.f95258b, wealthAccountBalance.f95258b);
+    }
+
+    public final int hashCode() {
+        return this.f95258b.hashCode() + (this.f95257a.hashCode() * 31);
+    }
+
+    @Override // android.os.Parcelable
+    public final void writeToParcel(Parcel dest, int i) {
+        Intrinsics.checkNotNullParameter(dest, "dest");
+        dest.writeSerializable(this.f95257a);
+        dest.writeSerializable(this.f95258b);
+    }
+}

@@ -1,0 +1,5 @@
+package pe2;
+
+/* JADX INFO: loaded from: classes20.dex */
+public interface h extends tki.d {
+}

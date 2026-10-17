@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="24dp"
+    android:width="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#ced5db"
+        android:pathData="M3 3h18a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H3a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"/>
+    <path
+        android:fillColor="#8b959e"
+        android:pathData="M17 5h4a1 1 0 0 1 1 1 1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1 1 1 0 0 1 1-1z"/>
+    <path
+        android:fillColor="#cfb967"
+        android:pathData="M3 9h2a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1z"/>
+    <path
+        android:fillColor="#191c1f"
+        android:pathData="M2.777 14C2.348 14 2 14.348 2 14.777c0 0.43 0.348 0.777 0.777 0.777h2.348c0.43 0 0.777-0.348 0.777-0.777C5.902 14.348 5.554 14 5.125 14H2.777zm5.366 0c-0.43 0-0.777 0.348-0.777 0.777 0 0.43 0.348 0.777 0.777 0.777h2.348c0.43 0 0.777-0.348 0.777-0.777 0-0.429-0.348-0.777-0.777-0.777H8.143zm4.589 0.777c0-0.429 0.348-0.777 0.777-0.777h2.348c0.43 0 0.777 0.348 0.777 0.777 0 0.43-0.348 0.777-0.777 0.777H13.51c-0.43 0-0.777-0.348-0.777-0.777zM18.875 14c-0.43 0-0.777 0.348-0.777 0.777 0 0.43 0.348 0.777 0.777 0.777h2.348c0.43 0 0.777-0.348 0.777-0.777C22 14.348 21.652 14 21.223 14h-2.348z"
+        android:fillType="evenOdd"/>
+</vector>

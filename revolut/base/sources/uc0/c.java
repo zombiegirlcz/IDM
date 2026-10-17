@@ -1,0 +1,18 @@
+package uc0;
+
+import com.revolut.feature.backend_flow.domain.models.BackendFlow;
+import kotlin.jvm.internal.h0;
+
+/* JADX INFO: loaded from: classes19.dex */
+public final /* synthetic */ class c extends h0 {
+    public static final c f = new c();
+
+    public c() {
+        super(BackendFlow.class, "id", "getId()Ljava/lang/String;", 0);
+    }
+
+    @Override // kotlin.jvm.internal.h0, wim.p
+    public final Object get(Object obj2) {
+        return ((BackendFlow) obj2).f63264b;
+    }
+}

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:height="24dp"
+    android:width="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@drawable/_uikit_icn_24_peakon__0_res_0x7f080091"
+        android:pathData="M20.997 20c2.546 0 3.802-2.324 2.454-4.537L17.345 5.442c-1.173-1.923-3.518-1.923-4.688 0l-6.108 10.02c-1.348 2.21-0.094 4.537 2.454 4.537h11.994V20zm-0.093-1.635H9.003c-1.294 0-1.787-0.913-1.102-2.038l6.105-10.02c0.549-0.9 1.439-0.9 1.988 0l6.105 10.02c0.686 1.126 0.188 2.04-1.102 2.04"/>
+    <path
+        android:fillColor="#ffbc49"
+        android:pathData="M11.426 15.422L8.32 10.421C7.76 9.518 6.914 9 6 9c-0.915 0-1.764 0.518-2.317 1.42l-3.105 5.002c-0.656 1.058-0.758 2.196-0.282 3.123C0.772 19.472 1.734 20 2.934 20h6.131c1.199 0 2.16-0.532 2.638-1.455 0.478-0.923 0.375-2.066-0.277-3.123zM9.07 18.354H2.934c-1.272 0-1.74-0.909-1.044-2.03l3.102-5.005c0.553-0.897 1.458-0.897 2.015 0l3.103 5.001c0.696 1.125 0.227 2.034-1.045 2.034H9.07z"/>
+    <path
+        android:fillColor="@drawable/_uikit_icn_24_peakon__1_res_0x7f080092"
+        android:pathData="M7 18.37h5V20H7v-1.63z"/>
+</vector>

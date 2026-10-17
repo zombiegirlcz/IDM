@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="104dp"
+    android:layout_height="104dp">
+    <io.fotoapparat.view.CameraView
+        android:id="@+id/backgroundCameraView"
+        android:background="?attr/uikit_colorOverlayFill"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/backgroundImageView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"/>
+    <androidx.appcompat.widget.AppCompatImageView
+        android:layout_gravity="center"
+        android:id="@+id/cameraIcon"
+        android:visibility="gone"
+        android:layout_width="?attr/uikit_dp24"
+        android:layout_height="?attr/uikit_dp24"
+        android:tint="?attr/uikit_colorWhite"
+        app:srcCompat="@drawable/uikit_icn_24_camera"/>
+</FrameLayout>

@@ -1,0 +1,7 @@
+package bjl;
+
+/* JADX INFO: loaded from: classes12.dex */
+public final class b0 {
+    private b0() {
+    }
+}

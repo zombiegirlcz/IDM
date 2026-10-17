@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="100dp"
+    android:width="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path
+        android:pathData="M30.767 73.423H68.34m17.315 0h7.908a4.366 4.366 0 0 0 4.354-4.353V28.435a7.474 7.474 0 0 0-7.453-7.452H9.536a7.474 7.474 0 0 0-7.453 7.452V69.07a4.366 4.366 0 0 0 4.354 4.353h7.437"
+        android:strokeColor="#000"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <path
+        android:fillColor="#ff000000"
+        android:pathData="M22.331 66.109a6.454 6.454 0 1 1-6.454 6.454 6.454 6.454 0 0 1 6.454-6.454m0-4a10.454 10.454 0 1 0 10.454 10.454 10.466 10.466 0 0 0-10.454-10.454zm54.743 4a6.454 6.454 0 1 1-6.454 6.454 6.454 6.454 0 0 1 6.454-6.454m0-4a10.454 10.454 0 1 0 10.454 10.454 10.466 10.466 0 0 0-10.454-10.454z"/>
+    <path
+        android:pathData="M94.37 61.814a1.557 1.557 0 1 1 3.114 0 1.557 1.557 0 1 1-3.114 0m-88.713 0H3.356"
+        android:strokeColor="#000"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <path
+        android:fillColor="#ff000000"
+        android:pathData="M21.439 72.564a0.892 0.892 0 1 1 1.784 0 0.892 0.892 0 1 1-1.784 0"/>
+    <path
+        android:fillColor="#ff000000"
+        android:pathData="M22.331 69.672a2.892 2.892 0 1 0 2.892 2.891 2.891 2.891 0 0 0-2.892-2.891zm53.851 2.892a0.892 0.892 0 1 1 1.784 0 0.892 0.892 0 1 1-1.784 0"/>
+    <path
+        android:fillColor="#ff000000"
+        android:pathData="M77.074 69.672a2.892 2.892 0 1 0 2.892 2.891 2.891 2.891 0 0 0-2.892-2.891z"/>
+    <path
+        android:pathData="M76.595 30.687v17.898M55.273 30.687v17.898M33.952 30.687v17.898M3.436 30.687h94.048m0.433 19.117H3.006"
+        android:strokeColor="#000"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>

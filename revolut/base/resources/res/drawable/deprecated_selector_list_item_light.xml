@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:state_pressed="true"
+        android:drawable="@drawable/deprecated_background_color_grey_tone5"/>
+    <item
+        android:state_selected="true"
+        android:drawable="@drawable/deprecated_background_color_grey_tone5"/>
+    <item>
+        <shape>
+            <solid android:color="?attr/uikit_colorTransparent"/>
+        </shape>
+    </item>
+</selector>

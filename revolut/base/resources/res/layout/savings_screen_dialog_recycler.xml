@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerLinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.views.DialogHeaderView
+        android:id="@+id/savingsScreenDialog_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="?attr/uikit_dp24"/>
+    <com.revolut.recyclerkit.ScreenContentRecyclerView
+        android:id="@+id/savingsScreenDialog_recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</com.revolut.kompot.view.ControllerContainerLinearLayout>

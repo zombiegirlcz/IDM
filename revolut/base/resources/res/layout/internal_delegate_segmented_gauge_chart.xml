@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.gaugechart.SegmentedGaugeChartView
+        android:id="@+id/segmentedGaugeChart_chart"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0"/>
+    <com.revolut.core.ui_kit.internal.views.chart.ChartButtonHeaderView
+        android:id="@+id/segmentedGaugeChart_header"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/internal_dp48"
+        android:layout_marginEnd="@dimen/internal_dp48"
+        app:layout_constraintBottom_toBottomOf="@+id/segmentedGaugeChart_chart"
+        app:layout_constraintEnd_toEndOf="@+id/segmentedGaugeChart_chart"
+        app:layout_constraintStart_toStartOf="@+id/segmentedGaugeChart_chart"
+        app:layout_constraintTop_toTopOf="@+id/segmentedGaugeChart_chart"/>
+    <com.revolut.core.ui_kit.internal.views.chart.InternalLegendView
+        android:id="@+id/segmentedGaugeChart_internalLegend"
+        android:visibility="gone"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/internal_dp48"
+        android:layout_marginEnd="@dimen/internal_dp48"
+        app:layout_constraintBottom_toBottomOf="@+id/segmentedGaugeChart_chart"
+        app:layout_constraintEnd_toEndOf="@+id/segmentedGaugeChart_chart"
+        app:layout_constraintStart_toStartOf="@+id/segmentedGaugeChart_chart"
+        app:layout_constraintTop_toTopOf="@+id/segmentedGaugeChart_chart"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

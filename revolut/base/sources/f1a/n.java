@@ -1,0 +1,15 @@
+package f1a;
+
+import kotlinx.serialization.KSerializer;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes5.dex */
+public final class n {
+    private n() {
+    }
+
+    @NotNull
+    public final KSerializer serializer() {
+        return m.f131215a;
+    }
+}

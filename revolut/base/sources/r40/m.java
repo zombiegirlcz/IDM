@@ -1,0 +1,37 @@
+package r40;
+
+import kotlin.enums.EnumEntries;
+
+/* JADX WARN: Failed to restore enum class, 'enum' modifier and super class removed */
+/* JADX WARN: Unknown enum class pattern. Please report as an issue! */
+/* JADX INFO: loaded from: classes19.dex */
+public final class m {
+    private static final /* synthetic */ EnumEntries $ENTRIES;
+    private static final /* synthetic */ m[] $VALUES;
+    public static final m CONTINUE;
+    public static final m END;
+    public static final m NONE;
+    public static final m RATE;
+
+    static {
+        m mVar = new m("NONE", 0);
+        NONE = mVar;
+        m mVar2 = new m("CONTINUE", 1);
+        CONTINUE = mVar2;
+        m mVar3 = new m("RATE", 2);
+        RATE = mVar3;
+        m mVar4 = new m("END", 3);
+        END = mVar4;
+        m[] mVarArr = {mVar, mVar2, mVar3, mVar4};
+        $VALUES = mVarArr;
+        $ENTRIES = vc.s.n(mVarArr);
+    }
+
+    public static m valueOf(String str) {
+        return (m) Enum.valueOf(m.class, str);
+    }
+
+    public static m[] values() {
+        return (m[]) $VALUES.clone();
+    }
+}

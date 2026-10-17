@@ -1,0 +1,17 @@
+package com.google.android.gms.internal.base;
+
+import com.google.android.gms.common.Feature;
+
+/* JADX INFO: loaded from: classes.dex */
+public final class zav {
+    public static final Feature zaa;
+
+    /* JADX INFO: renamed from: zab, reason: collision with root package name */
+    public static final Feature[] f39218zab;
+
+    static {
+        Feature feature = new Feature("moduleinstall", 7L);
+        zaa = feature;
+        f39218zab = new Feature[]{feature};
+    }
+}

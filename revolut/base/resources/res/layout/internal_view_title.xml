@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <com.revolut.core.ui_kit.internal.views.DynamicWidthHeightAutosizeTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:id="@+id/titleView_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="3"
+        android:autoSizeTextType="uniform"
+        android:autoSizeStepGranularity="1sp"
+        android:autoSizeMinTextSize="26sp"
+        android:autoSizeMaxTextSize="32sp"
+        style="?attr/internal_textAppearanceHeading1"/>
+    <com.revolut.core.ui_kit.internal.views.DynamicWidthHeightAutosizeTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:id="@+id/titleView_description"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:maxLines="5"
+        android:autoSizeTextType="uniform"
+        android:autoSizeStepGranularity="1sp"
+        android:autoSizeMinTextSize="12sp"
+        android:autoSizeMaxTextSize="14sp"
+        style="?attr/internal_textAppearanceBody2"/>
+</merge>

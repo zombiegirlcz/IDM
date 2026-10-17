@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.PickerView
+        android:theme="@style/InternalPicker"
+        android:id="@+id/timePicker_startPicker"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="?attr/uikit_dp16"
+        android:layout_marginEnd="?attr/uikit_dp8"
+        app:layout_constraintEnd_toStartOf="@+id/timePicker_middlePicker"
+        app:layout_constraintHorizontal_chainStyle="spread"
+        app:layout_constraintStart_toStartOf="parent"/>
+    <com.revolut.core.ui_kit.internal.views.PickerView
+        android:theme="@style/InternalPicker"
+        android:id="@+id/timePicker_middlePicker"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="?attr/uikit_dp8"
+        android:layout_marginEnd="?attr/uikit_dp8"
+        app:layout_constraintEnd_toStartOf="@+id/timePicker_endPicker"
+        app:layout_constraintStart_toEndOf="@+id/timePicker_startPicker"/>
+    <com.revolut.core.ui_kit.internal.views.PickerView
+        android:theme="@style/InternalPicker"
+        android:id="@+id/timePicker_endPicker"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="?attr/uikit_dp8"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/timePicker_middlePicker"/>
+</merge>

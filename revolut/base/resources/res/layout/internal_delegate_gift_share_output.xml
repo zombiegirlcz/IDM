@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.core.ui_kit.internal.views.box.ShadowLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/shadowView"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="?attr/uikit_dp24"
+    android:layout_marginBottom="?attr/uikit_dp24"
+    android:layout_marginStart="?attr/uikit_dp32"
+    android:layout_marginEnd="?attr/uikit_dp32">
+    <com.revolut.core.ui_kit.views.gift.GiftShareOutputView
+        android:id="@+id/cardView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</com.revolut.core.ui_kit.internal.views.box.ShadowLayout>

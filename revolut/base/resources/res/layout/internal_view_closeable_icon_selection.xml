@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/iconSelectionExtended_iconsScroller"
+        android:paddingBottom="5dp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:paddingStart="48dp"
+        android:paddingEnd="48dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_default="wrap"/>
+    <View
+        android:id="@+id/iconSelectionExtended_closeButtonBackgroundSolid"
+        android:layout_width="32dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/iconSelectionExtended_iconsScroller"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/iconSelectionExtended_iconsScroller"/>
+    <View
+        android:id="@+id/iconSelectionExtended_closeButtonBackgroundGradient"
+        android:layout_width="16dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/iconSelectionExtended_closeButtonBackgroundSolid"
+        app:layout_constraintLeft_toRightOf="@+id/iconSelectionExtended_closeButtonBackgroundSolid"
+        app:layout_constraintTop_toTopOf="@+id/iconSelectionExtended_closeButtonBackgroundSolid"/>
+    <ImageButton
+        android:id="@+id/iconSelectionExtended_closeButton"
+        android:background="@null"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:contentDescription="@string/common.action.accessibility.back"
+        app:layout_constraintBottom_toBottomOf="@+id/iconSelectionExtended_iconsScroller"
+        app:layout_constraintEnd_toEndOf="@+id/iconSelectionExtended_closeButtonBackgroundGradient"
+        app:layout_constraintStart_toStartOf="@+id/iconSelectionExtended_closeButtonBackgroundSolid"
+        app:layout_constraintTop_toTopOf="@+id/iconSelectionExtended_iconsScroller"/>
+</merge>

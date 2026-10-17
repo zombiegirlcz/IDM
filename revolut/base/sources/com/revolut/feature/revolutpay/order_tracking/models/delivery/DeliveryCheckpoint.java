@@ -1,0 +1,69 @@
+package com.revolut.feature.revolutpay.order_tracking.models.delivery;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+import java.time.LocalDateTime;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes6.dex */
+@Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0005\b\u0087\b\u0018\u0000 \u00052\u00020\u0001:\u0001\u0006J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0007"}, d2 = {"Lcom/revolut/feature/revolutpay/order_tracking/models/delivery/DeliveryCheckpoint;", "Landroid/os/Parcelable;", "", "toString", "()Ljava/lang/String;", "Companion", "a", "feature_revolut_pay_order_tracking_models_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public final /* data */ class DeliveryCheckpoint implements Parcelable {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public final LocalDateTime f84657a;
+
+    /* JADX INFO: renamed from: b, reason: collision with root package name */
+    public final String f84658b;
+
+    @NotNull
+    public static final Parcelable.Creator<DeliveryCheckpoint> CREATOR = new b();
+
+    public static final class b implements Parcelable.Creator {
+        @Override // android.os.Parcelable.Creator
+        public final Object createFromParcel(Parcel parcel) {
+            Intrinsics.checkNotNullParameter(parcel, "parcel");
+            return new DeliveryCheckpoint((LocalDateTime) parcel.readSerializable(), parcel.readString());
+        }
+
+        @Override // android.os.Parcelable.Creator
+        public final Object[] newArray(int i) {
+            return new DeliveryCheckpoint[i];
+        }
+    }
+
+    public DeliveryCheckpoint(LocalDateTime date, String description) {
+        Intrinsics.checkNotNullParameter(date, "date");
+        Intrinsics.checkNotNullParameter(description, "description");
+        this.f84657a = date;
+        this.f84658b = description;
+    }
+
+    @Override // android.os.Parcelable
+    public final int describeContents() {
+        return 0;
+    }
+
+    public final boolean equals(Object obj2) {
+        if (this == obj2) {
+            return true;
+        }
+        if (!(obj2 instanceof DeliveryCheckpoint)) {
+            return false;
+        }
+        DeliveryCheckpoint deliveryCheckpoint = (DeliveryCheckpoint) obj2;
+        return Intrinsics.f(this.f84657a, deliveryCheckpoint.f84657a) && Intrinsics.f(this.f84658b, deliveryCheckpoint.f84658b);
+    }
+
+    public final int hashCode() {
+        return this.f84658b.hashCode() + (this.f84657a.hashCode() * 31);
+    }
+
+    @Override // android.os.Parcelable
+    public final void writeToParcel(Parcel dest, int i) {
+        Intrinsics.checkNotNullParameter(dest, "dest");
+        dest.writeSerializable(this.f84657a);
+        dest.writeString(this.f84658b);
+    }
+}

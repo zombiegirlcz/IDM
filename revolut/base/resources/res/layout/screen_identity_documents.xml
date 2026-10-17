@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.ui_kit.carousel_with_sheet.transition.CarouselWithBottomSheetContainerLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/carouselWithSheet_rootControllerView"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.legacy.LegacyContentContainerFrameLayout
+        android:id="@+id/carouselWithSheet_backgroundContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.navbar.BasicNavBar
+        android:theme="@style/UiKitTheme.TransparentNight"
+        android:id="@+id/carouselWithSheet_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.CardsCarouselView
+        android:id="@+id/carouselWithSheet_cardsCarouselView"
+        android:paddingTop="@dimen/dp_16"
+        android:paddingBottom="@dimen/dp_24"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/carouselWithSheet_navBar"/>
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:id="@+id/identityDocuments_expandableLayoutViewContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:importantForAccessibility="no"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/carouselWithSheet_navBar">
+        <com.revolut.ui_kit.carousel_with_sheet.view.HorizontalScrollExpandableLayoutView
+            android:theme="@style/UiKitTheme.DayNight"
+            android:id="@+id/carouselWithSheet_expandableLayoutView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:layout_anchorGravity="bottom"/>
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+</com.revolut.ui_kit.carousel_with_sheet.transition.CarouselWithBottomSheetContainerLayout>

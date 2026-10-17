@@ -1,0 +1,179 @@
+package com.revolut.retail.feature.pricing_plans.ui.impl.screens.family_plans.more_for_family;
+
+import android.os.Parcel;
+import android.os.Parcelable;
+import com.revolut.core.ui_kit.models.Clause;
+import kotlin.Metadata;
+import kotlin.jvm.internal.Intrinsics;
+import org.jetbrains.annotations.NotNull;
+
+/* JADX INFO: loaded from: classes11.dex */
+@Metadata(d1 = {"\u0000\u0018\n\u0000\n\u0002\u0018\u0002\n\u0002\b\u0005\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0000\b7\u0018\u00002\u00020\u0001:\u0003\u0004\u0005\u0006B\t\b\u0004¢\u0006\u0004\b\u0002\u0010\u0003\u0082\u0001\u0003\u0007\b\t¨\u0006\n"}, d2 = {"com/revolut/retail/feature/pricing_plans/ui/impl/screens/family_plans/more_for_family/MoreForFamilyScreenContract$KidsSavingsAvailability", "Landroid/os/Parcelable;", "<init>", "()V", "NotAvailable", "HasActiveAccounts", "CreationAvailable", "Lcom/revolut/retail/feature/pricing_plans/ui/impl/screens/family_plans/more_for_family/MoreForFamilyScreenContract$KidsSavingsAvailability$CreationAvailable;", "Lcom/revolut/retail/feature/pricing_plans/ui/impl/screens/family_plans/more_for_family/MoreForFamilyScreenContract$KidsSavingsAvailability$HasActiveAccounts;", "Lcom/revolut/retail/feature/pricing_plans/ui/impl/screens/family_plans/more_for_family/MoreForFamilyScreenContract$KidsSavingsAvailability$NotAvailable;", "feature_retail_pricing_plans_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+public abstract class MoreForFamilyScreenContract$KidsSavingsAvailability implements Parcelable {
+
+    @Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0086\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"Lcom/revolut/retail/feature/pricing_plans/ui/impl/screens/family_plans/more_for_family/MoreForFamilyScreenContract$KidsSavingsAvailability$CreationAvailable;", "Lcom/revolut/retail/feature/pricing_plans/ui/impl/screens/family_plans/more_for_family/MoreForFamilyScreenContract$KidsSavingsAvailability;", "", "toString", "()Ljava/lang/String;", "feature_retail_pricing_plans_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final /* data */ class CreationAvailable extends MoreForFamilyScreenContract$KidsSavingsAvailability {
+
+        @NotNull
+        public static final Parcelable.Creator<CreationAvailable> CREATOR = new a();
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public final Clause f103435a;
+
+        /* JADX INFO: renamed from: b, reason: collision with root package name */
+        public final String f103436b;
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                return new CreationAvailable((Clause) parcel.readParcelable(CreationAvailable.class.getClassLoader()), parcel.readString());
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new CreationAvailable[i];
+            }
+        }
+
+        public CreationAvailable(Clause interestRate, String juniorId) {
+            Intrinsics.checkNotNullParameter(interestRate, "interestRate");
+            Intrinsics.checkNotNullParameter(juniorId, "juniorId");
+            this.f103435a = interestRate;
+            this.f103436b = juniorId;
+        }
+
+        @Override // android.os.Parcelable
+        public final int describeContents() {
+            return 0;
+        }
+
+        public final boolean equals(Object obj2) {
+            if (this == obj2) {
+                return true;
+            }
+            if (!(obj2 instanceof CreationAvailable)) {
+                return false;
+            }
+            CreationAvailable creationAvailable = (CreationAvailable) obj2;
+            return Intrinsics.f(this.f103435a, creationAvailable.f103435a) && Intrinsics.f(this.f103436b, creationAvailable.f103436b);
+        }
+
+        public final int hashCode() {
+            return this.f103436b.hashCode() + (this.f103435a.hashCode() * 31);
+        }
+
+        @Override // android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            dest.writeParcelable(this.f103435a, i);
+            dest.writeString(this.f103436b);
+        }
+    }
+
+    @Metadata(d1 = {"\u0000\u0010\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\u0010\u000e\n\u0002\b\u0003\b\u0086\b\u0018\u00002\u00020\u0001J\u0010\u0010\u0003\u001a\u00020\u0002HÖ\u0001¢\u0006\u0004\b\u0003\u0010\u0004¨\u0006\u0005"}, d2 = {"Lcom/revolut/retail/feature/pricing_plans/ui/impl/screens/family_plans/more_for_family/MoreForFamilyScreenContract$KidsSavingsAvailability$HasActiveAccounts;", "Lcom/revolut/retail/feature/pricing_plans/ui/impl/screens/family_plans/more_for_family/MoreForFamilyScreenContract$KidsSavingsAvailability;", "", "toString", "()Ljava/lang/String;", "feature_retail_pricing_plans_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final /* data */ class HasActiveAccounts extends MoreForFamilyScreenContract$KidsSavingsAvailability {
+
+        @NotNull
+        public static final Parcelable.Creator<HasActiveAccounts> CREATOR = new a();
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public final int f103437a;
+
+        /* JADX INFO: renamed from: b, reason: collision with root package name */
+        public final String f103438b;
+
+        /* JADX INFO: renamed from: c, reason: collision with root package name */
+        public final String f103439c;
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                return new HasActiveAccounts(parcel.readInt(), parcel.readString(), parcel.readString());
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new HasActiveAccounts[i];
+            }
+        }
+
+        public HasActiveAccounts(int i, String juniorId, String firstAccountPocketId) {
+            Intrinsics.checkNotNullParameter(juniorId, "juniorId");
+            Intrinsics.checkNotNullParameter(firstAccountPocketId, "firstAccountPocketId");
+            this.f103437a = i;
+            this.f103438b = juniorId;
+            this.f103439c = firstAccountPocketId;
+        }
+
+        @Override // android.os.Parcelable
+        public final int describeContents() {
+            return 0;
+        }
+
+        public final boolean equals(Object obj2) {
+            if (this == obj2) {
+                return true;
+            }
+            if (!(obj2 instanceof HasActiveAccounts)) {
+                return false;
+            }
+            HasActiveAccounts hasActiveAccounts = (HasActiveAccounts) obj2;
+            return this.f103437a == hasActiveAccounts.f103437a && Intrinsics.f(this.f103438b, hasActiveAccounts.f103438b) && Intrinsics.f(this.f103439c, hasActiveAccounts.f103439c);
+        }
+
+        public final int hashCode() {
+            return this.f103439c.hashCode() + p.a.c(Integer.hashCode(this.f103437a) * 31, 31, this.f103438b);
+        }
+
+        @Override // android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            dest.writeInt(this.f103437a);
+            dest.writeString(this.f103438b);
+            dest.writeString(this.f103439c);
+        }
+    }
+
+    @Metadata(d1 = {"\u0000\f\n\u0002\u0018\u0002\n\u0002\u0018\u0002\n\u0002\b\u0003\bÆ\u0002\u0018\u00002\u00020\u0001B\t\b\u0002¢\u0006\u0004\b\u0002\u0010\u0003¨\u0006\u0004"}, d2 = {"Lcom/revolut/retail/feature/pricing_plans/ui/impl/screens/family_plans/more_for_family/MoreForFamilyScreenContract$KidsSavingsAvailability$NotAvailable;", "Lcom/revolut/retail/feature/pricing_plans/ui/impl/screens/family_plans/more_for_family/MoreForFamilyScreenContract$KidsSavingsAvailability;", "<init>", "()V", "feature_retail_pricing_plans_ui_impl_release"}, k = 1, mv = {2, 2, 0}, xi = 48)
+    public static final class NotAvailable extends MoreForFamilyScreenContract$KidsSavingsAvailability {
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public static final NotAvailable f103440a = new NotAvailable();
+
+        @NotNull
+        public static final Parcelable.Creator<NotAvailable> CREATOR = new a();
+
+        public static final class a implements Parcelable.Creator {
+            @Override // android.os.Parcelable.Creator
+            public final Object createFromParcel(Parcel parcel) {
+                Intrinsics.checkNotNullParameter(parcel, "parcel");
+                parcel.readInt();
+                return NotAvailable.f103440a;
+            }
+
+            @Override // android.os.Parcelable.Creator
+            public final Object[] newArray(int i) {
+                return new NotAvailable[i];
+            }
+        }
+
+        private NotAvailable() {
+        }
+
+        @Override // android.os.Parcelable
+        public final int describeContents() {
+            return 0;
+        }
+
+        @Override // android.os.Parcelable
+        public final void writeToParcel(Parcel dest, int i) {
+            Intrinsics.checkNotNullParameter(dest, "dest");
+            dest.writeInt(1);
+        }
+    }
+
+    private MoreForFamilyScreenContract$KidsSavingsAvailability() {
+    }
+}

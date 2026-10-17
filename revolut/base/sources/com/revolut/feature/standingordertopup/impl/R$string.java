@@ -1,0 +1,81 @@
+package com.revolut.feature.standingordertopup.impl;
+
+/* JADX INFO: loaded from: classes7.dex */
+public final class R$string {
+    public static int auto_topup_details_action_delete_title = 2131955302;
+    public static int auto_topup_details_action_edit_title = 2131955303;
+    public static int auto_topup_details_action_help_title = 2131955304;
+    public static int auto_topup_details_header_caption = 2131955305;
+    public static int auto_topup_details_item_add_title = 2131955306;
+    public static int auto_topup_details_item_balance_title = 2131955307;
+    public static int auto_topup_details_item_payment_from_title = 2131955308;
+    public static int standing_orders_consent_flow_payment_initiation_merchant = 2132002436;
+    public static int standing_orders_topup_balance_complete_title = 2132002437;
+    public static int standing_orders_topup_balance_ob_title = 2132002438;
+    public static int standing_orders_topup_balance_threshold_title_otf = 2132002439;
+    public static int standing_orders_topup_balance_thresold_title = 2132002440;
+    public static int standing_orders_topup_insufficient_balance_warning_text = 2132002441;
+    public static int standing_orders_topup_insufficient_balance_warning_title = 2132002442;
+    public static int standing_orders_topup_methods_direct_connected_bank_description = 2132002443;
+    public static int standing_orders_topup_methods_direct_connected_bank_title = 2132002444;
+    public static int standing_orders_topup_recurring_period_monthly = 2132002445;
+    public static int standing_orders_topup_recurring_period_weekly = 2132002446;
+    public static int standing_orders_topup_recurring_top_up_complete_amount = 2132002447;
+    public static int standing_orders_topup_recurring_top_up_complete_from = 2132002448;
+    public static int standing_orders_topup_recurring_top_up_complete_title = 2132002449;
+    public static int standing_orders_topup_recurring_top_up_details_selection_schedule_title = 2132002450;
+    public static int standing_orders_topup_recurring_top_up_select_type_balance = 2132002451;
+    public static int standing_orders_topup_recurring_top_up_select_type_schedule = 2132002452;
+    public static int standing_orders_topup_recurring_top_up_select_type_setup = 2132002453;
+    public static int standing_orders_topup_schedule_ob_error_body_last_days_of_month = 2132002454;
+    public static int standing_orders_topup_schedule_ob_error_body_weekend = 2132002455;
+    public static int standing_orders_topup_schedule_ob_error_title_last_days_of_month = 2132002456;
+    public static int standing_orders_topup_schedule_ob_error_title_weekend = 2132002457;
+    public static int standing_orders_topup_schedule_ob_title = 2132002458;
+    public static int standing_orders_topup_schedule_ob_us_error_body_weekend = 2132002459;
+    public static int top_up_recurring_top_up_bank_connection_error_subtitle = 2132004446;
+    public static int top_up_recurring_top_up_bank_connection_error_title = 2132004447;
+    public static int top_up_recurring_top_up_create_success_subtitle = 2132004490;
+    public static int top_up_recurring_top_up_create_success_title = 2132004491;
+    public static int top_up_recurring_top_up_custom_amount_min_amount = 2132004448;
+    public static int top_up_recurring_top_up_custom_amount_title = 2132004449;
+    public static int top_up_recurring_top_up_delete_title = 2132004450;
+    public static int top_up_recurring_top_up_details_complete_title = 2132004451;
+    public static int top_up_recurring_top_up_details_schedule_button = 2132004452;
+    public static int top_up_recurring_top_up_details_schedule_description_bi_weekly = 2132004453;
+    public static int top_up_recurring_top_up_details_schedule_description_monthly = 2132004454;
+    public static int top_up_recurring_top_up_details_schedule_description_weekly = 2132004455;
+    public static int top_up_recurring_top_up_details_schedule_title = 2132004456;
+    public static int top_up_recurring_top_up_details_selection_amount_added = 2132004457;
+    public static int top_up_recurring_top_up_details_selection_amount_title = 2132004458;
+    public static int top_up_recurring_top_up_details_selection_amount_title_otf = 2132004459;
+    public static int top_up_recurring_top_up_details_selection_day_first = 2132004460;
+    public static int top_up_recurring_top_up_details_selection_day_other = 2132004461;
+    public static int top_up_recurring_top_up_details_selection_day_second = 2132004462;
+    public static int top_up_recurring_top_up_details_selection_day_third = 2132004463;
+    public static int top_up_recurring_top_up_details_selection_footer_disclaimer = 2132004464;
+    public static int top_up_recurring_top_up_details_selection_method = 2132004465;
+    public static int top_up_recurring_top_up_details_selection_other_amount = 2132004466;
+    public static int top_up_recurring_top_up_details_selection_schedule_bi_weekly = 2132004467;
+    public static int top_up_recurring_top_up_details_selection_schedule_monthly = 2132004468;
+    public static int top_up_recurring_top_up_details_selection_schedule_weekly = 2132004469;
+    public static int top_up_recurring_top_up_error_subtitle = 2132004470;
+    public static int top_up_recurring_top_up_error_title = 2132004471;
+    public static int top_up_recurring_top_up_external_edit_topup_subtitle = 2132004472;
+    public static int top_up_recurring_top_up_external_edit_topup_title = 2132004473;
+    public static int top_up_recurring_top_up_external_prompt_action = 2132004474;
+    public static int top_up_recurring_top_up_external_prompt_subtitle = 2132004475;
+    public static int top_up_recurring_top_up_external_prompt_title = 2132004476;
+    public static int top_up_recurring_top_up_external_success_subtitle = 2132004477;
+    public static int top_up_recurring_top_up_external_success_title = 2132004478;
+    public static int top_up_recurring_top_up_select_method_title = 2132004479;
+    public static int top_up_recurring_top_up_start_date = 2132004480;
+    public static int top_up_recurring_top_up_success_deletion_toast = 2132004481;
+    public static int top_up_recurring_top_up_success_save = 2132004482;
+    public static int top_up_recurring_top_up_success_save_toast = 2132004483;
+    public static int top_up_recurring_top_up_success_subtitle = 2132004484;
+    public static int top_up_recurring_top_up_success_title = 2132004485;
+
+    private R$string() {
+    }
+}

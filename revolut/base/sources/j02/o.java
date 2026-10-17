@@ -1,0 +1,31 @@
+package j02;
+
+import kotlin.enums.EnumEntries;
+
+/* JADX WARN: Failed to restore enum class, 'enum' modifier and super class removed */
+/* JADX WARN: Unknown enum class pattern. Please report as an issue! */
+/* JADX INFO: loaded from: classes20.dex */
+public final class o {
+    private static final /* synthetic */ EnumEntries $ENTRIES;
+    private static final /* synthetic */ o[] $VALUES;
+    public static final o USER_DOES_NOT_RECOGNISE_PAYMENT;
+    public static final o USER_NOT_INTERESTED;
+
+    static {
+        o oVar = new o("USER_DOES_NOT_RECOGNISE_PAYMENT", 0);
+        USER_DOES_NOT_RECOGNISE_PAYMENT = oVar;
+        o oVar2 = new o("USER_NOT_INTERESTED", 1);
+        USER_NOT_INTERESTED = oVar2;
+        o[] oVarArr = {oVar, oVar2};
+        $VALUES = oVarArr;
+        $ENTRIES = vc.s.n(oVarArr);
+    }
+
+    public static o valueOf(String str) {
+        return (o) Enum.valueOf(o.class, str);
+    }
+
+    public static o[] values() {
+        return (o[]) $VALUES.clone();
+    }
+}

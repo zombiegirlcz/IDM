@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:animateLayoutChanges="true">
+    <com.revolut.uicomponent.toolbar.app_bar.RevolutToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        app:navigationIcon="@drawable/uikit_icn_24_back_button_arrow"/>
+    <TextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/expiry_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/padding16"
+        android:layout_centerHorizontal="true"
+        android:textIsSelectable="true"/>
+    <com.revolut.core.ui_kit.views.WebView
+        android:gravity="left"
+        android:orientation="vertical"
+        android:id="@+id/webview"
+        android:paddingBottom="@dimen/dp_80"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@+id/toolbar"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:id="@+id/button_action"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="@string/news.action.learn"
+        android:layout_alignParentBottom="true"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</RelativeLayout>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/smallGroupCard_constraintLayout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <View
+        android:id="@+id/smallGroupCard_background"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.OverlappedIconsView
+        android:id="@+id/smallGroupCard_images"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/internal_card_16dp_padding_size"
+        android:layout_marginBottom="@dimen/internal_card_16dp_padding_size"
+        android:layout_marginStart="@dimen/internal_card_16dp_padding_size"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_default="wrap"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:ellipsize="end"
+        android:id="@+id/smallGroupCard_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/internal_card_8dp_padding_size"
+        android:layout_marginBottom="@dimen/internal_card_8dp_padding_size"
+        android:maxLines="2"
+        android:layout_marginStart="@dimen/internal_card_16dp_padding_size"
+        android:layout_marginEnd="@dimen/internal_card_16dp_padding_size"
+        app:layout_constraintBottom_toTopOf="@+id/smallGroupCard_action"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+    <com.revolut.core.ui_kit.internal.views.SmallActionButton
+        android:id="@+id/smallGroupCard_action"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:layout_marginBottom="@dimen/internal_card_16dp_padding_size"
+        android:layout_marginStart="@dimen/internal_card_16dp_padding_size"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

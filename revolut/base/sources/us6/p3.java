@@ -1,0 +1,15 @@
+package us6;
+
+import com.revolut.feature.freelancer.impl.database.FreelancerDatabase;
+import kotlin.jvm.internal.Intrinsics;
+
+/* JADX INFO: loaded from: classes3.dex */
+public abstract class p3 implements e4m.e {
+    public static is6.u a(FreelancerDatabase database) {
+        h3.Companion.getClass();
+        Intrinsics.checkNotNullParameter(database, "database");
+        is6.u uVarK = database.k();
+        vc.s.k(uVarK);
+        return uVarK;
+    }
+}

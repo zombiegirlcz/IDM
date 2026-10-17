@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="16dp"
+    android:width="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <path
+        android:fillColor="?attr/uikit_colorForeground"
+        android:pathData="M8 15c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zM7.252 3.615c0-0.332 0.269-0.6 0.6-0.6h0.296c0.331 0 0.6 0.268 0.6 0.6v4.15c0 0.552-0.448 1-1 1H5.01c-0.331 0-0.6-0.269-0.6-0.6v-0.3c0-0.332 0.269-0.6 0.6-0.6h2.242v-3.65z"/>
+</vector>

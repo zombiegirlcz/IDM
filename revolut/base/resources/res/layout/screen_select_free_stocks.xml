@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.revolut.kompot.view.ControllerContainerConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="?attr/uikit_windowBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <com.revolut.core.ui_kit.views.navbar.NavBarWithToolbar
+        android:id="@+id/screenSelectFreeStocks_navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+    <com.revolut.core.ui_kit.views.spinnerPicker.SpinnerPickerView
+        android:id="@+id/screenSelectFreeStocks_spinner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/screenSelectFreeStocks_navBar"/>
+    <com.revolut.rxdiffadapter.AsyncDiffRecyclerView
+        android:id="@+id/screenSelectFreeStocks_recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_behavior="com.revolut.core.ui_kit.views.navbar.NavBarScrollingViewBehavior"
+        app:layout_constraintBottom_toTopOf="@+id/screenSelectFreeStocks_actionFooterView"
+        app:layout_constraintTop_toBottomOf="@+id/screenSelectFreeStocks_spinner"/>
+    <com.revolut.core.ui_kit.views.buttons.ActionFooterView
+        android:id="@+id/screenSelectFreeStocks_actionFooterView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_behavior="com.revolut.core.ui_kit.views.buttons.CollapsibleButtonBehavior"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+</com.revolut.kompot.view.ControllerContainerConstraintLayout>

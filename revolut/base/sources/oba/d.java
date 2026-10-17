@@ -1,0 +1,13 @@
+package oba;
+
+import aii.r;
+
+/* JADX INFO: loaded from: classes5.dex */
+public final class d implements r {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final d f223906a = new d();
+
+    private d() {
+    }
+}

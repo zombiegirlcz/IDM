@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center_horizontal"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <ImageView
+        android:layout_gravity="center_horizontal"
+        android:id="@+id/viewProgressTimelineStep_icon"
+        android:layout_width="@dimen/internal_dp24"
+        android:layout_height="@dimen/internal_dp24"
+        android:layout_marginBottom="@dimen/internal_dp8"/>
+    <TextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:ellipsize="end"
+        android:gravity="center_horizontal"
+        android:id="@+id/viewProgressTimelineStep_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/internal_dp2"
+        android:maxWidth="98dp"
+        android:minWidth="54dp"
+        android:maxLines="3"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+    <TextView
+        android:textColor="?attr/uikit_colorGreyTone50_70"
+        android:gravity="center_horizontal"
+        android:id="@+id/viewProgressTimelineStep_subtitle"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxWidth="98dp"
+        android:maxLines="2"
+        style="?attr/internal_textAppearanceBody2"/>
+</merge>

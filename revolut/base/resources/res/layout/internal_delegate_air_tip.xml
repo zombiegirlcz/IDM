@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorGreyTone50"
+        android:id="@+id/air_tip_titleTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/internal_dp12"
+        android:textAlignment="viewStart"
+        android:layout_marginHorizontal="@dimen/internal_dp16"
+        style="?attr/internal_textAppearanceEmphasis2"/>
+    <com.revolut.core.ui_kit.internal.views.UIKitTextView
+        android:textColor="?attr/uikit_colorForeground"
+        android:id="@+id/air_tip_bodyTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/internal_dp8"
+        android:layout_marginBottom="@dimen/internal_dp16"
+        android:textAlignment="viewStart"
+        android:layout_marginHorizontal="@dimen/internal_dp16"
+        style="?attr/internal_textAppearanceBody2"/>
+    <com.revolut.core.ui_kit.views.LargeActionButton
+        android:id="@+id/air_tip_ctaView"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/internal_dp16"
+        android:layout_marginHorizontal="@dimen/internal_dp16"
+        app:uikit_LargeActionButtonStyle="AccentButton"/>
+</LinearLayout>

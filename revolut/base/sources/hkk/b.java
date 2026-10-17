@@ -1,0 +1,69 @@
+package hkk;
+
+import aw0.n6;
+import com.revolut.retail.feature.pricing_plans.ui.impl.screens.family_plans.checkout.FamilyPlanCheckoutScreen;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import vkm.j2;
+
+/* JADX INFO: loaded from: classes11.dex */
+public final class b extends gim.i implements Function2 {
+    public final /* synthetic */ int u;
+    public final /* synthetic */ FamilyPlanCheckoutScreen v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public /* synthetic */ b(FamilyPlanCheckoutScreen familyPlanCheckoutScreen, Continuation continuation, int i) {
+        super(2, continuation);
+        this.u = i;
+        this.v = familyPlanCheckoutScreen;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        switch (this.u) {
+            case 0:
+                return new b(this.v, continuation, 0);
+            default:
+                return new b(this.v, continuation, 1);
+        }
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        switch (this.u) {
+            case 0:
+                return ((b) create((Unit) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+            default:
+                return ((b) create((n6) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+        }
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        int i = this.u;
+        FamilyPlanCheckoutScreen familyPlanCheckoutScreen = this.v;
+        switch (i) {
+            case 0:
+                fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+                yhm.o.b(obj2);
+                ((p) familyPlanCheckoutScreen.e3()).B2();
+                break;
+            default:
+                fim.a aVar2 = fim.a.COROUTINE_SUSPENDED;
+                yhm.o.b(obj2);
+                p pVar = (p) familyPlanCheckoutScreen.e3();
+                ggk.a aVar3 = (ggk.a) ((e) ((j2) pVar.v.f22677a).getValue()).f152941a.getContent();
+                if (aVar3 != null) {
+                    String str = aVar3.f143697a;
+                    hha.i iVar = aVar3.f143699c;
+                    if (iVar == null) {
+                        iVar = hha.i.MONTHLY;
+                    }
+                    pVar.C2(new f(str, iVar));
+                }
+                break;
+        }
+        return Unit.f186387a;
+    }
+}

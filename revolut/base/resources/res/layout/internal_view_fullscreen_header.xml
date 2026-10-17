@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/fullscreenVideoPlayerHeader_iconStart"
+        android:padding="@dimen/internal_dp8"
+        android:layout_width="@dimen/internal_dp32"
+        android:layout_height="@dimen/internal_dp32"
+        android:tint="?attr/uikit_colorWhite"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/uikit_icn_16_revolut"/>
+    <androidx.appcompat.widget.AppCompatTextView
+        android:textColor="?attr/uikit_colorWhite"
+        android:ellipsize="end"
+        android:id="@+id/fullscreenVideoPlayerHeader_title"
+        android:layout_width="@dimen/internal_dp0"
+        android:layout_height="wrap_content"
+        android:lines="1"
+        android:layout_marginEnd="?attr/uikit_dp16"
+        app:layout_constraintBottom_toBottomOf="@+id/fullscreenVideoPlayerHeader_iconStart"
+        app:layout_constraintEnd_toStartOf="@+id/fullscreenVideoPlayerHeader_iconClose"
+        app:layout_constraintStart_toEndOf="@+id/fullscreenVideoPlayerHeader_iconStart"
+        app:layout_constraintTop_toTopOf="@+id/fullscreenVideoPlayerHeader_iconStart"
+        style="?attr/internal_textAppearanceEmphasis1"/>
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/fullscreenVideoPlayerHeader_iconClose"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="@dimen/internal_dp4"
+        android:layout_width="@dimen/internal_dp32"
+        android:layout_height="@dimen/internal_dp32"
+        android:tint="?attr/uikit_colorWhite"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/fullscreenVideoPlayerHeader_iconStart"
+        app:srcCompat="@drawable/uikit_icn_24_cross"/>
+</merge>

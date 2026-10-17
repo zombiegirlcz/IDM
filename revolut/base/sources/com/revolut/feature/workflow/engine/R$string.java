@@ -1,0 +1,86 @@
+package com.revolut.feature.workflow.engine;
+
+/* JADX INFO: loaded from: classes10.dex */
+public final class R$string {
+    public static int cancel_flow_alert_back = 2131957101;
+    public static int cancel_flow_alert_message = 2131957102;
+    public static int cancel_flow_alert_quit = 2131957103;
+    public static int cancel_flow_alert_title = 2131957104;
+    public static int chooseDocuments_action_delete = 2131961390;
+    public static int chooseDocuments_buttons_got_it = 2131961391;
+    public static int chooseDocuments_buttons_try_again = 2131961392;
+    public static int chooseDocuments_document_requirements = 2131961393;
+    public static int chooseDocuments_document_requirements_amount = 2131961394;
+    public static int chooseDocuments_document_requirements_date = 2131961395;
+    public static int chooseDocuments_document_requirements_description = 2131961399;
+    public static int chooseDocuments_document_requirements_employer = 2131961396;
+    public static int chooseDocuments_document_requirements_languages = 2131961397;
+    public static int chooseDocuments_document_requirements_name = 2131961398;
+    public static int chooseDocuments_documentsRequirementsTitle = 2131961402;
+    public static int chooseDocuments_documents_delete_document = 2131961400;
+    public static int chooseDocuments_documents_delete_warning = 2131961401;
+    public static int chooseDocuments_error_common = 2131961403;
+    public static int chooseDocuments_error_file_too_large = 2131961404;
+    public static int chooseDocuments_error_file_too_large_upload_another = 2131961405;
+    public static int chooseDocuments_subtitle_link = 2131961406;
+    public static int chooseDocuments_try_again = 2131961407;
+    public static int chooseDocuments_uploadDocuments = 2131961414;
+    public static int chooseDocuments_uploadDocuments_description = 2131961415;
+    public static int chooseDocuments_upload_description = 2131961408;
+    public static int chooseDocuments_upload_documents_error_description = 2131961409;
+    public static int chooseDocuments_upload_error_failed = 2131961410;
+    public static int chooseDocuments_upload_error_failed_description = 2131961411;
+    public static int chooseDocuments_upload_error_title = 2131961412;
+    public static int chooseDocuments_upload_title = 2131961413;
+    public static int common_action_cancel = 2131961859;
+    public static int common_action_confirm = 2131961867;
+    public static int common_action_continue = 2131961868;
+    public static int common_action_got_it = 2131961884;
+    public static int common_action_try_again = 2131961942;
+    public static int common_error_title = 2131961981;
+    public static int digilocker_verification_permission_error_subtitle = 2131969478;
+    public static int digilocker_verification_permission_error_title = 2131969479;
+    public static int error_generic = 2131970735;
+    public static int flows_rfi_screening_alert_success = 2131973191;
+    public static int government_verification_permission_error_subtitle = 2131975751;
+    public static int my_info_permission_dialogue_secondary_action = 2131984644;
+    public static int my_info_permission_dialogue_title = 2131984643;
+    public static int product_eligibility_status_already_reviewing_information_description = 2131991924;
+    public static int product_eligibility_status_already_reviewing_information_description_short = 2131991925;
+    public static int product_eligibility_status_already_reviewing_information_title = 2131991926;
+    public static int product_eligibility_status_app_update_button = 2131991927;
+    public static int product_eligibility_status_app_update_description = 2131991928;
+    public static int product_eligibility_status_error_or_app_update_description = 2131991929;
+    public static int product_eligibility_status_error_or_app_update_title = 2131991930;
+    public static int product_eligibility_status_reviewing_information_description = 2131991931;
+    public static int product_eligibility_status_reviewing_information_title = 2131991932;
+    public static int product_obstacles_details_action_button = 2131991940;
+    public static int product_obstacles_details_title = 2131991941;
+    public static int product_obstacles_list_title = 2131991942;
+    public static int video_conference_agent_cancelled_error_title = 2132010493;
+    public static int workflow_alternative_documents_screen_cta_placeholder = 2132016314;
+    public static int workflow_alternative_documents_screen_title_placeholder = 2132016315;
+    public static int workflow_alternative_documents_screen_unsure_which_document_button_placeholder = 2132016316;
+    public static int workflow_document_selection_citizenship_picker_no_result_subtitle = 2132016320;
+    public static int workflow_document_selection_documents_title = 2132016321;
+    public static int workflow_document_selection_list_of_documents_action_help = 2132016322;
+    public static int workflow_document_selection_list_of_documents_action_learn_more = 2132016323;
+    public static int workflow_document_selection_list_of_documents_alternative_documents_button = 2132016324;
+    public static int workflow_document_selection_list_of_documents_no_methods_supported_description = 2132016325;
+    public static int workflow_document_selection_list_of_documents_no_methods_supported_label = 2132016326;
+    public static int workflow_document_selection_list_of_documents_section_title = 2132016327;
+    public static int workflow_document_selection_nationality_confirmation_title = 2132016328;
+    public static int workflow_document_selection_nationality_search_placeholder = 2132016329;
+    public static int workflow_document_selection_nationality_title = 2132016330;
+    public static int workflow_document_selection_single_citizenship_prompt_confirm_button_title = 2132016331;
+    public static int workflow_document_selection_single_citizenship_prompt_decline_button_title = 2132016332;
+    public static int workflow_sso_failure_button = 2132016333;
+    public static int workflow_sso_failure_description = 2132016334;
+    public static int workflow_sso_failure_title = 2132016335;
+    public static int workflow_state_completed_description = 2132016336;
+    public static int workflow_state_completed_title = 2132016337;
+    public static int workflow_timeline_action_remove = 2132016338;
+
+    private R$string() {
+    }
+}

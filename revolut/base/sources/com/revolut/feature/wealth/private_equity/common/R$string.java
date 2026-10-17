@@ -1,0 +1,87 @@
+package com.revolut.feature.wealth.private_equity.common;
+
+/* JADX INFO: loaded from: classes9.dex */
+public final class R$string {
+    public static int wealth_invest_order_details_cell_cancellation_completion_title = 2132012365;
+    public static int wealth_invest_order_details_cell_cancellation_completion_title_copy = 2132012366;
+    public static int wealth_invest_order_details_cell_cancellation_deadline_title = 2132012367;
+    public static int wealth_invest_order_details_cell_cancellation_deadline_title_copy = 2132012368;
+    public static int wealth_invest_order_details_cell_net_asset_availability_title = 2132012369;
+    public static int wealth_invest_order_details_cell_net_asset_availability_title_copy = 2132012370;
+    public static int wealth_invest_order_details_cell_order_rejected_subtitle = 2132012371;
+    public static int wealth_invest_order_details_cell_order_rejected_title = 2132012372;
+    public static int wealth_invest_order_details_cell_order_submission_title = 2132012373;
+    public static int wealth_invest_order_details_cell_order_submission_title_copy = 2132012374;
+    public static int wealth_invest_order_details_cell_trade_date_title = 2132012375;
+    public static int wealth_invest_order_details_cell_trade_date_title_copy = 2132012376;
+    public static int wealth_invest_order_details_header_order_cancelled = 2132012378;
+    public static int wealth_invest_order_details_header_order_cancelled_copy = 2132012379;
+    public static int wealth_invest_order_details_header_order_complete = 2132012380;
+    public static int wealth_invest_order_details_header_order_complete_copy = 2132012381;
+    public static int wealth_invest_order_details_header_order_in_progress = 2132012382;
+    public static int wealth_invest_order_details_header_order_in_progress_copy = 2132012383;
+    public static int wealth_invest_order_details_header_order_rejected = 2132012384;
+    public static int wealth_invest_orders_dialog_illiquidity_warning_applied_gate_liquidity_description = 2132012404;
+    public static int wealth_invest_orders_dialog_illiquidity_warning_applied_gate_redemption_description = 2132012405;
+    public static int wealth_invest_orders_dialog_illiquidity_warning_description = 2132012406;
+    public static int wealth_invest_orders_dialog_illiquidity_warning_learn_more = 2132012407;
+    public static int wealth_invest_orders_dialog_illiquidity_warning_learn_more_description = 2132012408;
+    public static int wealth_invest_orders_dialog_illiquidity_warning_learn_more_title = 2132012409;
+    public static int wealth_invest_orders_dialog_illiquidity_warning_submit = 2132012410;
+    public static int wealth_invest_orders_dialog_illiquidity_warning_title = 2132012411;
+    public static int wealth_invest_trade_private_markets_risk_high = 2132012507;
+    public static int wealth_invest_trade_private_markets_risk_low = 2132012508;
+    public static int wealth_invest_trade_private_markets_risk_medium = 2132012509;
+    public static int wealth_private_equity_fund_share_currency_hedged = 2132013420;
+    public static int wealth_private_equity_fund_share_currency_hedged_copy = 2132013421;
+    public static int wealth_private_equity_fund_share_distribution_type_accumulating = 2132013422;
+    public static int wealth_private_equity_fund_share_distribution_type_accumulating_copy = 2132013423;
+    public static int wealth_private_equity_fund_share_distribution_type_distributing = 2132013424;
+    public static int wealth_private_equity_fund_share_distribution_type_distributing_copy = 2132013425;
+    public static int wealth_trading_orders_dialog_cancellation_deadline_description = 2132015106;
+    public static int wealth_trading_orders_dialog_cancellation_deadline_description_with_time = 2132015107;
+    public static int wealth_trading_orders_dialog_cancellation_deadline_title = 2132015108;
+    public static int wealth_trading_orders_dialog_custody_fee_description = 2132015109;
+    public static int wealth_trading_orders_dialog_custody_fee_description_copy = 2132015110;
+    public static int wealth_trading_orders_dialog_custody_fee_title = 2132015111;
+    public static int wealth_trading_orders_dialog_custody_fee_title_copy = 2132015112;
+    public static int wealth_trading_orders_dialog_execution_date_description = 2132015113;
+    public static int wealth_trading_orders_dialog_execution_date_title = 2132015114;
+    public static int wealth_trading_orders_dialog_fund_buy_settlement_date_description = 2132015115;
+    public static int wealth_trading_orders_dialog_fund_early_redemption_fee_description = 2132015116;
+    public static int wealth_trading_orders_dialog_fund_early_redemption_fee_title = 2132015117;
+    public static int wealth_trading_orders_dialog_fund_execution_date_description = 2132015118;
+    public static int wealth_trading_orders_dialog_fund_hard_lockup_description = 2132015119;
+    public static int wealth_trading_orders_dialog_fund_hard_lockup_title = 2132015120;
+    public static int wealth_trading_orders_dialog_fund_lockup_period_cell_hard_lock_description = 2132015121;
+    public static int wealth_trading_orders_dialog_fund_lockup_period_cell_hard_lock_description_copy = 2132015122;
+    public static int wealth_trading_orders_dialog_fund_lockup_period_cell_hard_lock_title = 2132015123;
+    public static int wealth_trading_orders_dialog_fund_lockup_period_cell_hard_lock_title_copy = 2132015124;
+    public static int wealth_trading_orders_dialog_fund_lockup_period_cell_hard_lock_until_date = 2132015125;
+    public static int wealth_trading_orders_dialog_fund_lockup_period_cell_hard_lock_until_date_copy = 2132015126;
+    public static int wealth_trading_orders_dialog_fund_lockup_period_cell_soft_lock_description = 2132015127;
+    public static int wealth_trading_orders_dialog_fund_lockup_period_cell_soft_lock_description_copy = 2132015128;
+    public static int wealth_trading_orders_dialog_fund_lockup_period_cell_soft_lock_title = 2132015129;
+    public static int wealth_trading_orders_dialog_fund_lockup_period_cell_soft_lock_title_copy = 2132015130;
+    public static int wealth_trading_orders_dialog_fund_settlement_date_description = 2132015132;
+    public static int wealth_trading_orders_dialog_fund_settlement_date_title = 2132015133;
+    public static int wealth_trading_orders_dialog_fund_soft_lockup_description = 2132015134;
+    public static int wealth_trading_orders_dialog_fund_soft_lockup_title = 2132015135;
+    public static int wealth_trading_orders_dialog_fund_trade_date_description = 2132015136;
+    public static int wealth_trading_orders_dialog_fund_trade_date_description_copy = 2132015137;
+    public static int wealth_trading_orders_dialog_fund_trade_date_title = 2132015138;
+    public static int wealth_trading_orders_dialog_fund_trade_date_title_copy = 2132015139;
+    public static int wealth_trading_orders_dialog_lockin_period_description = 2132015148;
+    public static int wealth_trading_orders_dialog_lockin_period_title = 2132015149;
+    public static int wealth_trading_orders_dialog_private_markets_hard_lockup_description = 2132015151;
+    public static int wealth_trading_orders_dialog_private_markets_hard_lockup_title = 2132015152;
+    public static int wealth_trading_orders_dialog_revolut_fee_description = 2132015153;
+    public static int wealth_trading_orders_dialog_revolut_fee_title = 2132015154;
+    public static int wealth_trading_orders_dialog_soft_lock_fee_description = 2132015163;
+    public static int wealth_trading_orders_dialog_soft_lock_fee_title = 2132015164;
+    public static int wealth_trading_orders_review_header_title_investment_timeline = 2132015258;
+    public static int wealth_trading_orders_review_header_title_investment_timeline_copy = 2132015259;
+
+    private R$string() {
+    }
+}

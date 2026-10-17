@@ -1,0 +1,5 @@
+package mu1;
+
+/* JADX INFO: loaded from: classes20.dex */
+public interface a extends qji.a {
+}

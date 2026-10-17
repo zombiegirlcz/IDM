@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="?attr/uikit_colorAccent"/>
+        </shape>
+    </item>
+    <item
+        android:drawable="@drawable/ic_dots_24_white"
+        android:left="@dimen/margin_s"
+        android:top="@dimen/margin_s"
+        android:right="@dimen/margin_s"
+        android:bottom="@dimen/margin_s"/>
+</layer-list>

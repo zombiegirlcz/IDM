@@ -1,0 +1,10 @@
+package bql;
+
+/* JADX INFO: loaded from: classes12.dex */
+public final class d {
+    private d() {
+    }
+
+    public d(int i) {
+    }
+}

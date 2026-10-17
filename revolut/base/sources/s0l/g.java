@@ -1,0 +1,35 @@
+package s0l;
+
+/* JADX INFO: loaded from: classes12.dex */
+public abstract class g implements aii.r {
+
+    public static final class a extends g {
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public static final a f258982a = new a();
+
+        private a() {
+        }
+    }
+
+    public static final class b extends g {
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public static final b f258983a = new b();
+
+        private b() {
+        }
+    }
+
+    public static final class c extends g {
+
+        /* JADX INFO: renamed from: a, reason: collision with root package name */
+        public static final c f258984a = new c();
+
+        private c() {
+        }
+    }
+
+    private g() {
+    }
+}

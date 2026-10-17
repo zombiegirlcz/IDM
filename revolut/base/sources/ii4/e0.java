@@ -1,0 +1,42 @@
+package ii4;
+
+import com.revolut.feature.credit.application.plugins.api.models.config.SpinnerConfiguration;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import nii.y0;
+
+/* JADX INFO: loaded from: classes22.dex */
+public final class e0 extends gim.i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ com.revolut.feature.credit.application.plugins.impl.ui.spinner.b v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public e0(com.revolut.feature.credit.application.plugins.impl.ui.spinner.b bVar, Continuation continuation) {
+        super(2, continuation);
+        this.v = bVar;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        e0 e0Var = new e0(this.v, continuation);
+        e0Var.u = obj2;
+        return e0Var;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((e0) create((SpinnerConfiguration.Content.SpinnerContent) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        SpinnerConfiguration.Content.SpinnerContent spinnerContent = (SpinnerConfiguration.Content.SpinnerContent) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        yhm.o.b(obj2);
+        y0 y0VarP2 = com.revolut.feature.credit.application.plugins.impl.ui.spinner.b.P2(spinnerContent);
+        com.revolut.feature.credit.application.plugins.impl.ui.spinner.b bVar = this.v;
+        yji.l.a1(bVar, bVar.X1(y0VarP2), null, null, null, 7);
+        return Unit.f186387a;
+    }
+}

@@ -1,0 +1,87 @@
+package com.revolut.feature.junior_dashboard.impl;
+
+/* JADX INFO: loaded from: classes4.dex */
+public final class R$string {
+    public static int joint_common_error_title = 2131978747;
+    public static int junior_account_item_state_created = 2131979113;
+    public static int junior_account_item_state_failed_identity = 2131979114;
+    public static int junior_account_item_state_failed_parent_kyc = 2131979115;
+    public static int junior_account_item_state_inactive = 2131979116;
+    public static int junior_account_item_state_offboarding_co_parent = 2131979117;
+    public static int junior_account_item_state_offboarding_main_parent = 2131979118;
+    public static int junior_account_item_state_requested_termination = 2131979119;
+    public static int junior_account_item_state_reviewing_documents = 2131979120;
+    public static int junior_account_picker_action_item_create_new_account = 2131979184;
+    public static int junior_account_picker_item_state_card_limit_reached = 2131979185;
+    public static int junior_account_picker_item_state_card_link_available_for_main_parent = 2131979186;
+    public static int junior_account_picker_item_state_card_order_available_for_main_parent = 2131979187;
+    public static int junior_account_picker_item_state_gdpr_failed = 2131979188;
+    public static int junior_account_picker_item_state_inactive_account = 2131979189;
+    public static int junior_account_picker_item_state_virtual_cards_disabled = 2131979190;
+    public static int junior_account_picker_title = 2131979191;
+    public static int junior_account_state_inactive = 2131979157;
+    public static int junior_account_switcher_account_cell_first_name = 2131979194;
+    public static int junior_card_multiple_title = 2131979397;
+    public static int junior_card_on_the_card = 2131979399;
+    public static int junior_co_parent_action_removal_confirmation_message = 2131979575;
+    public static int junior_co_parent_action_removal_confirmation_title = 2131979576;
+    public static int junior_dashboard_cards_error_title = 2131979665;
+    public static int junior_dashboard_transactions_error_title = 2131979666;
+    public static int junior_signup_app_sharing_share_button_title = 2131979965;
+    public static int junior_tasks_error_title = 2131980087;
+    public static int junior_tasks_error_try_again = 2131980088;
+    public static int junior_topup_error_message_locked_account = 2131980117;
+    public static int junior_transactions_no_transactions_title = 2131980241;
+    public static int junior_wallet_overview_balance = 2131980463;
+    public static int junior_wallet_overview_cards_too_old_message = 2131980466;
+    public static int junior_wallet_overview_cards_too_old_message_female = 2131980467;
+    public static int junior_wallet_overview_cards_too_old_title = 2131980468;
+    public static int junior_wallet_overview_earnings_title = 2131980480;
+    public static int junior_wallet_overview_requested_termination_action_review = 2131980482;
+    public static int junior_wallet_overview_requested_termination_description = 2131980483;
+    public static int junior_wallet_overview_requested_termination_title = 2131980484;
+    public static int junior_widget_account_status_created_action = 2131980532;
+    public static int junior_widget_account_status_created_title = 2131980533;
+    public static int junior_widget_account_status_deactivated_account_action = 2131980534;
+    public static int junior_widget_account_status_failed_identity_action = 2131980535;
+    public static int junior_widget_account_status_failed_identity_subtitle = 2131980536;
+    public static int junior_widget_account_status_failed_identity_title = 2131980537;
+    public static int junior_widget_account_status_failed_parent_kyc_action = 2131980538;
+    public static int junior_widget_account_status_offboarding_co_parent_title = 2131980539;
+    public static int junior_widget_account_status_offboarding_main_parent_action = 2131980540;
+    public static int junior_widget_account_status_offboarding_main_parent_title = 2131980541;
+    public static int junior_widget_account_status_reviewing_documents_title = 2131980542;
+    public static int junior_widget_selected_account_transactions_more = 2131980546;
+    public static int junior_withdraw_error_message_locked_account = 2131980550;
+    public static int rev_u18_account_type = 2131995351;
+    public static int rev_u18_allowance_creation_error_locked_account_create = 2131995353;
+    public static int rev_u18_allowance_creation_error_locked_account_update = 2131995354;
+    public static int rev_u18_card_design_create_title = 2131995355;
+    public static int rev_u18_card_request_cell_subtitle = 2131995363;
+    public static int rev_u18_signup_app_sharing_content_message1 = 2131995394;
+    public static int rev_u18_signup_app_sharing_content_message2 = 2131995395;
+    public static int rev_u18_signup_app_sharing_content_separator = 2131995396;
+    public static int rev_u18_signup_app_sharing_message1 = 2131995397;
+    public static int rev_u18_signup_app_sharing_message1_copy = 2131995398;
+    public static int rev_u18_signup_app_sharing_message1_female = 2131995399;
+    public static int rev_u18_signup_app_sharing_message2 = 2131995400;
+    public static int rev_u18_signup_app_sharing_title = 2131995401;
+    public static int rev_u18_topup_error_message_locked_account = 2131995421;
+    public static int rev_u18_widget_account_status_contact_main_parent_subtitle = 2131995456;
+    public static int rev_u18_widget_account_status_contact_main_parent_title = 2131995457;
+    public static int rev_u18_widget_account_status_created_subtitle = 2131995458;
+    public static int rev_u18_widget_account_status_deactivated_account_subtitle = 2131995459;
+    public static int rev_u18_widget_account_status_deactivated_account_title = 2131995460;
+    public static int rev_u18_widget_account_status_failed_parent_kyc_subtitle = 2131995461;
+    public static int rev_u18_widget_account_status_failed_parent_kyc_title = 2131995462;
+    public static int rev_u18_widget_account_status_offboarding_co_parent_subtitle = 2131995463;
+    public static int rev_u18_widget_account_status_offboarding_main_parent_subtitle = 2131995464;
+    public static int rev_u18_widget_account_status_reviewing_documents_subtitle = 2131995465;
+    public static int youth_wallet_overview_actions_add_money_title = 2132016443;
+    public static int youth_wallet_overview_actions_statement_title = 2132016444;
+    public static int youth_wallet_overview_actions_withdraw_title = 2132016445;
+    public static int youth_wallet_overview_transactions_title = 2132016446;
+
+    private R$string() {
+    }
+}

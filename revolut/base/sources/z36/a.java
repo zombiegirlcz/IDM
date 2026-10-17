@@ -1,0 +1,5 @@
+package z36;
+
+/* JADX INFO: loaded from: classes3.dex */
+public final class a {
+}

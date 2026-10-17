@@ -1,0 +1,36 @@
+package ut0;
+
+import kotlin.enums.EnumEntries;
+import vc.s;
+
+/* JADX WARN: Failed to restore enum class, 'enum' modifier and super class removed */
+/* JADX WARN: Unknown enum class pattern. Please report as an issue! */
+/* JADX INFO: loaded from: classes19.dex */
+public final class a {
+    private static final /* synthetic */ EnumEntries $ENTRIES;
+    private static final /* synthetic */ a[] $VALUES;
+    public static final a ADJUST_HEIGHT;
+    public static final a ADJUST_WIDTH;
+
+    static {
+        a aVar = new a("ADJUST_WIDTH", 0);
+        ADJUST_WIDTH = aVar;
+        a aVar2 = new a("ADJUST_HEIGHT", 1);
+        ADJUST_HEIGHT = aVar2;
+        a[] aVarArr = {aVar, aVar2};
+        $VALUES = aVarArr;
+        $ENTRIES = s.n(aVarArr);
+    }
+
+    public static EnumEntries a() {
+        return $ENTRIES;
+    }
+
+    public static a valueOf(String str) {
+        return (a) Enum.valueOf(a.class, str);
+    }
+
+    public static a[] values() {
+        return (a[]) $VALUES.clone();
+    }
+}

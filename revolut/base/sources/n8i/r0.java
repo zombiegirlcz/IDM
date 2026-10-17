@@ -1,0 +1,25 @@
+package n8i;
+
+import kotlin.coroutines.Continuation;
+
+/* JADX INFO: loaded from: classes10.dex */
+public final class r0 extends gim.c {
+    public /* synthetic */ Object u;
+    public int v;
+
+    /* JADX INFO: renamed from: w, reason: collision with root package name */
+    public final /* synthetic */ c7i.b0 f213467w;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public r0(c7i.b0 b0Var, Continuation continuation) {
+        super(continuation);
+        this.f213467w = b0Var;
+    }
+
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        this.u = obj2;
+        this.v |= Integer.MIN_VALUE;
+        return this.f213467w.emit(null, this);
+    }
+}

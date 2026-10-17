@@ -1,0 +1,71 @@
+package ou6;
+
+import com.revolut.core.ui_kit.delegates.FullScreenStateDelegate;
+import com.revolut.feature.freelancer.api.navigation.FreelancerBizFeatureConfig;
+import com.revolut.feature.freelancer.impl.ui.acquiring_order.list.FreelancerAcquiringOrderListScreen;
+import com.revolut.feature.freelancer.impl.ui.acquiring_order.list.FreelancerAcquiringOrderListScreenContract$ModalStep;
+import com.revolut.kompot.common.ModalDestination;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlin.jvm.internal.Intrinsics;
+
+/* JADX INFO: loaded from: classes3.dex */
+public final class e extends gim.i implements Function2 {
+    public /* synthetic */ Object u;
+    public final /* synthetic */ FreelancerAcquiringOrderListScreen v;
+
+    /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
+    public e(FreelancerAcquiringOrderListScreen freelancerAcquiringOrderListScreen, Continuation continuation) {
+        super(2, continuation);
+        this.v = freelancerAcquiringOrderListScreen;
+    }
+
+    @Override // gim.a
+    public final Continuation create(Object obj2, Continuation continuation) {
+        e eVar = new e(this.v, continuation);
+        eVar.u = obj2;
+        return eVar;
+    }
+
+    @Override // kotlin.jvm.functions.Function2
+    public final Object invoke(Object obj2, Object obj3) {
+        return ((e) create((FullScreenStateDelegate.Model) obj2, (Continuation) obj3)).invokeSuspend(Unit.f186387a);
+    }
+
+    /* JADX WARN: Failed to restore switch over string. Please report as a decompilation issue */
+    @Override // gim.a
+    public final Object invokeSuspend(Object obj2) {
+        FullScreenStateDelegate.Model model = (FullScreenStateDelegate.Model) this.u;
+        fim.a aVar = fim.a.COROUTINE_SUSPENDED;
+        yhm.o.b(obj2);
+        l lVarE3 = this.v.R2();
+        String listId = model.f52373a;
+        com.revolut.feature.freelancer.impl.ui.acquiring_order.list.a aVar2 = (com.revolut.feature.freelancer.impl.ui.acquiring_order.list.a) lVarE3;
+        aVar2.getClass();
+        Intrinsics.checkNotNullParameter(listId, "listId");
+        switch (listId.hashCode()) {
+            case 269682638:
+                if (listId.equals("LIST_ID_FULL_STATE_CREATE_NEW_SALE")) {
+                    oki.h.v2(aVar2.f73702w, FreelancerAcquiringOrderListScreenContract$ModalStep.NewSalePicker.f73695a, ModalDestination.Style.BOTTOM_DIALOG.f98301a);
+                }
+                break;
+            case 355464179:
+                if (listId.equals("LIST_ID_FULL_STATE_NO_RESULTS")) {
+                    aVar2.H2(aVar2.f73703x, new os9.f(25));
+                }
+                break;
+            case 739305977:
+                if (listId.equals("LIST_ID_FULL_STATE_EXPLORE_PLUGINS")) {
+                    aVar2.C1(FreelancerBizFeatureConfig.ManageEcommercePlugin.f73215a);
+                }
+                break;
+            case 1918729248:
+                if (listId.equals("ERROR_STATE_ID")) {
+                    aVar2.v.a();
+                }
+                break;
+        }
+        return Unit.f186387a;
+    }
+}

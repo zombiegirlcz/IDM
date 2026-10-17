@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:textColor="?attr/uikit_colorForeground"
+    android:id="@+id/tooltipHeader_title"
+    android:paddingTop="?attr/uikit_dp8"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minWidth="@dimen/tooltip_min_width"
+    style="?attr/internal_textAppearanceEmphasis2"/>

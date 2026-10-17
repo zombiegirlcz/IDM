@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="?attr/uikit_colorGreyTone10">
+    <item
+        android:id="@android:id/mask"
+        android:drawable="@drawable/internal_input_checklist_background_grey"/>
+    <item android:drawable="@drawable/internal_input_checklist_background_grey"/>
+</ripple>
