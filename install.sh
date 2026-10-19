@@ -404,14 +404,17 @@ for f in ensure-aria2.sh ensure-aria2.ps1 ensure-ytdlp.sh ensure-ytdlp.ps1; do
 done
 
 if [[ -n "${EXT_SRC:-}" && -d "$EXT_SRC" ]]; then
-  cp -f "$EXT_SRC/install-host.sh"  "$IDM_DIR/extension/" 2>/dev/null || true
-  cp -f "$EXT_SRC/install-shell.sh" "$IDM_DIR/extension/" 2>/dev/null || true
-  cp -f "$EXT_SRC/com.tonec.idm.json" "$IDM_DIR/extension/" 2>/dev/null || true
-  cp -f "$EXT_SRC/com.tonec.idm.firefox.json" "$IDM_DIR/extension/" 2>/dev/null || true
+  # Copy every file that makes up the browser extension: the MV3 manifest,
+  # background + content scripts, popup, settings and the shared schema.
+  # Without them the extension folder is empty and Chrome/Firefox have
+  # nothing to install.
+  cp -rf "$EXT_SRC"/. "$IDM_DIR/extension/" 2>/dev/null || true
   chmod +x "$IDM_DIR/extension/"*.sh 2>/dev/null || true
 else
   RAW="https://raw.githubusercontent.com/$REPO/master"
-  for f in install-host.sh install-shell.sh com.tonec.idm.json com.tonec.idm.firefox.json; do
+  for f in manifest.json background.js content.js popup.html popup.js \
+           settings.js schema.js install-host.sh install-shell.sh \
+           com.tonec.idm.json com.tonec.idm.firefox.json; do
     curl -fsSL "$RAW/extension/$f" -o "$IDM_DIR/extension/$f" 2>/dev/null || warn "nestáhl $f"
   done
   chmod +x "$IDM_DIR/extension/"*.sh 2>/dev/null || true
@@ -511,6 +514,16 @@ if [[ -x "$IDM_DIR/bin/ensure-ytdlp.sh" ]]; then
   bash "$IDM_DIR/bin/ensure-ytdlp.sh" "$IDM_DIR/bin" >/dev/null 2>&1 \
     || warn "yt-dlp se nepodařilo připravit (engine ho zkusí doinstalovat při prvním videu)"
 fi
+
+# An update leaves bin.old/ gui.old/ assets.old/ extension.old/ behind so the
+# user can roll back. After a fresh install (or an update that already
+# succeeded) those are just clutter -- and an empty-looking extension/ with
+# leftover junk confuses Chrome. Remove them now.
+for d in bin gui assets extension; do
+  if [[ -d "$IDM_DIR/$d.old" ]]; then
+    rm -rf "$IDM_DIR/$d.old" 2>/dev/null || true
+  fi
+done
 
 echo
 log "hotovo!"
