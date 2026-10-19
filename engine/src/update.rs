@@ -8,9 +8,10 @@
 // installed itself and now it is broken": `idm update --rollback`.
 //
 // What is deliberately NOT touched: state/ (the queue and the vault),
-// extension/, the browser manifests and the ~/.local/bin symlink. None of
-// those paths change across versions, so re-registering anything would only
-// add ways to fail.
+// the browser manifests and the ~/.local/bin symlink. None of those paths
+// change across versions, so re-registering anything would only add ways
+// to fail. extension/ IS touched — it travels with the release and is
+// replaced by the same atomic swap that updates bin/ gui/ assets/.
 //
 // IDM_UPDATE_API and IDM_UPDATE_BASE override the endpoints; the tests point
 // them at a local server, so nothing here needs the network.
@@ -23,7 +24,11 @@ use crate::console::HideConsole;
 
 const REPO: &str = "zombiegirlcz/IDM";
 /// The three trees a release replaces, in the order they are swapped.
-const TREES: [&str; 3] = ["bin", "gui", "assets"];
+/// bin/ carries the engine (idm, idm-host), gui/ the native window
+/// (idm_gui.py), assets/ the icons, extension/ the browser extension.
+/// One `idm update` replaces all of them atomically — GUI, CLI and the
+/// extension in a single swap.
+const TREES: [&str; 4] = ["bin", "gui", "assets", "extension"];
 
 fn api_url() -> String {
     std::env::var("IDM_UPDATE_API").unwrap_or_else(|_| {
@@ -377,13 +382,15 @@ fn extract(archive: &Path, into: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// The archive is flat (plus assets/); the installation is not. Build the
-/// bin/ gui/ assets/ trees next to it, exactly as install.sh arranges them.
+/// The archive is flat (plus assets/, extension/); the installation is not.
+/// Build the bin/ gui/ assets/ extension/ trees next to it, exactly as
+/// install.sh arranges them. One `idm update` replaces all four atomically.
 fn arrange(unpack: &Path, stage: &Path) -> anyhow::Result<Vec<PathBuf>> {
     let bin = stage.join("bin.new");
     let gui = stage.join("gui.new");
     let assets = stage.join("assets.new");
-    for d in [&bin, &gui, &assets] {
+    let extension = stage.join("extension.new");
+    for d in [&bin, &gui, &assets, &extension] {
         std::fs::create_dir_all(d)?;
     }
     let exe = |n: &str| if cfg!(windows) { format!("{n}.exe") } else { n.to_string() };
@@ -407,7 +414,42 @@ fn arrange(unpack: &Path, stage: &Path) -> anyhow::Result<Vec<PathBuf>> {
             std::fs::copy(&src, assets.join(a))?;
         }
     }
-    Ok(vec![bin, gui, assets])
+    // extension/ travels with the release so the browser extension is
+    // refreshed by the same `idm update` that refreshes the engine and the
+    // window. The user still has to reload the extension in the browser
+    // (browsers do not let a native host do that), but the files on disk are
+    // current after a single update.
+    let ext_src = unpack.join("extension");
+    if ext_src.is_dir() {
+        for entry in std::fs::read_dir(&ext_src)? {
+            let entry = entry?;
+            let src = entry.path();
+            let name = entry.file_name();
+            let dst = extension.join(&name);
+            if src.is_dir() {
+                copy_dir_all(&src, &dst)?;
+            } else {
+                std::fs::copy(&src, &dst)?;
+            }
+        }
+    }
+    Ok(vec![bin, gui, assets, extension])
+}
+
+/// Recursively copy a directory, creating parents as needed.
+fn copy_dir_all(src: &Path, dst: &Path) -> anyhow::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let s = entry.path();
+        let d = dst.join(entry.file_name());
+        if s.is_dir() {
+            copy_dir_all(&s, &d)?;
+        } else {
+            std::fs::copy(&s, &d)?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(unix)]

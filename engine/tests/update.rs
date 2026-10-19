@@ -38,6 +38,7 @@ fn fake_install(version: &str) -> PathBuf {
     std::fs::write(dir.join("bin").join("idm-host"), "OLD-HOST").unwrap();
     std::fs::write(dir.join("gui").join("idm_gui.py"), "OLD-GUI").unwrap();
     std::fs::write(dir.join("assets").join("idm.png"), "OLD-ICON").unwrap();
+    std::fs::write(dir.join("extension").join("manifest.json"), "OLD-EXT").unwrap();
     // State must survive every path through this code.
     std::fs::write(dir.join("state").join("queue.json"), "[{\"id\":\"mine\"}]").unwrap();
     std::fs::write(dir.join("state").join("secrets.json"), "{\"v\":1}").unwrap();
@@ -50,10 +51,12 @@ fn fake_archive() -> (PathBuf, String) {
     let dir = unique_dir("arch");
     let stage = dir.join("dist");
     std::fs::create_dir_all(stage.join("assets")).unwrap();
+    std::fs::create_dir_all(stage.join("extension")).unwrap();
     std::fs::write(stage.join("idm"), "NEW-ENGINE").unwrap();
     std::fs::write(stage.join("idm-host"), "NEW-HOST").unwrap();
     std::fs::write(stage.join("idm_gui.py"), "NEW-GUI").unwrap();
     std::fs::write(stage.join("assets").join("idm.png"), "NEW-ICON").unwrap();
+    std::fs::write(stage.join("extension").join("manifest.json"), "NEW-EXT").unwrap();
     let tar = dir.join("release.tar.gz");
     let ok = Command::new("tar")
         .arg("-czf")
@@ -185,6 +188,11 @@ fn update_swaps_the_program_and_keeps_the_previous_version() {
         std::fs::read_to_string(dir.join("assets").join("idm.png")).unwrap(),
         "NEW-ICON",
     );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("extension").join("manifest.json")).unwrap(),
+        "NEW-EXT",
+        "the extension must be updated by the same swap",
+    );
     assert_eq!(std::fs::read_to_string(dir.join("VERSION")).unwrap().trim(), "v9.9.9");
 
     // The installed binary has to stay executable, or the next launch is dead.
@@ -253,6 +261,10 @@ fn rollback_puts_the_previous_version_back() {
     assert!(ok, "rollback must succeed: {out}");
     assert_eq!(std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(), "OLD-ENGINE");
     assert_eq!(std::fs::read_to_string(dir.join("gui").join("idm_gui.py")).unwrap(), "OLD-GUI");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("extension").join("manifest.json")).unwrap(),
+        "OLD-EXT",
+    );
     assert_eq!(std::fs::read_to_string(dir.join("VERSION")).unwrap().trim(), VERSION);
 }
 
