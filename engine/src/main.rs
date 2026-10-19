@@ -2016,6 +2016,13 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() {
+    // Before anything else: the cached release answer may describe a version
+    // this machine no longer runs. A manual install, a rollback or the swap
+    // at the end of `idm update` all change VERSION, and nothing tells the
+    // cache. Left alone it makes every command announce a release that is
+    // already installed -- reported from Windows as "it still says 2.0.3" on
+    // 2.0.7. One file read and, only when it is actually wrong, one write.
+    let _ = update::reconcile_cache(&verbs::idm_dir());
     // The verbs come first: `url` is an optional positional, so clap would
     // read `update` as a URL. Anything that is not a verb falls through
     // untouched.

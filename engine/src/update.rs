@@ -191,21 +191,64 @@ pub async fn check(dir: &Path) -> anyhow::Result<Check> {
     let newer = is_newer(&installed, &latest);
     // Cached so a plain download never pays for a release lookup: the notice
     // the CLI prints comes from here, not from the network.
+    let _ = write_cache(dir, &installed, &latest);
+    Ok(Check { installed, latest, newer })
+}
+
+/// Write the cache: what is installed, what the last check saw, and whether
+/// that is newer. One function so every writer agrees on the shape.
+fn write_cache(dir: &Path, installed: &str, latest: &str) -> std::io::Result<()> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let _ = write_atomic(
+    write_atomic(
         &dir.join("state").join("update.json"),
         &serde_json::json!({
             "checked_at": now,
             "installed": installed,
             "latest": latest,
-            "newer": newer,
+            "newer": is_newer(installed, latest),
         })
         .to_string(),
-    );
-    Ok(Check { installed, latest, newer })
+    )
+}
+
+/// Bring the cache up to date with the installation on disk.
+///
+/// The cache is written by `update --check` and by the window, but the
+/// version it records can stop being the version that is installed: a manual
+/// install, a rollback, or the swap at the end of `idm update` all change
+/// VERSION without touching state/. A cache that says `installed: 2.0.2` on a
+/// machine running 2.0.7 makes every command claim a newer release is
+/// available -- reported from Windows as "it still says 2.0.3".
+///
+/// Returns true when the file was rewritten.
+pub fn reconcile_cache(dir: &Path) -> bool {
+    let path = dir.join("state").join("update.json");
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        // No cache is not a lie, and guessing a `latest` would be.
+        return false;
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return false;
+    };
+    let cached = json
+        .get("installed")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let now_installed = installed_version(dir);
+    if normalize(&cached) == normalize(&now_installed) {
+        return false;
+    }
+    let latest = json
+        .get("latest")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&now_installed)
+        .to_string();
+    let _ = write_cache(dir, &now_installed, &latest);
+    true
 }
 
 /// The cached answer, for printing a notice without asking the network.
@@ -261,6 +304,11 @@ pub async fn apply(dir: &Path, prog: &mut Progress) -> anyhow::Result<String> {
     prog.phase("swap");
     swap_in(dir, &trees)?;
     write_atomic(&dir.join("VERSION"), &format!("{}\n", c.latest))?;
+    // The cache was written by `check` a moment ago, when VERSION still named
+    // the OLD version -- so it says a newer release exists, which is what
+    // every subsequent command would repeat. Re-stamp it with what is
+    // actually installed now.
+    let _ = write_cache(dir, &c.latest, &c.latest);
     let _ = std::fs::remove_dir_all(&stage);
 
     prog.done("done");
@@ -425,7 +473,19 @@ pub fn rollback(dir: &Path) -> anyhow::Result<String> {
         let _ = std::fs::copy(&vold, dir.join("VERSION"));
         let _ = std::fs::remove_file(&vold);
     }
-    Ok(installed_version(dir))
+    // A rollback changes what is installed just as much as an update does.
+    let now = installed_version(dir);
+    if let Ok(text) = std::fs::read_to_string(dir.join("state").join("update.json")) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+            let latest = json
+                .get("latest")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&now)
+                .to_string();
+            let _ = write_cache(dir, &now, &latest);
+        }
+    }
+    Ok(now)
 }
 
 #[cfg(test)]

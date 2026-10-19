@@ -356,3 +356,106 @@ fn a_stale_cache_says_nothing() {
     assert!(res.status.success(), "{text}");
     assert!(!text.contains("9.9.9"), "a stale cache must stay quiet: {text:?}");
 }
+
+/// The cache has to describe what is installed NOW, not what was installed
+/// when it was last written.
+///
+/// Reported from the Windows box right after installing 2.0.7 by hand: every
+/// command still said "je nová verze v2.0.3". The cache in state/update.json
+/// was written by a check that ran on 2.0.2, and nothing ever corrected its
+/// `installed` field -- so the notice compared today's binary against a
+/// version the machine no longer had.
+#[test]
+fn a_finished_update_stamps_the_version_it_installed() {
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update"], &addr, &addr);
+    assert!(ok, "update must succeed: {out}");
+
+    let text = std::fs::read_to_string(dir.join("state").join("update.json"))
+        .expect("an update must leave a cache behind");
+    let v: serde_json::Value = serde_json::from_str(&text).expect("cache must be JSON");
+    assert_eq!(
+        v["installed"], "v9.9.9",
+        "the cache must name the version that is now on disk: {text}",
+    );
+    assert_eq!(
+        v["newer"], false,
+        "a just-installed release cannot be newer than itself: {text}",
+    );
+    let checked = v["checked_at"].as_u64().unwrap_or(0);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    assert!(now.saturating_sub(checked) < 120, "the stamp must be fresh: {text}");
+}
+
+/// A check that finds nothing new is still evidence about what is installed,
+/// so it stamps too -- otherwise an install done outside `idm update` leaves
+/// the cache lying until somebody happens to check.
+#[test]
+fn a_check_that_finds_nothing_new_stamps_what_it_saw() {
+    let dir = fake_install("2.0.0");
+    let (archive, sha) = fake_archive();
+    let addr = serve("v2.0.0", &archive, &sha);
+    let (ok, out) = run(&dir, &["update", "--check"], &addr, &addr);
+    assert!(ok, "{out}");
+
+    let text = std::fs::read_to_string(dir.join("state").join("update.json")).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(v["installed"], "2.0.0", "{text}");
+    assert_eq!(v["newer"], false, "{text}");
+}
+
+/// A stale cache is repaired by whatever runs next, not only by an update.
+///
+/// `idm update` and `--check` are not the only ways a version changes on disk:
+/// install.sh, install.ps1 and a manual copy all write VERSION and know
+/// nothing about state/update.json. The only thing that can notice is the
+/// next command, so it does.
+#[test]
+fn a_stale_cache_is_rewritten_by_the_next_command() {
+    let dir = fake_install("2.0.7");
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    // What a machine that last checked on 2.0.2 still has lying around.
+    std::fs::write(
+        dir.join("state").join("update.json"),
+        format!(
+            "{{\"checked_at\":{now},\"installed\":\"2.0.2\",\"latest\":\"v2.0.3\",\"newer\":true}}"
+        ),
+    )
+    .unwrap();
+
+    let out_file = dir.join("f.bin");
+    let res = Command::new(IDM)
+        .arg("https://example.invalid/f.bin")
+        .arg("-o")
+        .arg(&out_file)
+        .env("IDM_DIR", &dir)
+        .output()
+        .expect("spawn idm");
+    // The download itself is expected to fail (no such host); the cache is
+    // what this is about.
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&res.stdout),
+        String::from_utf8_lossy(&res.stderr)
+    );
+    assert!(
+        !text.contains("2.0.3"),
+        "a repaired cache must stop announcing 2.0.3: {text:?}",
+    );
+
+    let cache = std::fs::read_to_string(dir.join("state").join("update.json")).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&cache).unwrap();
+    assert_eq!(
+        v["installed"], "2.0.7",
+        "the cache must name what is installed: {cache}",
+    );
+    assert_eq!(v["newer"], false, "and stop claiming to be behind: {cache}");
+}
