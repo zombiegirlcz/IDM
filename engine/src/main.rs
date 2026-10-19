@@ -1983,7 +1983,24 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
         // aria2c as a page and what landed on disk was the HTML. The two
         // belong together -- yt-dlp resolves the media URL, aria2c moves the
         // bytes -- which is what yt-dlp's own --downloader is for.
-        return run_media(&args, &net, &url, if pinned { Some(out) } else { None }).await;
+        //
+        // A URL that merely *looked* like media is a guess, and yt-dlp may
+        // answer "Unsupported URL" for something the plain Range downloader
+        // fetches without complaint (an .m3u8 path that is really a file, a
+        // media host serving a plain zip). Guessing wrong must not cost the
+        // user the download, so a refusal falls back. An explicit --yt-dlp /
+        // --force-media is a promise, not a guess: no fallback there.
+        let explicit = args.force_media || args.yt_dlp || args.list_formats;
+        let media_out = if pinned { Some(out.clone()) } else { None };
+        match run_media(&args, &net, &url, media_out).await {
+            Ok(()) => return Ok(()),
+            Err(e) if !explicit && media::is_unsupported_error(&e) => {
+                println!(
+                    "[*] yt-dlp does not know this URL -> direct download"
+                );
+            }
+            Err(e) => return Err(e),
+        }
     }
 
     // Not media: a plain file with --aria2 goes straight to aria2c, as before.

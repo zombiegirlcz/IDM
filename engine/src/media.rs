@@ -161,6 +161,54 @@ fn apply_auth(cmd: &mut tokio::process::Command, cookie: Option<&str>, referer: 
 pub const DEFAULT_FORMAT: &str =
     "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b";
 
+/// One machine-readable progress line per update, independent of the
+/// extractor (YouTube, Vimeo, HLS, DASH, a direct media URL, ...).
+///
+/// The human `[download]  45.2% of ...` line is only printed by yt-dlp's own
+/// downloader, so with `--downloader aria2c` it never appears and the queue
+/// was left at 0 % for the whole transfer. The template is emitted by
+/// yt-dlp itself from the progress hooks, which every downloader drives.
+pub const PROGRESS_TEMPLATE: &str =
+    "download:idmprog %(progress.downloaded_bytes)s %(progress.total_bytes)s %(progress.total_bytes_estimate)s %(progress.percent)s";
+
+/// A failure that says the URL is not media this backend understands.
+///
+/// "Unsupported URL" is a statement about yt-dlp's extractor list, not about
+/// the URL: a perfectly ordinary file behind a `.m3u8`-looking path gets that
+/// answer, and the plain Range downloader handles it fine. Callers use this
+/// to fall back instead of refusing.
+#[derive(Debug)]
+pub struct UnsupportedUrl {
+    pub detail: String,
+}
+
+impl std::fmt::Display for UnsupportedUrl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "yt-dlp cannot handle this URL: {}", self.detail)
+    }
+}
+
+impl std::error::Error for UnsupportedUrl {}
+
+/// True when yt-dlp's own words mean "this is not media I know".
+///
+/// Deliberately narrow. "Unable to extract" / "No video formats found" mean
+/// the URL *is* media and the extraction broke; falling back there would save
+/// the HTML page under a media name, which is worse than an error.
+pub fn is_unsupported_url(text: &str) -> bool {
+    let t = text.to_ascii_lowercase();
+    t.contains("unsupported url")
+        || t.contains("is not a valid url")
+        || t.contains("no suitable extractor")
+        || t.contains("no video formats found") && t.contains("unsupported")
+}
+
+/// True when `err` (or anything it wraps) is an `UnsupportedUrl`.
+pub fn is_unsupported_error(err: &anyhow::Error) -> bool {
+    err.chain()
+        .any(|e| e.downcast_ref::<UnsupportedUrl>().is_some())
+}
+
 pub struct Speed {
     /// Parallel fragments for yt-dlp's own downloader.
     pub connections: usize,
@@ -214,10 +262,13 @@ pub async fn probe_json(
         .await
         .with_context(|| format!("running {} -J", yt_dlp.display()))?;
     if !out.status.success() {
-        bail!(
-            "yt-dlp -J failed: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        );
+        let detail = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        // The probe is where an unsupported URL is usually discovered, so the
+        // same classification has to happen here as in `download`.
+        if is_unsupported_url(&detail) {
+            return Err(anyhow::Error::new(UnsupportedUrl { detail }));
+        }
+        bail!("yt-dlp -J failed: {}", detail);
     }
     let v: serde_json::Value =
         serde_json::from_slice(&out.stdout).context("parsing yt-dlp -J output")?;
@@ -360,25 +411,50 @@ pub async fn download(
     // can be read line by line. Without this the whole bar arrives as a
     // single enormous line and the queue learns nothing until the end.
     cmd.arg("--newline");
+    cmd.arg("--progress-template").arg(PROGRESS_TEMPLATE);
     // `--` so a URL starting with `-` is never parsed as an option.
     cmd.arg("--").arg(url);
     // yt-dlp's progress is the only thing that can tell the window how far
     // along a media download is; sending it to /dev/null is what made a
     // working download look identical to a hung one.
     cmd.stdout(std::process::Stdio::piped());
+    // stderr is piped so a refusal can be classified; every line is still
+    // passed through to the console, so nothing the child said is hidden.
+    cmd.stderr(std::process::Stdio::piped());
     let mut child = cmd
         .spawn()
         .with_context(|| format!("running {}", yt_dlp.display()))?;
+    let stderr_pipe = child.stderr.take();
+    let stderr_task = tokio::spawn(async move {
+        use tokio::io::{AsyncBufReadExt, BufReader};
+        let mut seen = String::new();
+        if let Some(err) = stderr_pipe {
+            let mut lines = BufReader::new(err).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                eprintln!("{}", line);
+                if seen.len() < 64 * 1024 {
+                    seen.push_str(&line);
+                    seen.push('\n');
+                }
+            }
+        }
+        seen
+    });
     if let Some(stdout) = child.stdout.take() {
         use tokio::io::{AsyncBufReadExt, BufReader};
         let meta = progress_meta_path(out);
         let mut lines = BufReader::new(stdout).lines();
+        let mut agg = ProgressAgg::default();
         while let Ok(Some(line)) = lines.next_line().await {
             // Pass it through: in a terminal this is the progress the user
             // expects to see.
             println!("{}", line);
-            if let Some(p) = parse_progress(&line) {
-                write_progress_meta(&meta, p);
+            if let Some(p) = parse_template_line(&line)
+                .or_else(|| parse_progress(&line))
+                .or_else(|| parse_aria2_line(&line))
+            {
+                let overall = agg.update(p);
+                write_progress_meta(&meta, overall);
             }
         }
     }
@@ -389,8 +465,16 @@ pub async fn download(
     // The sidecar is the queue's view of a download in flight; once it has
     // finished, the real file is the truth.
     let _ = std::fs::remove_file(progress_meta_path(out));
+    let stderr_text = stderr_task.await.unwrap_or_default();
     if !status.success() {
-        bail!("yt-dlp exited with {}", status);
+        // "Unsupported URL" is about yt-dlp's extractor list, not the URL; the
+        // caller may still be able to fetch it plainly.
+        if is_unsupported_url(&stderr_text) {
+            return Err(anyhow::Error::new(UnsupportedUrl {
+                detail: stderr_text.trim().to_string(),
+            }));
+        }
+        bail!("yt-dlp exited with {}: {}", status, stderr_text.trim());
     }
     if out.exists() {
         return Ok(out.to_path_buf());
@@ -596,6 +680,140 @@ pub fn parse_progress(line: &str) -> Option<Progress> {
     Some(Progress { percent, total })
 }
 
+/// Parse a `--progress-template` line, or None for anything else.
+///
+/// The four fields are downloaded bytes, the exact total, the estimated total
+/// and the percentage; yt-dlp writes `NA` for a value the extractor does not
+/// know, so every field is optional on its own.
+pub fn parse_template_line(line: &str) -> Option<Progress> {
+    let rest = line.trim().strip_prefix("idmprog ")?;
+    let mut fields = rest.split_whitespace();
+    let downloaded = u64_field(fields.next()?).unwrap_or(0);
+    let total_bytes = u64_field(fields.next()?).unwrap_or(0);
+    let total_estimate = u64_field(fields.next()?).unwrap_or(0);
+    let percent_field = fields.next()?;
+    let total = if total_bytes > 0 {
+        total_bytes
+    } else {
+        total_estimate
+    };
+    let percent = match f64_field(percent_field) {
+        Some(p) => p,
+        None if total > 0 => 100.0 * downloaded as f64 / total as f64,
+        None => 0.0,
+    };
+    Some(Progress { percent, total })
+}
+
+/// A field that is `NA`, empty or unparsable counts as unknown, not as zero.
+fn u64_field(s: &str) -> Option<u64> {
+    if s.is_empty() || s == "NA" {
+        return None;
+    }
+    s.parse().ok()
+}
+
+fn f64_field(s: &str) -> Option<f64> {
+    if s.is_empty() || s == "NA" {
+        return None;
+    }
+    s.parse().ok()
+}
+
+/// Remove ANSI SGR/CSI escape sequences (`\x1b[1;31m`, `\x1b[0m`, ...).
+///
+/// aria2c colours its progress line, so a raw capture is full of them; they
+/// would sit between `[` and `#` and defeat the block search.
+fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' && chars.peek() == Some(&'[') {
+            chars.next();
+            while let Some(&n) = chars.peek() {
+                chars.next();
+                if n.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+        } else if c != '\x1b' {
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// Parse aria2c's own progress line as a fallback.
+///
+/// With `--downloader aria2c` yt-dlp relays aria2's line when the template is
+/// unavailable (old yt-dlp, or a downloader that overrides it):
+/// `[#d1ca0d 48KiB/218KiB(21%) CN:1 DL:10KiB ETA:16s]`. A line without a
+/// `(PCT%)` carries no percentage and is therefore no use.
+pub fn parse_aria2_line(line: &str) -> Option<Progress> {
+    let clean = strip_ansi(line);
+    let start = clean.find("[#")? + 2;
+    let rest = &clean[start..];
+    let end = rest.find(']')?;
+    let block = &rest[..end];
+    let slash = block.find('/')?;
+    let _downloaded = parse_size(block[..slash].split_whitespace().last()?)?;
+    let after = &block[slash + 1..];
+    let (total_str, rest2) = after.split_once('(')?;
+    let (pct_str, _) = rest2.split_once('%')?;
+    let percent: f64 = pct_str.trim().parse().ok()?;
+    let total = parse_size(total_str.trim())?;
+    Some(Progress { percent, total })
+}
+
+/// Sums progress across the phases yt-dlp reports separately (a video stream,
+/// then an audio stream, then the merged file). Reporting each phase on its
+/// own would make the bar jump backwards when the audio download starts.
+#[derive(Default)]
+pub struct ProgressAgg {
+    base_done: u64,
+    base_total: u64,
+    cur_total: u64,
+    cur_done: u64,
+    started: bool,
+}
+
+impl ProgressAgg {
+    pub fn update(&mut self, p: Progress) -> Progress {
+        let done = if p.total > 0 {
+            (p.total as f64 * p.percent / 100.0) as u64
+        } else {
+            0
+        };
+        // A new phase shows up either as a backwards jump (the audio stream
+        // starts at 0 after the video finished) or as a fresh total at 0 %.
+        let new_phase = self.started
+            && (done < self.cur_done || (p.total != self.cur_total && done == 0));
+        if new_phase {
+            self.base_done += self.cur_done;
+            self.base_total += self.cur_total;
+            self.cur_done = 0;
+            self.cur_total = 0;
+        }
+        self.cur_done = done;
+        self.cur_total = p.total;
+        self.started = true;
+        if p.total == 0 {
+            // Nothing to weigh this phase with; keep the line's own percent.
+            return Progress {
+                percent: p.percent,
+                total: self.base_total,
+            };
+        }
+        let total = self.base_total + self.cur_total;
+        let percent = if total == 0 {
+            0.0
+        } else {
+            100.0 * (self.base_done + self.cur_done) as f64 / total as f64
+        };
+        Progress { percent, total }
+    }
+}
+
 /// "100.00MiB" -> bytes. yt-dlp uses binary units.
 fn parse_size(s: &str) -> Option<u64> {
     let digits_end = s
@@ -653,5 +871,56 @@ mod progress_tests {
     #[test]
     fn an_unknown_unit_is_not_guessed_at() {
         assert!(parse_size("100.00XiB").is_none());
+    }
+
+    #[test]
+    fn template_lines_are_understood() {
+        let p = parse_template_line("idmprog 52428800 104857600 NA 50.0").unwrap();
+        assert!((p.percent - 50.0).abs() < 0.05);
+        assert_eq!(p.total, 104_857_600);
+
+        // No exact total: the estimate is used, and the percentage is missing.
+        let p = parse_template_line("idmprog NA NA 1000000 NA").unwrap();
+        assert_eq!(p.percent, 0.0);
+        assert_eq!(p.total, 1_000_000);
+
+        let p = parse_template_line("idmprog 0 0 NA NA").unwrap();
+        assert_eq!(p.percent, 0.0);
+        assert_eq!(p.total, 0);
+
+        assert!(parse_template_line("[download]  45.2% of 100.00MiB").is_none());
+        assert!(parse_template_line("idmprog").is_none());
+    }
+
+    #[test]
+    fn aria2_lines_are_understood() {
+        let p = parse_aria2_line("[#d1ca0d 48KiB/218KiB(21%) CN:1 DL:10KiB ETA:16s]").unwrap();
+        assert!((p.percent - 21.0).abs() < 0.05);
+        assert_eq!(p.total, 218 * 1024);
+
+        let ansi = "\x1b[1;31m[#9612ed 192KiB/246KiB(77%) CN:1 DL:23KiB ETA:2s]\x1b[0m";
+        let p = parse_aria2_line(ansi).unwrap();
+        assert!((p.percent - 77.0).abs() < 0.05);
+        assert_eq!(p.total, 246 * 1024);
+
+        // No percentage: nothing useful to report.
+        assert!(parse_aria2_line("[#d1ca0d 0B/0B CN:0 DL:0B]").is_none());
+    }
+
+    #[test]
+    fn phases_are_summed() {
+        let mut agg = ProgressAgg::default();
+        let p = agg.update(Progress { percent: 100.0, total: 1000 });
+        assert!((p.percent - 100.0).abs() < 0.05);
+        assert_eq!(p.total, 1000);
+
+        // The audio phase starts: 1000 done of 1500 total.
+        let p = agg.update(Progress { percent: 0.0, total: 500 });
+        assert!((p.percent - 66.666).abs() < 0.05, "{}", p.percent);
+        assert_eq!(p.total, 1500);
+
+        let p = agg.update(Progress { percent: 100.0, total: 500 });
+        assert!((p.percent - 100.0).abs() < 0.05);
+        assert_eq!(p.total, 1500);
     }
 }

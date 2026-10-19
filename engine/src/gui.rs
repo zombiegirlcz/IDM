@@ -914,9 +914,10 @@ async fn run_item(st: Arc<State>, id: u64) {
     // Only the last few lines are kept: the error ends up in a table cell and
     // in queue.json, and a wall of output is as unusable as none.
     let tail: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let mut stderr_task: Option<tokio::task::JoinHandle<()>> = None;
     if let Some(err) = child.stderr.take() {
         let tail = Arc::clone(&tail);
-        tokio::spawn(async move {
+        stderr_task = Some(tokio::spawn(async move {
             use tokio::io::{AsyncBufReadExt, BufReader};
             let mut lines = BufReader::new(err).lines();
             while let Ok(Some(line)) = lines.next_line().await {
@@ -930,7 +931,7 @@ async fn run_item(st: Arc<State>, id: u64) {
                 }
                 t.push(line);
             }
-        });
+        }));
     }
 
     let (ctx, mut crx) = mpsc::channel::<Ctrl>(4);
@@ -939,6 +940,18 @@ async fn run_item(st: Arc<State>, id: u64) {
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
+                // The drain task may not have been polled yet: when the child
+                // dies fast, try_wait can see the exit before the reader has
+                // consumed the last lines, and child_error would then report
+                // the bare status instead of the child's own words. Bounded
+                // wait, so a grandchild holding the pipe open cannot hang us.
+                if let Some(h) = stderr_task.take() {
+                    let _ = tokio::time::timeout(
+                        std::time::Duration::from_millis(500),
+                        h,
+                    )
+                    .await;
+                }
                 if status.success() {
                     // metadata(&output) was the old answer, and it is wrong
                     // whenever the child wrote a different name: it reported
