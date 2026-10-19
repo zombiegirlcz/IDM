@@ -260,7 +260,7 @@
   }
 
   function injectPanels() {
-    var nodes = document.querySelectorAll('video');
+    var nodes = document.querySelectorAll('video, audio, object, embed');
     for (var i = 0; i < nodes.length; i++) injectPanel(nodes[i]);
   }
 
