@@ -64,12 +64,15 @@ fn help_lists_the_verbs() {
 
 #[test]
 fn update_reports_the_installed_version() {
-    // Cycle B does the real work; the verb must already exist and be honest.
-    let (ok, out) = run(&["update"], None);
-    assert!(ok, "idm update must succeed, got: {out}");
+    // --check only looks, never installs: the verb reports the installed
+    // version without touching anything. A bare `update` would actually
+    // download and install a newer release if one exists on GitHub, which
+    // makes this test depend on what is published -- not acceptable here.
+    let (ok, out) = run(&["update", "--check"], None);
+    assert!(ok, "idm update --check must succeed, got: {out}");
     assert!(
         out.contains(env!("CARGO_PKG_VERSION")),
-        "update must report the installed version, got: {out:?}",
+        "update --check must report the installed version, got: {out:?}",
     );
 }
 
