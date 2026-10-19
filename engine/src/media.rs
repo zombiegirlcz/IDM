@@ -751,10 +751,29 @@ fn strip_ansi(s: &str) -> String {
 /// `(PCT%)` carries no percentage and is therefore no use.
 pub fn parse_aria2_line(line: &str) -> Option<Progress> {
     let clean = strip_ansi(line);
-    let start = clean.find("[#")? + 2;
-    let rest = &clean[start..];
-    let end = rest.find(']')?;
-    let block = &rest[..end];
+    // aria2 does not end its readout with a newline -- it overwrites it with
+    // `\r`. When that readout is relayed, one "line" can therefore hold the
+    // whole history of the transfer, oldest block first. Taking the first
+    // `[#...]` block read the 0 % sample forever and the window sat at zero
+    // for the entire download; the newest block is the truth.
+    let mut best: Option<Progress> = None;
+    let mut from = 0usize;
+    while let Some(rel) = clean[from..].find("[#") {
+        let start = from + rel + 2;
+        let Some(end_rel) = clean[start..].find(']') else {
+            break;
+        };
+        let block = &clean[start..start + end_rel];
+        from = start + end_rel;
+        if let Some(p) = parse_aria2_block(block) {
+            best = Some(p);
+        }
+    }
+    best
+}
+
+/// One `hash DOWNLOADED/TOTAL(PCT%) ...` body, without the brackets.
+fn parse_aria2_block(block: &str) -> Option<Progress> {
     let slash = block.find('/')?;
     let _downloaded = parse_size(block[..slash].split_whitespace().last()?)?;
     let after = &block[slash + 1..];
@@ -905,6 +924,20 @@ mod progress_tests {
 
         // No percentage: nothing useful to report.
         assert!(parse_aria2_line("[#d1ca0d 0B/0B CN:0 DL:0B]").is_none());
+    }
+
+    #[test]
+    fn the_newest_aria2_block_wins() {
+        // aria2 overwrites its readout with `\r` instead of a newline, so a
+        // relayed "line" holds every sample so far. The first block is the
+        // 0 % one, and reading it left the window at zero for a whole
+        // download that was actually moving.
+        let relayed = "[#d1ca0d 0B/218KiB(0%) CN:1 DL:0B]\r\
+                       [#d1ca0d 48KiB/218KiB(21%) CN:1 DL:10KiB ETA:16s]\r\
+                       [#d1ca0d 160KiB/218KiB(73%) CN:1 DL:18KiB ETA:3s]";
+        let p = parse_aria2_line(relayed).expect("the relayed readout must parse");
+        assert!((p.percent - 73.0).abs() < 0.05, "got {} %", p.percent);
+        assert_eq!(p.total, 218 * 1024);
     }
 
     #[test]
