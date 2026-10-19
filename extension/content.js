@@ -197,6 +197,11 @@
       'border-radius:6px',
       'box-shadow:0 1px 6px rgba(0,0,0,.4)',
       'pointer-events:auto',
+      // Explicit dimensions prevent layout shift (CLS) on injection:
+      'min-width:72px',
+      'min-height:24px',
+      'contain:layout style paint',
+      'will-change:transform',
     ].join(';');
 
     var btn = document.createElement('button');
@@ -209,6 +214,9 @@
       'padding:3px 8px',
       'cursor:pointer',
       'font:12px system-ui,sans-serif',
+      'min-width:60px',
+      'min-height:18px',
+      'contain:layout style paint',
     ].join(';');
     btn.addEventListener('click', function (e) {
       if (!e.isTrusted) return;
