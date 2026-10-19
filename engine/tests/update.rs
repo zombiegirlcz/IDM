@@ -203,11 +203,17 @@ fn update_swaps_the_program_and_keeps_the_previous_version() {
         assert_ne!(mode & 0o111, 0, "the new engine must be executable (mode {mode:o})");
     }
 
-    // Keeping the old one is what makes --rollback possible.
-    assert_eq!(
-        std::fs::read_to_string(dir.join("bin.old").join("idm")).unwrap(),
-        "OLD-ENGINE",
-    );
+    // The .old trees are cleaned up after a successful swap -- they only
+    // clutter the install directory and an empty-looking extension.old/
+    // confuses Chrome. Rollback is intentionally not available after update
+    // completes; reinstall the previous release if needed.
+    for name in ["bin", "gui", "assets", "extension"] {
+        assert!(
+            !dir.join(format!("{name}.old")).exists(),
+            "{name}.old must be removed after successful update",
+        );
+    }
+    assert!(!dir.join("VERSION.old").exists(), "VERSION.old must be removed");
     // And the staging directory must not be left lying around.
     assert!(!dir.join(".update").exists(), "staging must be cleaned up");
 }
@@ -252,10 +258,29 @@ fn a_wrong_checksum_leaves_the_installation_alone() {
 
 #[test]
 fn rollback_puts_the_previous_version_back() {
+    // .old trees are no longer left behind by a successful update, so set
+    // them up manually to exercise rollback in isolation: live tree holds the
+    // current (buggy) version, .old holds the previous (good) version.
     let dir = fake_install(VERSION);
-    let (archive, sha) = fake_archive();
-    let addr = serve("v9.9.9", &archive, &sha);
-    assert!(run(&dir, &["update"], &addr, &addr).0);
+    let (_archive, _sha) = fake_archive();
+    let addr = serve("v9.9.9", &std::path::Path::new("/dev/null"), "unused");
+
+    // Live tree: the "new" version we want to roll back from.
+    std::fs::write(dir.join("bin").join("idm"), "NEW-ENGINE").unwrap();
+    std::fs::write(dir.join("gui").join("idm_gui.py"), "NEW-GUI").unwrap();
+    std::fs::write(dir.join("assets").join("idm.png"), "NEW-ICON").unwrap();
+    std::fs::write(dir.join("extension").join("manifest.json"), "NEW-EXT").unwrap();
+    std::fs::write(dir.join("VERSION"), "v9.9.9\n").unwrap();
+
+    // .old trees: the previous version to roll back to.
+    for name in ["bin", "gui", "assets", "extension"] {
+        std::fs::create_dir_all(dir.join(format!("{name}.old"))).unwrap();
+    }
+    std::fs::write(dir.join("bin.old").join("idm"), "OLD-ENGINE").unwrap();
+    std::fs::write(dir.join("gui.old").join("idm_gui.py"), "OLD-GUI").unwrap();
+    std::fs::write(dir.join("assets.old").join("idm.png"), "OLD-ICON").unwrap();
+    std::fs::write(dir.join("extension.old").join("manifest.json"), "OLD-EXT").unwrap();
+    std::fs::write(dir.join("VERSION.old"), format!("{VERSION}\n")).unwrap();
 
     let (ok, out) = run(&dir, &["update", "--rollback"], &addr, &addr);
     assert!(ok, "rollback must succeed: {out}");

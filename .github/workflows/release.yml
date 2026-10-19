@@ -99,10 +99,10 @@ jobs:
           mkdir -p dist/assets && cp assets/idm.ico assets/idm.png dist/assets/
           # Shipping the integration scripts lets an offline install register
           # the browser host without reaching back to raw.githubusercontent.
+          # The whole extension/ tree travels with the release so `idm update`
+          # refreshes the extension in one swap together with bin/ gui/ assets/.
           mkdir -p dist/extension
-          cp extension/install-host.sh extension/install-shell.sh \
-             extension/com.tonec.idm.json extension/com.tonec.idm.firefox.json \
-             dist/extension/
+          cp -r extension/. dist/extension/
           tar -czf ${{ matrix.archive }} -C dist .
 
       - name: Checksum

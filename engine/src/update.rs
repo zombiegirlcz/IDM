@@ -314,6 +314,13 @@ pub async fn apply(dir: &Path, prog: &mut Progress) -> anyhow::Result<String> {
     // every subsequent command would repeat. Re-stamp it with what is
     // actually installed now.
     let _ = write_cache(dir, &c.latest, &c.latest);
+    // The update succeeded: the .old trees are only needed for rollback, and
+    // keeping them around clutters the install directory (and an empty-looking
+    // extension.old/ confuses Chrome). Remove them.
+    for name in TREES.iter() {
+        let _ = std::fs::remove_dir_all(dir.join(format!("{name}.old")));
+    }
+    let _ = std::fs::remove_file(dir.join("VERSION.old"));
     let _ = std::fs::remove_dir_all(&stage);
 
     prog.done("done");
