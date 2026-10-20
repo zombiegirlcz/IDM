@@ -51,12 +51,22 @@ printf 'x' > "$out"
     (s, log)
 }
 
+/// What a runtime yt-dlp accepts prints for --version.
+fn supported_version(name: &str) -> &'static str {
+    match name {
+        "deno" => "deno 2.4.1 (stable, release, x86_64-unknown-linux-gnu)",
+        "node" => "v22.12.0",
+        "bun" => "1.2.20",
+        _ => "",
+    }
+}
+
 /// A directory holding fake runtimes, and the PATH that finds them.
 fn runtimes(dir: &Path, names: &[&str]) -> (PathBuf, String) {
     let bin = dir.join("rt");
     fs::create_dir_all(&bin).unwrap();
     for n in names {
-        exe(&bin.join(n), "#!/bin/sh\n");
+        exe(&bin.join(n), &format!("#!/bin/sh\necho '{}'\n", supported_version(n)));
     }
     let path = format!("{}:/usr/bin:/bin", bin.display());
     (bin, path)
@@ -120,7 +130,7 @@ fn deno_in_the_home_directory_is_found_without_path() {
     let (s, log) = stub(&dir, "2026.08.19");
     let home = dir.join("home");
     fs::create_dir_all(home.join(".deno/bin")).unwrap();
-    exe(&home.join(".deno/bin/deno"), "#!/bin/sh\n");
+    exe(&home.join(".deno/bin/deno"), &format!("#!/bin/sh\necho '{}'\n", supported_version("deno")));
     list_formats(&s, "/usr/bin:/bin", &home);
     let argv = fs::read_to_string(&log).unwrap();
     assert!(
@@ -183,4 +193,58 @@ fn an_old_yt_dlp_is_not_given_remote_components_either() {
     list_formats(&s, &path, &dir);
     let argv = fs::read_to_string(&log).unwrap();
     assert!(!argv.contains("--remote-components"), "argv: {}", argv);
+}
+
+// yt-dlp refuses node older than 22 ("unsupported") and then solves nothing:
+// YouTube offers only storyboards and every format is "not available". The
+// window's PATH had a system node 20 first while a node 22+ sat further on.
+#[test]
+fn a_node_too_old_for_yt_dlp_is_skipped_for_a_newer_one() {
+    let dir = unique_dir("oldnode");
+    let (s, log) = stub(&dir, "2026.08.19");
+    let old = dir.join("old");
+    let new = dir.join("new");
+    fs::create_dir_all(&old).unwrap();
+    fs::create_dir_all(&new).unwrap();
+    exe(&old.join("node"), "#!/bin/sh\necho v20.19.2\n");
+    exe(&new.join("node"), "#!/bin/sh\necho v22.23.3\n");
+    let path = format!("{}:{}:/usr/bin:/bin", old.display(), new.display());
+    list_formats(&s, &path, &dir);
+    let argv = fs::read_to_string(&log).unwrap();
+    assert!(
+        argv.contains(&format!("--js-runtimes node:{}", new.join("node").display())),
+        "argv: {}",
+        argv
+    );
+}
+
+#[test]
+fn an_unsupported_deno_does_not_win_over_a_supported_node() {
+    let dir = unique_dir("olddeno");
+    let (s, log) = stub(&dir, "2026.08.19");
+    let bin = dir.join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    exe(&bin.join("deno"), "#!/bin/sh\necho 'deno 1.46.3 (stable)'\n");
+    exe(&bin.join("node"), "#!/bin/sh\necho v24.1.0\n");
+    list_formats(&s, &format!("{}:/usr/bin:/bin", bin.display()), &dir);
+    let argv = fs::read_to_string(&log).unwrap();
+    assert!(argv.contains("--js-runtimes node:"), "argv: {}", argv);
+}
+
+#[test]
+fn an_old_node_is_never_named() {
+    let dir = unique_dir("onlyold");
+    let (s, log) = stub(&dir, "2026.08.19");
+    let bin = dir.join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    exe(&bin.join("node"), "#!/bin/sh\necho v18.20.4\n");
+    // The machine's own runtimes (/usr/local/bin, ...) may still be picked;
+    // the old one on PATH must not be.
+    list_formats(&s, &format!("{}:/usr/bin:/bin", bin.display()), &dir);
+    let argv = fs::read_to_string(&log).unwrap();
+    assert!(
+        !argv.contains(&format!("node:{}", bin.join("node").display())),
+        "argv: {}",
+        argv
+    );
 }
