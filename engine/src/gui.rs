@@ -171,6 +171,11 @@ struct Item {
     /// Browser to read cookies from for yt-dlp (chrome, chromium, firefox, ...)
     #[serde(default)]
     cookies_from_browser: String,
+    /// Private Netscape file holding the browser's cookies for this item
+    /// (sent by the extension). Only the path is persisted; the file lives
+    /// in STATE_DIR/cookies and is removed when the item finishes or goes.
+    #[serde(default)]
+    cookies_file: String,
     /// Force the yt-dlp path even for a URL that does not look like media.
     #[serde(default)]
     force_media: bool,
@@ -593,6 +598,11 @@ async fn finish_item(st: &State, id: u64, size: u64, file: Option<PathBuf>) {
             i.error = None;
             i.total = size;
             i.downloaded = size;
+            // Done: the session cookies have nothing left to do on disk.
+            if !i.cookies_file.is_empty() {
+                let _ = std::fs::remove_file(&i.cookies_file);
+                i.cookies_file.clear();
+            }
             if let Some(f) = file {
                 i.output = f;
             }
@@ -624,6 +634,8 @@ struct AddOptions {
     cookie: String,
     referer: String,
     cookies_from_browser: String,
+    /// Browser cookies (`chrome.cookies` objects) for yt-dlp.
+    cookies: Vec<serde_json::Value>,
     force_media: bool,
     /// Target file name, from IDM's `/f NAME`. Empty = derive it from the URL.
     filename: String,
@@ -677,6 +689,17 @@ async fn add_item(
         (opts.auth_user.clone(), String::new(), String::new())
     };
 
+    let cookies_file = crate::cookies::netscape_file(&opts.cookies)
+        .and_then(|body| {
+            let dir = st.state_path.parent()?.join("cookies");
+            std::fs::create_dir_all(&dir).ok()?;
+            let path = dir.join(format!("item-{}.txt", id));
+            let _ = std::fs::remove_file(&path);
+            crate::cookies::write_private(&path, &body).ok()?;
+            Some(path.to_string_lossy().to_string())
+        })
+        .unwrap_or_default();
+
     let item = Item {
         id,
         url,
@@ -696,6 +719,7 @@ async fn add_item(
         cookie: opts.cookie,
         referer: opts.referer,
         cookies_from_browser: opts.cookies_from_browser,
+        cookies_file,
         force_media: opts.force_media,
         attempts: 0,
         retry_at: 0,
@@ -787,6 +811,7 @@ async fn run_item(st: Arc<State>, id: u64) {
         cookie,
         referer,
         cookies_from_browser,
+        cookies_file,
         force_media,
     ) = {
         let g = st.items.lock().await;
@@ -807,6 +832,7 @@ async fn run_item(st: Arc<State>, id: u64) {
                 i.cookie.clone(),
                 i.referer.clone(),
                 i.cookies_from_browser.clone(),
+                i.cookies_file.clone(),
                 i.force_media,
             ),
             None => return,
@@ -887,6 +913,10 @@ async fn run_item(st: Arc<State>, id: u64) {
     }
     if !cookies_from_browser.is_empty() {
         cmd.arg("--cookies-from-browser").arg(&cookies_from_browser);
+    }
+    // The engine turns this into yt-dlp's --cookies (see media::apply_auth).
+    if !cookies_file.is_empty() && Path::new(&cookies_file).is_file() {
+        cmd.env("IDM_COOKIES_FILE", &cookies_file);
     }
     if force_media {
         cmd.arg("--force-media");
@@ -1299,6 +1329,7 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 cookie: v["cookie"].as_str().unwrap_or("").to_string(),
                 referer: v["referer"].as_str().unwrap_or("").to_string(),
                 cookies_from_browser: v["cookies_from_browser"].as_str().unwrap_or("").to_string(),
+                cookies: v["cookies"].as_array().cloned().unwrap_or_default(),
                 force_media: v["force_media"].as_bool().unwrap_or(false),
                 filename: v["filename"].as_str().unwrap_or("").to_string(),
             };
@@ -1521,7 +1552,12 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
             if let Some(tx) = st.ctrl.lock().await.get(&id) {
                 let _ = tx.send(Ctrl::Remove).await;
             }
-            st.items.lock().await.retain(|i| i.id != id);
+            st.items.lock().await.retain(|i| {
+                if i.id == id && !i.cookies_file.is_empty() {
+                    let _ = std::fs::remove_file(&i.cookies_file);
+                }
+                i.id != id
+            });
             st.ctrl.lock().await.remove(&id);
             save(&st).await;
             respond(&mut sock, 200, json, br#"{"ok":true}"#).await;
@@ -1554,10 +1590,15 @@ pub async fn serve(
     let token = api_token.unwrap_or_else(new_token);
     let token_path = state_dir.join("api-token");
     tokio::fs::write(&token_path, &token).await.ok();
+    // Where we listen, for the native host: a download from the browser goes
+    // into this queue (and shows its progress here) when it can find us.
+    let addr_path = state_dir.join("api-addr");
+    tokio::fs::write(&addr_path, &addr).await.ok();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(&token_path, std::fs::Permissions::from_mode(0o600));
+        let _ = std::fs::set_permissions(&addr_path, std::fs::Permissions::from_mode(0o600));
     }
 
     let items = load_items(&state_path);

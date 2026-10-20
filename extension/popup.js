@@ -84,7 +84,10 @@
           setStatus('chyba: ' + chrome.runtime.lastError.message, 'err');
           return;
         }
-        if (resp && resp.ok) {
+        if (resp && resp.ok && resp.queued) {
+          // The window is running and took it into its queue.
+          setStatus('přidáno do IDM (#' + resp.gui_id + ') — průběh sleduj v okně IDM', 'ok');
+        } else if (resp && resp.ok) {
           setStatus('hotovo: ' + (resp.output || '') + ' (' + resp.size + ' B)', 'ok');
         } else {
           setStatus('chyba: ' + ((resp && resp.error) || 'neznámá'), 'err');
