@@ -70,7 +70,71 @@ test('content.js injects a download panel over a <video>', () => {
 
   const btn = panel.querySelector('button');
   assert.ok(btn, 'the panel must contain a button');
-  assert.match(btn.textContent, /download|stáhnout/i, `button label: ${btn.textContent}`);
+  // The button is an icon now; its name is for screen readers and the tooltip.
+  const name = btn.getAttribute('aria-label') || '';
+  assert.match(name, /download|stáhnout/i, `button label: ${name}`);
+  assert.equal(btn.getAttribute('title'), name, 'the tooltip says the same');
+});
+
+// "okénko ... by mělo být menší, jen takový malý čtverec a uvnitř zelená
+// šipka dolů a objeví se jen tehdy, když uživatel myší na obsah najede"
+
+function videoAt(dom, left, top, width, height) {
+  const v = dom.window.document.querySelector('video');
+  v.getBoundingClientRect = () => ({ left, top, width, height, right: left + width, bottom: top + height });
+  return v;
+}
+
+function move(dom, x, y) {
+  dom.window.document.dispatchEvent(new dom.window.MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }));
+}
+
+const shown = (panel) => panel.style.display !== 'none';
+
+test('the panel is a small square with a green down arrow', () => {
+  const { dom } = runContent(
+    '<!doctype html><html><body><video src="https://example.com/movie.mp4"></video></body></html>',
+  );
+  const panel = panelOf(dom);
+  const w = parseInt(panel.style.width, 10);
+  const h = parseInt(panel.style.height, 10);
+  assert.ok(w > 0 && w <= 32, `width ${panel.style.width}`);
+  assert.equal(w, h, 'a square');
+  assert.equal(panel.textContent.trim(), '', 'no text label, only the icon');
+  const arrow = panel.querySelector('svg path');
+  assert.ok(arrow, 'an svg arrow inside');
+  const paint = [arrow.getAttribute('stroke'), arrow.getAttribute('fill')]
+    .find((c) => /^#[0-9a-f]{6}$/i.test(c || ''));
+  assert.ok(paint, 'the arrow is painted with an #rrggbb colour');
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(paint.slice(i, i + 2), 16));
+  assert.ok(g > r + 60 && g > b + 60, `green, got ${paint}`);
+});
+
+test('the panel appears only while the mouse is over the media', () => {
+  const { dom } = runContent(
+    '<!doctype html><html><body><video src="https://example.com/movie.mp4"></video></body></html>',
+  );
+  videoAt(dom, 100, 50, 640, 360);
+  const panel = panelOf(dom);
+  assert.equal(shown(panel), false, 'hidden until the mouse comes');
+  move(dom, 300, 200);
+  assert.equal(shown(panel), true, 'shown with the mouse over the video');
+  move(dom, 20, 20);
+  assert.equal(shown(panel), false, 'hidden again when it leaves');
+});
+
+test('the panel sits in the top-right corner of the media', () => {
+  const { dom } = runContent(
+    '<!doctype html><html><body><video src="https://example.com/movie.mp4"></video></body></html>',
+  );
+  videoAt(dom, 100, 50, 640, 360);
+  move(dom, 300, 200);
+  const panel = panelOf(dom);
+  const left = parseInt(panel.style.left, 10);
+  const top = parseInt(panel.style.top, 10);
+  const w = parseInt(panel.style.width, 10);
+  assert.ok(left + w <= 100 + 640 && left + w >= 100 + 640 - 16, `left ${left}`);
+  assert.ok(top >= 50 && top <= 50 + 16, `top ${top}`);
 });
 
 test('the panel button ignores a synthesized click and acts on a user click', () => {
