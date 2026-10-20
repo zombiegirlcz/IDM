@@ -154,3 +154,61 @@ fn the_sidecar_appears_while_a_media_download_runs() {
          would show 0 % for the whole transfer"
     );
 }
+
+/// yt-dlp's template lines are for the engine, not for the person: they are
+/// drawn as the progress line, and only yt-dlp's other lines are printed.
+/// Before, every `idmprog ...` line was passed through with println!, so a
+/// media download scrolled one raw line per update.
+#[test]
+fn raw_template_lines_are_not_printed() {
+    let dir = std::env::temp_dir().join(format!("idm_mprog_raw_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let stub = dir.join("yt-dlp");
+    std::fs::write(
+        &stub,
+        "#!/usr/bin/env bash\n\
+         if [[ \"$1\" == \"-J\" ]]; then echo '{\"title\":\"t\",\"ext\":\"mp4\"}'; exit 0; fi\n\
+         out=\"\"\n\
+         while [[ $# -gt 0 ]]; do if [[ \"$1\" == \"-o\" ]]; then out=\"$2\"; shift 2; else shift; fi; done\n\
+         echo '[youtube] abc: Downloading webpage'\n\
+         for i in 1 2 3 4 5; do\n\
+           echo \"idmprog $((i*2097152)) 10485760 NA $((i*20))\"\n\
+         done\n\
+         printf 'x' > \"$out\"\n",
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let out_file = dir.join("raw.mp4");
+    let _ = std::fs::remove_file(&out_file);
+    let o = Command::new(IDM)
+        .arg("--yt-dlp-path")
+        .arg(&stub)
+        .arg("--force-media")
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://example.com/video")
+        .output()
+        .unwrap();
+    let out = String::from_utf8_lossy(&o.stdout);
+    let err = String::from_utf8_lossy(&o.stderr);
+    assert!(o.status.success(), "stderr: {}", err);
+    assert!(
+        !out.contains("idmprog") && !err.contains("idmprog"),
+        "raw template lines leaked:\nstdout: {}\nstderr: {}",
+        out,
+        err
+    );
+    assert!(
+        out.contains("[youtube] abc: Downloading webpage")
+            || err.contains("[youtube] abc: Downloading webpage"),
+        "yt-dlp's own messages must still be shown:\nstdout: {}\nstderr: {}",
+        out,
+        err
+    );
+    assert!(!err.contains('\r'), "piped stderr is not redrawn: {:?}", err);
+    assert!(err.contains("100.0%"), "one summary at the end: {:?}", err);
+}
