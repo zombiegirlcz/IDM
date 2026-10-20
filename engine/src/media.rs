@@ -525,14 +525,20 @@ pub async fn download(
     let mut child = cmd
         .spawn()
         .with_context(|| format!("running {}", yt_dlp.display()))?;
+    // One progress line for both pipes: yt-dlp's messages are printed above
+    // it, its template lines only move it.
+    let bar = std::sync::Arc::new(std::sync::Mutex::new(crate::progress::Line::stderr()));
     let stderr_pipe = child.stderr.take();
+    let stderr_bar = bar.clone();
     let stderr_task = tokio::spawn(async move {
         use tokio::io::{AsyncBufReadExt, BufReader};
         let mut seen = String::new();
         if let Some(err) = stderr_pipe {
             let mut lines = BufReader::new(err).lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                eprintln!("{}", line);
+                if let Ok(mut b) = stderr_bar.lock() {
+                    b.message(&line);
+                }
                 if seen.len() < 64 * 1024 {
                     seen.push_str(&line);
                     seen.push('\n');
@@ -547,15 +553,19 @@ pub async fn download(
         let mut lines = BufReader::new(stdout).lines();
         let mut agg = ProgressAgg::default();
         while let Ok(Some(line)) = lines.next_line().await {
-            // Pass it through: in a terminal this is the progress the user
-            // expects to see.
-            println!("{}", line);
             if let Some(p) = parse_template_line(&line)
                 .or_else(|| parse_progress(&line))
                 .or_else(|| parse_aria2_line(&line))
             {
                 let overall = agg.update(p);
                 write_progress_meta(&meta, overall);
+                let done = ((overall.total as f64) * (overall.percent / 100.0)) as u64;
+                if let Ok(mut b) = bar.lock() {
+                    b.draw(done, Some(overall.total));
+                }
+            } else if let Ok(mut b) = bar.lock() {
+                // Everything else yt-dlp says is for the person.
+                b.message(&line);
             }
         }
     }
@@ -567,6 +577,9 @@ pub async fn download(
     // finished, the real file is the truth.
     let _ = std::fs::remove_file(progress_meta_path(out));
     let stderr_text = stderr_task.await.unwrap_or_default();
+    if let Ok(mut b) = bar.lock() {
+        b.finish();
+    }
     if !status.success() {
         // "Unsupported URL" is about yt-dlp's extractor list, not the URL; the
         // caller may still be able to fetch it plainly.

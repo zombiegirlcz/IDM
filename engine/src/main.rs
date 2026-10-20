@@ -21,6 +21,7 @@ mod console;
 mod cookies;
 mod gui;
 mod media;
+mod progress;
 mod secrets;
 mod update;
 mod verbs;
@@ -763,7 +764,7 @@ async fn run_direct(
     let meta_flush = meta.clone();
     let mpath_flush = mpath.clone();
     let printer = tokio::spawn(async move {
-        let mut last = std::time::Instant::now();
+        let mut line = progress::Line::stderr();
         let mut last_flush = std::time::Instant::now();
         while let Some((idx, len)) = rx.recv().await {
             {
@@ -774,11 +775,7 @@ async fn run_direct(
             *c += len;
             let cur = *c;
             drop(c);
-            if last.elapsed().as_millis() >= 500 {
-                let pct = (cur as f64 / total as f64) * 100.0;
-                eprint!("\r[{:>5.1}%] {} / {} bytes", pct, cur, total);
-                last = std::time::Instant::now();
-            }
+            line.draw(cur, Some(total));
             if last_flush.elapsed().as_millis() >= 1000 {
                 let m = meta_flush.lock().await;
                 if let Ok(s) = serde_json::to_string_pretty(&*m) {
@@ -787,6 +784,7 @@ async fn run_direct(
                 last_flush = std::time::Instant::now();
             }
         }
+        line.finish();
     });
 
     for (i, h) in handles {
@@ -805,7 +803,6 @@ async fn run_direct(
         }
     }
     let _ = printer.await;
-    eprintln!();
 
     // Verify real coverage, not just the file length: the output was
     // pre-allocated with set_len(), so its size says nothing about how much of
@@ -1057,18 +1054,15 @@ async fn run_direct_dynamic(
 
     let printer_done = done.clone();
     let printer = tokio::spawn(async move {
-        let mut last = std::time::Instant::now();
+        let mut line = progress::Line::stderr();
         while let Some(len) = rx.recv().await {
             let mut c = printer_done.lock().await;
             *c += len;
             let cur = *c;
             drop(c);
-            if last.elapsed().as_millis() >= 500 {
-                let pct = (cur as f64 / total as f64) * 100.0;
-                eprint!("\r[{:>5.1}%] {} / {} bytes", pct, cur, total);
-                last = std::time::Instant::now();
-            }
+            line.draw(cur, Some(total));
         }
+        line.finish();
     });
 
     // Split monitor.
@@ -1242,7 +1236,6 @@ async fn run_direct_dynamic(
     stop.store(true, Ordering::SeqCst);
     let _ = monitor.await;
     let _ = printer.await;
-    eprintln!();
     if let Some(e) = first_err {
         return Err(e);
     }

@@ -182,42 +182,69 @@
     post([42, kind, src]);
   }
 
-  // --- small floating "Download" panel over each media element (videos only) ---
+  // --- small download square over each media element ---
+  //
+  // A 28px square with a green arrow, in the media's top-right corner, shown
+  // only while the mouse is over the media (or the square itself). Hover is
+  // decided from the pointer position, not mouseenter on the element: players
+  // like YouTube lay their controls over the <video>, so the element itself
+  // never sees the mouse.
   var PANEL_ATTR = 'data-idm-panel';
+  var PANEL_SIZE = 28;
+  var PANEL_INSET = 8;
+  var ARROW_GREEN = '#22c55e';
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var PANEL_LABEL = 'Stáhnout v IDM';
+
+  function makeArrow() {
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('width', '18');
+    svg.setAttribute('height', '18');
+    svg.setAttribute('aria-hidden', 'true');
+    var path = document.createElementNS(SVG_NS, 'path');
+    // Shaft, head, and the tray it lands in.
+    path.setAttribute('d', 'M12 3v12M6 10l6 6 6-6M5 20h14');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', ARROW_GREEN);
+    path.setAttribute('stroke-width', '2.6');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(path);
+    return svg;
+  }
+
   function makePanel(el, kind, src) {
     var box = document.createElement('div');
     box.setAttribute(PANEL_ATTR, '1');
     box.style.cssText = [
       'position:absolute',
       'z-index:2147483647',
-      'background:rgba(17,17,17,.85)',
-      'color:#fff',
-      'font:12px system-ui,sans-serif',
-      'padding:4px 6px',
-      'border-radius:6px',
-      'box-shadow:0 1px 6px rgba(0,0,0,.4)',
+      'width:' + PANEL_SIZE + 'px',
+      'height:' + PANEL_SIZE + 'px',
+      'display:none',
       'pointer-events:auto',
-      // Explicit dimensions prevent layout shift (CLS) on injection:
-      'min-width:72px',
-      'min-height:24px',
       'contain:layout style paint',
-      'will-change:transform',
     ].join(';');
 
     var btn = document.createElement('button');
-    btn.textContent = 'Download';
+    btn.setAttribute('aria-label', PANEL_LABEL);
+    btn.setAttribute('title', PANEL_LABEL);
     btn.style.cssText = [
-      'background:#2d6cdf',
-      'color:#fff',
-      'border:0',
-      'border-radius:4px',
-      'padding:3px 8px',
+      'all:initial',
+      'box-sizing:border-box',
+      'width:' + PANEL_SIZE + 'px',
+      'height:' + PANEL_SIZE + 'px',
+      'display:flex',
+      'align-items:center',
+      'justify-content:center',
+      'background:rgba(17,17,17,.78)',
+      'border:1px solid rgba(255,255,255,.18)',
+      'border-radius:6px',
+      'box-shadow:0 1px 4px rgba(0,0,0,.45)',
       'cursor:pointer',
-      'font:12px system-ui,sans-serif',
-      'min-width:60px',
-      'min-height:18px',
-      'contain:layout style paint',
     ].join(';');
+    btn.appendChild(makeArrow());
     btn.addEventListener('click', function (e) {
       if (!e.isTrusted) return;
       e.preventDefault();
@@ -231,8 +258,12 @@
 
   function positionPanel(box, el) {
     var r = rectOf(el);
-    box.style.left = (r[0] + window.scrollX + 8) + 'px';
-    box.style.top = (r[1] + window.scrollY + 8) + 'px';
+    box.style.left = (r[0] + r[2] - PANEL_SIZE - PANEL_INSET + window.scrollX) + 'px';
+    box.style.top = (r[1] + PANEL_INSET + window.scrollY) + 'px';
+  }
+
+  function inside(r, x, y) {
+    return r[2] > 0 && r[3] > 0 && x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3];
   }
 
   // One scroll/resize handler for all panels, instead of a pair per media
@@ -253,6 +284,21 @@
   }
   window.addEventListener('scroll', repositionPanels, { passive: true });
   window.addEventListener('resize', repositionPanels);
+
+  // Show the square of the media under the pointer, hide every other one.
+  // The square itself counts as "over the media", so moving onto it to click
+  // does not make it vanish.
+  function onPointerMove(e) {
+    var x = e.clientX, y = e.clientY;
+    for (var i = 0; i < panels.length; i++) {
+      var p = panels[i];
+      var over = inside(rectOf(p.el), x, y) ||
+        (p.box.style.display !== 'none' && inside(rectOf(p.box), x, y));
+      if (over) positionPanel(p.box, p.el);
+      p.box.style.display = over ? 'block' : 'none';
+    }
+  }
+  document.addEventListener('mousemove', onPointerMove, { passive: true, capture: true });
 
   function injectPanel(el) {
     var kind = mediaKind(el);

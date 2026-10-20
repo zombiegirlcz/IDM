@@ -321,3 +321,34 @@ fn retry_on_connection_drop() {
     assert_eq!(got.len(), data.len(), "size mismatch after retry");
     assert_eq!(crc32(&got), crc32(&data), "crc mismatch after retry");
 }
+
+/// Piped stderr (the queue, the browser host) gets one plain summary line,
+/// not a `\r` redraw per update or colour codes: whoever reads the pipe keeps
+/// the last lines for an error message, and redraws would be all it kept.
+#[test]
+fn piped_progress_is_one_plain_summary() {
+    let data = make_data(1_000_000);
+    let srv = start_server(
+        data.clone(),
+        Cfg { support_range: true, throttle: Some((16384, 50)), fail_on_get: None, fail_after: 0 },
+    );
+    let dir = unique_dir("piped_progress");
+    let out = dir.join("out.bin");
+    let o = Command::new(BIN)
+        .arg("-n")
+        .arg("4")
+        .arg("-o")
+        .arg(&out)
+        .arg(format!("{}/file.bin", srv.addr))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+    let err = String::from_utf8_lossy(&o.stderr);
+    assert!(o.status.success(), "engine failed: {}", err);
+    assert!(!err.contains('\r'), "redraws in piped stderr: {:?}", err);
+    assert!(!err.contains('\x1b'), "colour codes in piped stderr: {:?}", err);
+    let summary: Vec<&str> = err.lines().filter(|l| l.contains("100.0%")).collect();
+    assert_eq!(summary.len(), 1, "one summary line, got: {:?}", err);
+    assert!(!err.contains(" bytes"), "the old `123 / 456 bytes` counter is gone: {:?}", err);
+}
