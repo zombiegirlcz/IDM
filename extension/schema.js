@@ -148,14 +148,17 @@ export function buildDownload({ url, output, connections, format, forceMedia, li
 
 /**
  * Build a `list_formats` request (media backend) for the native host.
- * @param {{url: string, cookie?: string, referer?: string}} opts
+ * @param {{url: string, cookie?: string, referer?: string,
+ *          cookiesFromBrowser?: string}} opts
  */
-export function buildListFormats({ url, cookie, referer, proxy } = {}) {
+export function buildListFormats({ url, cookie, referer, proxy, cookiesFromBrowser } = {}) {
   assertHttpUrl(url);
   const req = { action: HOST_ACTIONS.LIST_FORMATS, url };
   if (cookie !== undefined) req.cookie = String(cookie);
   if (referer !== undefined) req.referer = String(referer);
   if (proxy !== undefined) req.proxy = String(proxy);
+  if (cookiesFromBrowser !== undefined)
+    req.cookies_from_browser = String(cookiesFromBrowser);
   return req;
 }
 
