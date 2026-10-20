@@ -369,7 +369,17 @@ jobs:
         working-directory: engine
         run: cargo build --release --bin idm
 
+      # The swap's own decisions -- which idm-host.exe to stop, which rename
+      # error is a passing scanner -- have Windows-only branches that the
+      # Linux `cargo test` compiles out.
+      - name: Unit tests of the updater
+        working-directory: engine
+        run: cargo test --release --bin idm update::tests
+
+      # Steps below run even when an earlier one failed, so a red run shows
+      # every Windows behaviour that is broken, not only the first.
       - name: Update a running installation
+        if: ${{ !cancelled() }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -413,11 +423,15 @@ jobs:
           }
 
           # What runs out of bin\ on a real machine: the browser keeps
-          # idm-host.exe alive, the window keeps `idm.exe --serve`.
+          # idm-host.exe alive, the window keeps `idm.exe --serve`. Chrome
+          # starts the host with its working directory in the host's folder,
+          # and a working directory inside bin\ is what makes renaming bin\
+          # fail ("used by another process") -- a running exe alone does not.
           $dl = Join-Path $root 'dl'
           New-Item -ItemType Directory -Force -Path $dl | Out-Null
           $held = @(
-            Start-Process (Join-Path $I 'bin\idm-host.exe') -ArgumentList '-n', '900', '127.0.0.1' -PassThru -WindowStyle Hidden
+            Start-Process (Join-Path $I 'bin\idm-host.exe') -ArgumentList '-n', '900', '127.0.0.1' `
+              -WorkingDirectory (Join-Path $I 'bin') -PassThru -WindowStyle Hidden
             Start-Process (Join-Path $I 'bin\idm.exe') -ArgumentList '--serve', '127.0.0.1:18766',
               '--output-dir', $dl, '--state-dir', (Join-Path $I 'state') -PassThru -WindowStyle Hidden
           )
@@ -440,6 +454,10 @@ jobs:
             throw "extension\ was not replaced by the release's"
           }
           if ((Get-Content (Join-Path $I 'VERSION') -Raw).Trim() -ne 'v9.9.9') { throw "VERSION not stamped" }
+          # The host had to go for bin\ to move; the extension reconnects on
+          # its next message. The window's server did not have to.
+          if (-not $held[0].HasExited) { throw "idm-host.exe running from bin\ was not stopped" }
+          if ($held[1].HasExited) { throw "idm.exe --serve was stopped, but it does not hold bin\" }
 
           # Once nothing runs from the old tree any more, the next command
           # sweeps what the update had to leave.
@@ -449,3 +467,53 @@ jobs:
           if ($rest) { throw "not swept by the next command: $($rest -join ', ')" }
           Stop-Process -Id $http.Id -Force
           Write-Host "update of a running Windows installation OK"
+
+      - name: A swap that fails half way is undone
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # bin\ swaps, then gui\ cannot: a file in it is open without
+          # FILE_SHARE_DELETE (an editor, an indexer). Reported as a new
+          # engine next to the old window, the old VERSION and *.old trees;
+          # the update must fail and leave the installation as it was.
+          $exe  = (Resolve-Path engine/target/release/idm.exe).Path
+          $root = Join-Path $env:RUNNER_TEMP 'upd'
+          $srv  = Join-Path $root 'srv'
+          $I    = Join-Path $root 'half'
+          if (-not (Test-Path (Join-Path $srv 'idm-windows-x64.zip'))) { throw "the release from the previous step is missing" }
+          foreach ($d in 'bin', 'gui', 'assets', 'state', 'extension') {
+            New-Item -ItemType Directory -Force -Path (Join-Path $I $d) | Out-Null
+          }
+          Copy-Item $exe (Join-Path $I 'bin\idm.exe')
+          'old' | Set-Content (Join-Path $I 'bin\old-tree.txt')
+          '# old gui' | Set-Content (Join-Path $I 'gui\idm_gui.py')
+          '{"old": true}' | Set-Content (Join-Path $I 'extension\manifest.json')
+          '0.0.1' | Set-Content (Join-Path $I 'VERSION')
+
+          $http = Start-Process python -ArgumentList '-m', 'http.server', '18765',
+            '--bind', '127.0.0.1', '--directory', $srv -PassThru -WindowStyle Hidden
+          $deadline = (Get-Date).AddSeconds(20)
+          while (-not (Test-NetConnection 127.0.0.1 -Port 18765 -InformationLevel Quiet -WarningAction SilentlyContinue)) {
+            if ((Get-Date) -gt $deadline) { throw "local release server did not start" }
+            Start-Sleep -Milliseconds 300
+          }
+
+          $env:IDM_DIR = $I
+          $env:IDM_UPDATE_API = 'http://127.0.0.1:18765/latest.json'
+          $env:IDM_UPDATE_BASE = 'http://127.0.0.1:18765'
+          $lock = [System.IO.File]::Open((Join-Path $I 'gui\idm_gui.py'), 'Open', 'Read', 'Read')
+          try {
+            & (Join-Path $I 'bin\idm.exe') update
+            $code = $LASTEXITCODE
+          } finally {
+            $lock.Dispose()
+            Stop-Process -Id $http.Id -Force
+          }
+          if ($code -eq 0) { throw "update reported success although gui\ could not be swapped" }
+          if (-not (Test-Path (Join-Path $I 'bin\old-tree.txt'))) { throw "bin\ was left as the new release" }
+          if ((Get-Content (Join-Path $I 'gui\idm_gui.py') -Raw).Trim() -ne '# old gui') { throw "gui\ changed" }
+          if ((Get-Content (Join-Path $I 'VERSION') -Raw).Trim() -ne '0.0.1') { throw "VERSION changed" }
+          $left = @(Get-ChildItem -Force $I | Where-Object { $_.Name -match '\.(old|new|rollback)$' } | ForEach-Object Name)
+          if ($left) { throw "left next to bin\ after the undone swap: $($left -join ', ')" }
+          Write-Host "a half-way swap failure is undone on Windows OK"

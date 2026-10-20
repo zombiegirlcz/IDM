@@ -693,3 +693,107 @@ fn an_interrupted_swap_keeps_its_old_trees_for_rollback() {
         "an interrupted update's rollback copy must survive the sweep",
     );
 }
+
+// --- Windows: a swap that cannot finish -------------------------------------
+//
+// Reported from Windows: after an update that failed half way, bin\ was the
+// new release while gui\, extension\ and VERSION were still the old one, and
+// *.old trees lay next to them. Each tree is a separate rename, so the swap
+// as a whole is only atomic if a failure part way through puts back what the
+// earlier renames already did.
+
+/// A directory that can be neither emptied nor moved to another parent --
+/// what a tree with a process's working directory inside it is on Windows.
+/// `false` when this user can do both anyway (root): the test would prove
+/// nothing.
+#[cfg(unix)]
+fn immovable(d: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::create_dir_all(d).unwrap();
+    std::fs::write(d.join("idm.exe"), "RUNNING").unwrap();
+    std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o555)).unwrap();
+    if std::fs::remove_file(d.join("idm.exe")).is_ok() {
+        eprintln!("skip: this user can delete from a 0555 directory (root?)");
+        std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o755)).unwrap();
+        return false;
+    }
+    true
+}
+
+/// bin/ swaps, then gui/ cannot (a gui.old nothing can remove stands in the
+/// way). The update has to fail -- and leave the installation exactly as it
+/// was, not a new engine next to the old window and the old VERSION.
+#[cfg(unix)]
+#[test]
+fn a_swap_that_fails_half_way_puts_back_what_it_already_swapped() {
+    let dir = fake_install(VERSION);
+    if !immovable(&dir.join("gui.old")) {
+        return;
+    }
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update"], &addr, &addr);
+    let left: Vec<String> = leftovers(&dir).into_iter().filter(|n| n != "gui.old").collect();
+    unlock(&dir);
+    assert!(!ok, "an update that could not swap gui/ must fail: {out}");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(),
+        "OLD-ENGINE",
+        "bin/ must be put back when a later tree fails to swap",
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin").join("idm-host")).unwrap(),
+        "OLD-HOST",
+    );
+    assert_eq!(std::fs::read_to_string(dir.join("gui").join("idm_gui.py")).unwrap(), "OLD-GUI");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("extension").join("manifest.json")).unwrap(),
+        "OLD-EXT",
+    );
+    assert_eq!(std::fs::read_to_string(dir.join("VERSION")).unwrap().trim(), VERSION);
+    assert!(left.is_empty(), "the undone swap must not leave trees behind: {left:?}");
+}
+
+/// The tree a rollback replaces is parked as <name>.rollback and deleted. On
+/// Windows that delete fails -- `idm update --rollback` runs from bin\ -- and
+/// the stale bin.rollback then made the NEXT rollback fail, because nothing
+/// renames a directory onto a non-empty one.
+#[cfg(unix)]
+#[test]
+fn a_stuck_rollback_scratch_does_not_block_the_next_rollback() {
+    let dir = fake_install(VERSION);
+    std::fs::create_dir_all(dir.join("bin.rollback")).unwrap();
+    let Some(_locked) = undeletable(&dir.join("bin.rollback")) else { return };
+    std::fs::write(dir.join("bin").join("idm"), "NEW-ENGINE").unwrap();
+    std::fs::create_dir_all(dir.join("bin.old")).unwrap();
+    std::fs::write(dir.join("bin.old").join("idm"), "OLD-ENGINE").unwrap();
+    std::fs::write(dir.join("VERSION.old"), format!("{VERSION}\n")).unwrap();
+
+    let addr = "http://127.0.0.1:9";
+    let (ok, out) = run(&dir, &["update", "--rollback"], addr, addr);
+    let left = leftovers(&dir);
+    unlock(&dir);
+    assert!(ok, "rollback must succeed over a stuck bin.rollback: {out}");
+    assert_eq!(std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(), "OLD-ENGINE");
+    assert!(left.is_empty(), "nothing may be left next to bin/: {left:?}");
+}
+
+/// A *.rollback that an earlier rollback could not delete is litter like a
+/// stale *.old, and the next command sweeps it the same way.
+#[test]
+fn a_stale_rollback_scratch_is_swept_by_the_next_command() {
+    let dir = fake_install(VERSION);
+    std::fs::create_dir_all(dir.join("bin.rollback")).unwrap();
+    std::fs::write(dir.join("bin.rollback").join("idm.exe"), "STALE").unwrap();
+    std::fs::create_dir_all(dir.join("gui.rollback")).unwrap();
+
+    let res = Command::new(IDM)
+        .arg("--version")
+        .env("IDM_DIR", &dir)
+        .output()
+        .expect("spawn idm");
+    assert!(res.status.success());
+    assert!(!dir.join("bin.rollback").exists(), "a stale bin.rollback must be swept");
+    assert!(!dir.join("gui.rollback").exists(), "a stale gui.rollback must be swept");
+    assert_eq!(std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(), "OLD-ENGINE");
+}

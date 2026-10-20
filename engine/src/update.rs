@@ -641,6 +641,28 @@ pub fn rollback(dir: &Path) -> anyhow::Result<String> {
     Ok(now)
 }
 
+// --- Windows: what holds bin\ ------------------------------------------------
+
+/// Which of the listed idm-host.exe processes run from `bin`: the pids of
+/// `listing` lines (`<pid>\t<ExecutablePath>`) to stop before the swap.
+fn hosts_to_stop(_bin: &str, _listing: &str, _me: u32) -> Vec<u32> {
+    Vec::new()
+}
+
+/// Whether a failed rename is worth trying again.
+fn transient(_e: &std::io::Error) -> bool {
+    false
+}
+
+/// Run `op` again while it fails with an error `is_transient` accepts.
+fn retry_io<T>(
+    _budget: Duration,
+    _is_transient: impl Fn(&std::io::Error) -> bool,
+    mut op: impl FnMut() -> std::io::Result<T>,
+) -> std::io::Result<T> {
+    op()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -669,5 +691,110 @@ mod tests {
     fn an_unparseable_installed_version_does_not_claim_to_be_ahead() {
         // IDM_LOCAL_SOURCE writes `local:/path` into VERSION.
         assert!(is_newer("local:/home/u/IDM", "0.0.1"));
+    }
+
+    // --- which hosts the swap stops ---------------------------------------
+
+    const BIN: &str = r"C:\Users\u\.idm\bin";
+
+    #[test]
+    fn a_host_running_from_bin_is_stopped() {
+        let listing = "4242\tC:\\Users\\u\\.idm\\bin\\idm-host.exe\n";
+        assert_eq!(hosts_to_stop(BIN, listing, 1), vec![4242]);
+    }
+
+    #[test]
+    fn the_path_is_compared_the_way_windows_compares_it() {
+        // Case-insensitive, either separator: Win32_Process reports what the
+        // process was started with, and IDM_DIR may be spelled differently.
+        let listing = "7\tc:/users/U/.IDM/BIN/IDM-HOST.EXE\r\n";
+        assert_eq!(hosts_to_stop(BIN, listing, 1), vec![7]);
+        assert_eq!(hosts_to_stop(&format!("{BIN}\\"), listing, 1), vec![7]);
+    }
+
+    #[test]
+    fn a_host_of_another_installation_is_left_alone() {
+        // The real Internet Download Manager, a second IDM checkout, a
+        // directory whose name merely starts with "bin".
+        let listing = [
+            "10\tC:\\Program Files\\IDM\\idm-host.exe",
+            "11\tC:\\Users\\u\\.idm\\bin2\\idm-host.exe",
+            "12\tC:\\Users\\u\\.idm\\idm-host.exe",
+            "13\tC:\\Users\\u\\other\\.idm\\bin\\idm-host.exe",
+        ]
+        .join("\n");
+        assert!(hosts_to_stop(BIN, &listing, 1).is_empty());
+    }
+
+    #[test]
+    fn the_updater_never_stops_itself_or_a_line_it_cannot_read() {
+        let listing = [
+            "99\tC:\\Users\\u\\.idm\\bin\\idm-host.exe",
+            // ExecutablePath is empty for a process of another user.
+            "15\t",
+            "not-a-pid\tC:\\Users\\u\\.idm\\bin\\idm-host.exe",
+            "",
+        ]
+        .join("\n");
+        assert!(hosts_to_stop(BIN, &listing, 99).is_empty());
+    }
+
+    // --- retrying a rename ------------------------------------------------
+
+    fn denied() -> std::io::Error {
+        std::io::Error::from(std::io::ErrorKind::PermissionDenied)
+    }
+
+    #[test]
+    fn a_transient_error_is_retried_until_it_clears() {
+        let mut calls = 0;
+        let r = retry_io(Duration::from_secs(2), |_| true, || {
+            calls += 1;
+            if calls < 3 { Err(denied()) } else { Ok(calls) }
+        });
+        assert_eq!(r.ok(), Some(3), "the third attempt succeeded");
+    }
+
+    #[test]
+    fn a_permanent_error_is_not_retried() {
+        let mut calls = 0;
+        let r: std::io::Result<()> = retry_io(Duration::from_secs(2), |_| false, || {
+            calls += 1;
+            Err(denied())
+        });
+        assert!(r.is_err());
+        assert_eq!(calls, 1);
+    }
+
+    #[test]
+    fn retrying_stops_when_the_budget_is_spent() {
+        let started = Instant::now();
+        let mut calls = 0;
+        let r: std::io::Result<()> = retry_io(Duration::from_millis(300), |_| true, || {
+            calls += 1;
+            Err(denied())
+        });
+        assert!(r.is_err());
+        assert!(calls > 1, "it must have retried at least once");
+        assert!(started.elapsed() < Duration::from_secs(2), "{:?}", started.elapsed());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_sharing_violation_and_access_denied_are_transient() {
+        // ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION:
+        // what a Defender scan or an Explorer window holding the tree gives.
+        for code in [5, 32, 33] {
+            assert!(transient(&std::io::Error::from_raw_os_error(code)), "{code}");
+        }
+        assert!(!transient(&std::io::Error::from_raw_os_error(2)), "not found is final");
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn nothing_is_transient_off_windows() {
+        // EACCES on Linux is a permission, not a scanner: retrying it only
+        // makes a failing update slower.
+        assert!(!transient(&std::io::Error::from_raw_os_error(13)));
     }
 }
