@@ -338,3 +338,69 @@ fn without_cookies_yt_dlp_gets_no_cookie_flag() {
     drop(stdin);
     let _ = child.wait();
 }
+
+/// yt-dlp stub whose download takes a while, like a real video does.
+fn make_slow_stub(dir: &Path, secs: u32) -> PathBuf {
+    let stub = dir.join("yt-dlp");
+    let script = format!(
+        r#"#!/usr/bin/env bash
+if [[ "$*" == *"-J"* ]]; then echo '{{"id":"a","title":"t","ext":"mp4","formats":[]}}'; exit 0; fi
+out=""
+while [[ $# -gt 0 ]]; do if [[ "$1" == "-o" ]]; then out="$2"; shift 2; else shift; fi; done
+sleep {secs}
+printf '{PAYLOAD}' > "$out"
+"#,
+        secs = secs,
+        PAYLOAD = PAYLOAD
+    );
+    fs::write(&stub, script).unwrap();
+    let mut perm = fs::metadata(&stub).unwrap().permissions();
+    perm.set_mode(0o755);
+    fs::set_permissions(&stub, perm).unwrap();
+    stub
+}
+
+// A video download takes minutes. While it runs, the popup still has to get
+// answers (formats, settings, ping); before, the host handled one request at
+// a time and the extension reported IDM as unreachable.
+#[test]
+fn a_running_download_does_not_block_other_requests() {
+    let dir = unique_dir("busy");
+    let stub = make_slow_stub(&dir, 4);
+    let out = dir.join("slow.mp4");
+    let (mut child, mut stdin, mut stdout) = spawn_host(&dir, &stub);
+    write_frame(&mut stdin, &serde_json::json!({
+        "action": "download", "id": 10, "url": "https://youtu.be/abc",
+        "output": out.to_string_lossy(), "force_media": true
+    }));
+    write_frame(&mut stdin, &serde_json::json!({
+        "action": "list_formats", "id": 11, "url": "https://youtu.be/abc"
+    }));
+    let started = std::time::Instant::now();
+    let first = read_frame(&mut stdout);
+    assert_eq!(first["id"], serde_json::json!(11), "the listing must not wait for the download: {}", first);
+    assert!(started.elapsed() < std::time::Duration::from_secs(3), "took {:?}", started.elapsed());
+    let second = read_frame(&mut stdout);
+    assert_eq!(second["id"], serde_json::json!(10));
+    assert_eq!(second["ok"], serde_json::json!(true), "resp: {}", second);
+    drop(stdin);
+    let _ = child.wait();
+}
+
+// The browser closing the port must not kill a download already under way.
+#[test]
+fn a_download_finishes_after_the_browser_goes_away() {
+    let dir = unique_dir("eof");
+    let stub = make_slow_stub(&dir, 2);
+    let out = dir.join("after.mp4");
+    let (mut child, mut stdin, _stdout) = spawn_host(&dir, &stub);
+    write_frame(&mut stdin, &serde_json::json!({
+        "action": "download", "id": 12, "url": "https://youtu.be/abc",
+        "output": out.to_string_lossy(), "force_media": true
+    }));
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    drop(stdin);
+    let _ = child.wait();
+    let got = fs::read(&out).expect("the download must complete");
+    assert_eq!(String::from_utf8_lossy(&got), PAYLOAD);
+}
