@@ -53,7 +53,7 @@ DEFAULT_ADDR = "127.0.0.1:8080"
 # "Check for updates" compares this against the newest published tag: at
 # "1.0.0" against tags of v0.1.x it could only ever say "up to date".
 # gui/test/version_sync.test.mjs fails if the two drift apart.
-VERSION = "2.1.1"
+VERSION = "2.1.2"
 
 # Category names exactly as IDM shows them in the left tree.
 CATEGORIES = [
@@ -1003,6 +1003,9 @@ DEFAULT_SETTINGS = {
         "ignore_mtime": False,
         "show_progress": "normal",  # normal | minimized | don't show
         "user_agent": "",
+        # yt-dlp --cookies-from-browser value (chrome, firefox, ...). Empty =
+        # off; never auto-detected, see download_options().
+        "cookies_from_browser": "",
         "virus_checker": "",
         "virus_params": "[File]",
         # Run when the command line asked to hang up after finishing (/h).
@@ -1603,7 +1606,10 @@ def download_options(settings: dict, url: str, fallback_dir: str = "") -> dict:
         "out_dir": out_dir,
         "user_agent": s["downloads"].get("user_agent") or "",
         "proxy": proxy,
-        "cookies_from_browser": _detect_browser_for_cookies(),
+        # Opt-in only (Options, downloads.cookies_from_browser). Chrome's stored
+        # YouTube cookies are often rotated, and sending them turns a request
+        # that works anonymously into a bot check.
+        "cookies_from_browser": (s["downloads"].get("cookies_from_browser") or "").strip(),
         "limit_rate": limit_rate,
         # The engine takes auth_user + auth_password_ref and unlocks the
         # password itself. `auth` is only still filled for a login that has
@@ -1635,20 +1641,6 @@ _CMDLINE_FLAGS = {
     "h": "hang_up",          # hang up the connection when done
     "n": "silent",           # do not ask anything, take the defaults
 }
-
-
-def _detect_browser_for_cookies() -> str:
-    """Which browser to read cookies from for yt-dlp, if any.
-
-    Our MV3 extension targets Chrome, so prefer Chrome/Chromium. Anything
-    installed counts; yt-dlp will simply skip if the profile is locked or
-    unreadable. Empty string = don't read cookies from a browser at all.
-    """
-    for cand in ("google-chrome", "google-chrome-stable", "chromium",
-                 "chromium-browser", "chrome"):
-        if shutil.which(cand):
-            return "chrome"
-    return ""
 
 
 def _is_cmdline_switch(arg: str) -> bool:

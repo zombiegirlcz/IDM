@@ -359,6 +359,24 @@ fn get_settings(ctx: &HostCtx) -> serde_json::Value {
     serde_json::json!({"ok": true, "source": "file", "settings": capture_subset(&raw)})
 }
 
+/// The last few meaningful lines of a child's stderr, for an error message.
+/// Progress bars redraw with `\r`, so those count as line breaks too.
+fn stderr_tail(raw: &[u8]) -> String {
+    let text = String::from_utf8_lossy(raw);
+    let lines: Vec<&str> = text
+        .split(|c| c == '\n' || c == '\r')
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
+    let tail = lines[lines.len().saturating_sub(3)..].join(" | ");
+    if tail.chars().count() > 800 {
+        let cut: String = tail.chars().skip(tail.chars().count() - 800).collect();
+        format!("…{}", cut)
+    } else {
+        tail
+    }
+}
+
 fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
     let action = opt_str(req, "action").unwrap_or("");
     match action {
@@ -468,10 +486,12 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
             cmd.arg("--").arg(&url);
 
             cmd.stdout(std::process::Stdio::null());
-            cmd.stderr(std::process::Stdio::null());
+            // stderr is where the engine says WHY it failed (yt-dlp's own
+            // message included); without it the browser only sees "exit 1".
+            cmd.stderr(std::process::Stdio::piped());
 
-            let status = match cmd.status() {
-                Ok(s) => s,
+            let run = match cmd.output() {
+                Ok(o) => o,
                 Err(e) => {
                     return serde_json::json!({
                         "ok": false,
@@ -479,11 +499,14 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
                     })
                 }
             };
-            if !status.success() {
-                return serde_json::json!({
-                    "ok": false,
-                    "error": format!("engine exited with {}", status)
-                });
+            if !run.status.success() {
+                let why = stderr_tail(&run.stderr);
+                let error = if why.is_empty() {
+                    format!("engine exited with {}", run.status)
+                } else {
+                    format!("engine exited with {}: {}", run.status, why)
+                };
+                return serde_json::json!({ "ok": false, "error": error });
             }
 
             let final_out = final_path(&out, &cat, &url);

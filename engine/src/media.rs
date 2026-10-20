@@ -240,6 +240,73 @@ fn scrub_auth_env(cmd: &mut tokio::process::Command, auth_env: Option<&str>) {
     }
 }
 
+/// First yt-dlp release that knows `--js-runtimes` (an older one would die on
+/// the unknown option, which is worse than a missing runtime).
+const JS_RUNTIMES_SINCE: (u32, u32, u32) = (2025, 11, 12);
+
+fn parse_version(v: &str) -> Option<(u32, u32, u32)> {
+    let mut it = v.trim().split('.').map(|p| p.trim().parse::<u32>().ok());
+    Some((it.next()??, it.next()??, it.next().flatten().unwrap_or(0)))
+}
+
+#[cfg(unix)]
+fn is_executable(p: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    p.metadata().map(|m| m.is_file() && m.permissions().mode() & 0o111 != 0).unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn is_executable(p: &Path) -> bool {
+    p.is_file()
+}
+
+/// A JavaScript runtime yt-dlp can use, as `name:path`. deno first (yt-dlp's
+/// own default), then node, then bun. PATH is searched, then the places a
+/// browser-spawned process would not have on PATH but a user's shell does.
+fn find_js_runtime() -> Option<String> {
+    let path_env = std::env::var_os("PATH").unwrap_or_default();
+    let mut dirs: Vec<PathBuf> = std::env::split_paths(&path_env).collect();
+    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+        dirs.push(home.join(".deno/bin"));
+        dirs.push(home.join(".bun/bin"));
+        dirs.push(home.join(".local/bin"));
+        if let Ok(rd) = std::fs::read_dir(home.join(".nvm/versions/node")) {
+            let mut vs: Vec<PathBuf> = rd.flatten().map(|e| e.path().join("bin")).collect();
+            vs.sort();
+            dirs.extend(vs.into_iter().rev());
+        }
+    }
+    dirs.extend(["/usr/local/bin", "/usr/bin", "/opt/homebrew/bin"].map(PathBuf::from));
+    for name in ["deno", "node", "bun"] {
+        for d in &dirs {
+            let exe = d.join(if cfg!(windows) { format!("{}.exe", name) } else { name.to_string() });
+            if is_executable(&exe) {
+                return Some(format!("{}:{}", name, exe.display()));
+            }
+        }
+    }
+    None
+}
+
+/// Tell yt-dlp which JavaScript runtime to use for YouTube's challenges, when
+/// this yt-dlp supports it and one can be found. Nothing found = no flag, so
+/// behaviour is exactly what it was.
+fn apply_js_runtime(cmd: &mut tokio::process::Command, yt_dlp: &Path) {
+    let mut probe = std::process::Command::new(yt_dlp);
+    probe.hide_console();
+    let version = probe
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| parse_version(&String::from_utf8_lossy(&o.stdout)));
+    if version.map(|v| v >= JS_RUNTIMES_SINCE) != Some(true) {
+        return;
+    }
+    if let Some(rt) = find_js_runtime() {
+        cmd.arg("--js-runtimes").arg(rt);
+    }
+}
+
 pub async fn probe_json(
     yt_dlp: &Path,
     url: &str,
@@ -253,6 +320,7 @@ pub async fn probe_json(
     cmd.hide_console();
     scrub_auth_env(&mut cmd, auth_env);
     cmd.arg("-J").arg("--no-playlist").arg("--no-warnings");
+    apply_js_runtime(&mut cmd, yt_dlp);
     if let Some(b) = cookies_from_browser {
         cmd.arg("--cookies-from-browser").arg(b);
     }
@@ -390,6 +458,7 @@ pub async fn download(
     cmd.hide_console();
     scrub_auth_env(&mut cmd, auth_env);
     cmd.arg("--no-playlist").arg("--no-warnings");
+    apply_js_runtime(&mut cmd, yt_dlp);
     if let Some(b) = cookies_from_browser {
         cmd.arg("--cookies-from-browser").arg(b);
     }
