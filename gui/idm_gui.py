@@ -39,6 +39,7 @@ import argparse
 import json
 import os
 import secrets
+import re
 import shutil
 import subprocess
 import threading
@@ -80,6 +81,7 @@ COLUMNS = [
     ("category", "Category", 90),
     ("size", "Size", 90),
     ("status", "Status", 100),
+    ("progress", "Progress", 150),
     ("speed", "Speed (MB/s)", 100),
     ("eta", "ETA", 80),
     ("queue", "Q", 40),
@@ -104,6 +106,8 @@ THEMES = {
         "row_even": "#eef1f5",
         "grid": "#d4d9e0",        # row separators and panel borders
         "accent": "#1565c0",
+        "ok": "#1b7f3b",          # a finished row
+        "err": "#c62828",         # a failed row
         "selection_bg": "#cfe2ff",
         "selection_fg": "#10243e",
         "heading_bg": "#e4e8ee",
@@ -118,6 +122,8 @@ THEMES = {
         "row_even": "#24282f",
         "grid": "#333942",
         "accent": "#4d9fff",
+        "ok": "#5cc97f",
+        "err": "#ff7b72",
         "selection_bg": "#2d4a6b",
         "selection_fg": "#eaf2ff",
         "heading_bg": "#272b33",
@@ -1821,9 +1827,11 @@ def queue_names(settings: dict) -> list:
 # speed must compare as numbers: the cell shows "39.1 KB", and sorting that
 # text puts 2000 before 300.
 _SORT_KEYS = {
-    "name": lambda it: basename(it.get("url", "")).lower(),
+    "name": lambda it: item_name(it).lower(),
     "size": lambda it: int(it.get("total") or 0),
     "status": lambda it: str(it.get("status", "")).lower(),
+    "progress": lambda it: (1.0 if it.get("status") == "done" else
+                            (it.get("downloaded") or 0) / (it.get("total") or 1)),
     "speed": lambda it: float(it.get("speed_bps") or 0),
     "eta": lambda it: float(it.get("time_left_s") or 0),
     "queue": lambda it: str(it.get("status", "")) in ("running", "pending"),
@@ -4052,10 +4060,101 @@ def tag_rows(tree, palette: dict) -> None:
     for. Real per-cell rules would mean drawing the table on a Canvas instead
     of using Treeview at all.
     """
-    tree.tag_configure("odd", background=palette["row_odd"],
-                       foreground=palette["fg"])
-    tree.tag_configure("even", background=palette["row_even"],
-                       foreground=palette["fg"])
+    # Background only: the text colour belongs to the state tags below, and a
+    # stripe that also set it could win over them.
+    tree.tag_configure("odd", background=palette["row_odd"])
+    tree.tag_configure("even", background=palette["row_even"])
+    # Colour by state, so an error or a finished row is seen, not read.
+    # Queued and paused rows stay muted; a running one is the accent.
+    for status, key in (("running", "accent"), ("pending", "muted"),
+                        ("paused", "muted"), ("done", "ok"), ("error", "err")):
+        tree.tag_configure(status_tag(status), foreground=palette[key])
+
+
+# What the queue's internal states are called on screen. "running" is shown
+# as a percentage instead when the size is known, the way IDM does it.
+STATUS_LABELS = {
+    "running": "Downloading",
+    "pending": "Queued",
+    "paused": "Paused",
+    "done": "Complete",
+    "error": "Error",
+}
+
+
+def progress_bar_text(fraction, width: int = 10) -> str:
+    """A bar drawn in text, `width` cells wide whatever the fraction.
+
+    Treeview cells hold text only; a real bar per row would mean leaving
+    Treeview for a Canvas table. Block characters read as a bar in every font
+    Tk is likely to pick.
+    """
+    try:
+        f = float(fraction)
+    except (TypeError, ValueError):
+        f = 0.0
+    f = min(1.0, max(0.0, f))
+    full = int(round(f * width))
+    return "\u2588" * full + "\u2591" * (width - full)
+
+
+def item_name(it: dict) -> str:
+    """The row's file name: the file being written, else the URL's tail.
+
+    Split on both separators: the window may show a queue written on Windows.
+    """
+    out = str(it.get("output") or "")
+    tail = re.split(r"[\\/]", out)[-1] if out else ""
+    return tail or basename(it.get("url", ""))
+
+
+def _status_and_progress(it: dict):
+    dl = it.get("downloaded") or 0
+    total = it.get("total") or 0
+    status = it.get("status", "")
+    if status == "done":
+        return STATUS_LABELS["done"], f"{progress_bar_text(1)}  100 %"
+    if total:
+        frac = min(1.0, dl / total)
+        label = (f"{frac * 100:.1f} %" if status == "running"
+                 else STATUS_LABELS.get(status, status))
+        return label, f"{progress_bar_text(frac)} {frac * 100:4.0f} %"
+    label = STATUS_LABELS.get(status, status)
+    return label, (f"{fmt_size(dl)} \u2026" if status == "running" and dl else "")
+
+
+def status_tag(status: str) -> str:
+    """The Treeview tag that colours a row by its state; '' for no colour."""
+    return f"st_{status}" if status in STATUS_LABELS else ""
+
+
+def queue_summary(items) -> dict:
+    """The bottom bar: the total over every running download, and a line
+    saying how many, how far, how fast and how long.
+
+    The bar used to follow whichever running row apply_items drew last, so
+    with two downloads it jumped between them.
+    """
+    running = [it for it in (items or []) if it.get("status") == "running"]
+    queued = sum(1 for it in (items or []) if it.get("status") == "pending")
+    if not running:
+        return {"percent": 0, "text": ""}
+    sized = [it for it in running if it.get("total")]
+    dl = sum(int(it.get("downloaded") or 0) for it in sized)
+    total = sum(int(it.get("total") or 0) for it in sized)
+    percent = round(dl / total * 100.0, 1) if total else 0
+    parts = [f"{len(running)} downloading"]
+    if total:
+        parts.append(f"{percent:.0f} %")
+    speed = fmt_speed(sum(float(it.get("speed_bps") or 0) for it in running))
+    if speed:
+        parts.append(speed)
+    eta = fmt_eta(max(float(it.get("time_left_s") or 0) for it in running))
+    if eta:
+        parts.append(f"{eta} left")
+    if queued:
+        parts.append(f"{queued} queued")
+    return {"percent": percent, "text": "  \u00b7  ".join(parts)}
 
 
 def row_values(it: dict, settings: dict = None) -> tuple:
@@ -4069,11 +4168,13 @@ def row_values(it: dict, settings: dict = None) -> tuple:
     total = it.get("total") or 0
     status = it.get("status", "")
     url = it.get("url", "")
+    label, bar = _status_and_progress(it)
     return (
-        basename(url),
+        item_name(it),
         item_category(settings or {}, url),
         f"{fmt_size(dl)} / {fmt_size(total)}" if total else fmt_size(dl),
-        status,
+        label,
+        bar,
         fmt_speed(it.get("speed_bps")),
         fmt_eta(it.get("time_left_s")),
         "*" if status in ("running", "pending") else "",
@@ -4690,13 +4791,19 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
                             "Add to Queue", "Delete from Queue", "Properties"]
 
     # --- progress + status bar at the bottom ---
-    progress = ttk.Progressbar(root, mode="determinate", maximum=100)
-    progress.pack(fill="x", padx=6)
+    progress_row = ttk.Frame(root)
+    progress_row.pack(fill="x", padx=6, pady=(4, 2))
+    progress_text = tk.StringVar(value="")
+    ttk.Label(progress_row, textvariable=progress_text, anchor="e").pack(
+        side="right", padx=(8, 0))
+    progress = ttk.Progressbar(progress_row, mode="determinate", maximum=100)
+    progress.pack(side="left", fill="x", expand=True)
     status = tk.StringVar(value="Ready")
     ttk.Label(root, textvariable=status, relief="sunken", anchor="w").pack(
         fill="x", side="bottom"
     )
     w["progress"] = progress
+    w["progress_text"] = progress_text
     w["status_var"] = status
 
     # --- actions ---
@@ -5044,8 +5151,6 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         for row, it in enumerate(items):
             try:
                 iid = str(it["id"])
-                dl = it.get("downloaded") or 0
-                total = it.get("total") or 0
                 st = it.get("status", "")
                 # One value per column in COLUMNS; the id lives in the iid.
                 vals = row_values(it, row_settings)
@@ -5057,15 +5162,20 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             # parity, and a tag left from its old position would make two
             # neighbours share a shade.
             stripe = ("odd",) if row % 2 else ("even",)
+            if status_tag(st):
+                stripe += (status_tag(st),)
             if listview.exists(iid):
                 listview.item(iid, values=vals, tags=stripe)
             else:
                 listview.insert("", "end", iid=iid, values=vals, tags=stripe)
-            if st == "running":
-                progress["value"] = (dl / total * 100.0) if total else 0.0
         for iid in list(listview.get_children()):
             if iid not in seen:
                 listview.delete(iid)
+        # The bottom bar is the whole queue: every running download, also
+        # those the current category hides.
+        summary = queue_summary(view["items"])
+        progress["value"] = summary["percent"]
+        progress_text.set(summary["text"])
         # Anything that just finished gets IDM's post-download treatment.
         # Driven from the unfiltered snapshot: a download hidden by the current
         # category still finished.
