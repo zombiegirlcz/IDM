@@ -24,6 +24,10 @@ import {
 
 const NATIVE_HOST = 'com.tonec.idm';
 const WATCHDOG_MS = 1500;
+// This is a Chrome MV3 extension, so we always ask yt-dlp to read cookies
+// from the Chrome profile. That makes YouTube and other login-gated media
+// sites work without the user exporting cookies by hand.
+const COOKIES_FROM_BROWSER = 'chrome';
 // How long a get_settings answer is trusted. Short enough that editing the
 // Options dialog takes effect without restarting the browser, long enough that
 // a page full of links does not spawn a round trip per link.
@@ -173,7 +177,11 @@ async function downloadExplicit(url, pageUrl) {
   const settings = await getCaptureSettings();
   let req;
   try {
-    req = buildDownload({ url, connections: settings.connection.max_connections });
+    req = buildDownload({
+      url,
+      connections: settings.connection.max_connections,
+      cookiesFromBrowser: COOKIES_FROM_BROWSER,
+    });
   } catch (e) {
     log('rejected explicit download', String(e));
     return;
@@ -256,7 +264,12 @@ function handleRequest(msg, reply) {
   if (msg.type === 'list_formats' && msg.url) {
     let req;
     try {
-      req = buildListFormats({ url: msg.url, cookie: msg.cookie, referer: msg.referer });
+      req = buildListFormats({
+        url: msg.url,
+        cookie: msg.cookie,
+        referer: msg.referer,
+        cookiesFromBrowser: msg.cookiesFromBrowser ?? COOKIES_FROM_BROWSER,
+      });
     } catch (e) {
       reply({ ok: false, error: String(e) });
       return false;
@@ -279,6 +292,7 @@ function handleRequest(msg, reply) {
         limitRate: msg.limitRate,
         cookie: msg.cookie,
         referer: msg.referer,
+        cookiesFromBrowser: msg.cookiesFromBrowser ?? COOKIES_FROM_BROWSER,
       });
     } catch (e) {
       reply({ ok: false, error: String(e) });
@@ -378,7 +392,11 @@ async function captureDownload(url, filename, sender) {
 
   let req;
   try {
-    req = buildDownload({ url, connections: settings.connection.max_connections });
+    req = buildDownload({
+      url,
+      connections: settings.connection.max_connections,
+      cookiesFromBrowser: COOKIES_FROM_BROWSER,
+    });
   } catch (e) {
     log('rejected capture', String(e));
     return;
