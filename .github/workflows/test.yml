@@ -225,6 +225,13 @@ jobs:
           Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -ErrorAction Stop
           Invoke-ScriptAnalyzer -Path ./install.ps1 -Severity Error
 
+      # The wrapper Chrome launches is built by two pure functions; this runs
+      # them on paths a real install never gets here (a Czech user name, a
+      # literal %, a sibling of the prefix).
+      - name: Host wrapper lines
+        shell: pwsh
+        run: ./test/install_ps1_wrapper.ps1
+
       # Run it for real against a locally built archive: install, check what
       # landed, then uninstall through the copy it keeps in the prefix. Nothing
       # here touches the network or a release.
@@ -253,6 +260,9 @@ jobs:
           $sha = (Get-FileHash $zip -Algorithm SHA256).Hash
           "$sha  idm-windows-x64.zip" | Set-Content "$zip.sha256"
           $url = ([System.Uri](Resolve-Path $zip).Path).AbsoluteUri
+          # Where 2.1.9 put the Chrome manifest; it pointed at bin\idm-host.exe.
+          New-Item -ItemType Directory -Force -Path $prefix | Out-Null
+          '{"path": "stale"}' | Set-Content (Join-Path $prefix 'com.tonec.idm.json')
 
           ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir $dl
 
@@ -272,13 +282,109 @@ jobs:
           $reg = 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.tonec.idm'
           if (-not (Test-Path $reg)) { throw "native messaging host not registered" }
 
-          & (Join-Path $prefix 'install.ps1') -Uninstall
-          if (Test-Path $prefix) { throw "prefix still present after -Uninstall" }
-          if (Test-Path $reg) { throw "registry key still present after -Uninstall" }
-          if ([Environment]::GetEnvironmentVariable('IDM_DIR', 'User')) {
-            throw "IDM_DIR survived -Uninstall"
+          # The browser launches a wrapper that carries the flags itself: a
+          # Chrome started before this install never sees the new user
+          # variables, and the host fails closed without --allowed-dir.
+          $native  = Join-Path $prefix 'native'
+          $wrapper = Join-Path $native 'idm-host.cmd'
+          if (-not (Test-Path $wrapper)) { throw "no native\idm-host.cmd" }
+          $w = Get-Content $wrapper
+          if ($w[0] -ne '@echo off') { throw "the wrapper must start with @echo off: $($w[0])" }
+          foreach ($flag in '--engine', '--allowed-dir', '--settings', 'idm-host.exe', '%*') {
+            if (($w -join "`n") -notlike "*$flag*") { throw "the wrapper lacks $flag`n$($w -join "`n")" }
           }
+          if (Test-Path (Join-Path $prefix 'com.tonec.idm.json')) { throw "the old root manifest is still there" }
+
+          function Read-Manifest([string]$path) {
+            $bytes = [System.IO.File]::ReadAllBytes($path)
+            if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+              throw "$path starts with a BOM"
+            }
+            return ([System.Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json)
+          }
+          $chrome  = Join-Path $native 'com.tonec.idm.json'
+          $firefox = Join-Path $native 'com.tonec.idm.firefox.json'
+          $cm = Read-Manifest $chrome
+          $fm = Read-Manifest $firefox
+          foreach ($m in $cm, $fm) {
+            if ($m.path -ne $wrapper) { throw "manifest path is $($m.path), not the wrapper" }
+            if ($m.name -ne 'com.tonec.idm' -or $m.type -ne 'stdio') { throw "manifest name/type wrong" }
+          }
+          if ((@($cm.allowed_origins) -join ',') -ne 'chrome-extension://gnhajaopemmibmjhkaafdebogmkkcljc/') {
+            throw "Chrome allowed_origins: $($cm.allowed_origins)"
+          }
+          if ((@($fm.allowed_extensions) -join ',') -ne 'idm@tonec.local') {
+            throw "Firefox allowed_extensions: $($fm.allowed_extensions)"
+          }
+          if ($fm.allowed_origins -or $cm.allowed_extensions) { throw "a manifest carries the other browser's key" }
+
+          $chromeKeys = 'Google\Chrome', 'Microsoft\Edge', 'BraveSoftware\Brave-Browser', 'Chromium' |
+            ForEach-Object { "HKCU:\Software\$_\NativeMessagingHosts\com.tonec.idm" }
+          foreach ($k in $chromeKeys) {
+            $v = (Get-Item $k).GetValue('')
+            if ($v -ne $chrome) { throw "$k -> $v, not $chrome" }
+          }
+          $mozilla = 'HKCU:\Software\Mozilla\NativeMessagingHosts\com.tonec.idm'
+          if (-not (Test-Path $mozilla)) { throw "Firefox host not registered" }
+          if ((Get-Item $mozilla).GetValue('') -ne $firefox) { throw "$mozilla does not point at $firefox" }
+
+          # `idm --gui` starts the window with the interpreter the installer found.
+          $py = [Environment]::GetEnvironmentVariable('IDM_PYTHON', 'User')
+          if (-not $py -or -not (Test-Path $py)) { throw "IDM_PYTHON not persisted: '$py'" }
+
+          # The queue and the vault outlive a plain -Uninstall, as on Linux.
+          '{"items": []}' | Set-Content (Join-Path $prefix 'state\queue.json')
+          & (Join-Path $prefix 'install.ps1') -Uninstall
+          $kept = @(Get-ChildItem -Force $prefix | ForEach-Object Name)
+          if (($kept -join ',') -ne 'state') { throw "-Uninstall left: $($kept -join ', ')" }
+          if (-not (Test-Path (Join-Path $prefix 'state\queue.json'))) { throw "-Uninstall threw state\ away" }
+          foreach ($k in @($chromeKeys) + $mozilla) {
+            if (Test-Path $k) { throw "$k still present after -Uninstall" }
+          }
+          foreach ($v in 'IDM_DIR', 'IDM_PYTHON', 'IDM_ALLOWED_DIR', 'IDM_SETTINGS') {
+            if ([Environment]::GetEnvironmentVariable($v, 'User')) { throw "$v survived -Uninstall" }
+          }
+
+          ./install.ps1 -Uninstall -Purge -Prefix $prefix
+          if (Test-Path $prefix) { throw "prefix still present after -Uninstall -Purge" }
           Write-Host "install + uninstall OK"
+
+      # Installs before 0.2 lived in %LOCALAPPDATA%\idm, and its window or the
+      # browser's host may still be running from there: the directory cannot
+      # be deleted then, and the old host stays registered under a dead tree.
+      - name: Migrate from a running pre-0.2 installation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $old = Join-Path $env:LOCALAPPDATA 'idm'
+          New-Item -ItemType Directory -Force -Path (Join-Path $old 'state') | Out-Null
+          Copy-Item (Join-Path $env:SystemRoot 'System32\PING.EXE') (Join-Path $old 'idm-host.exe')
+          '{"items": ["old"]}' | Set-Content (Join-Path $old 'state\queue.json')
+          $p = Start-Process (Join-Path $old 'idm-host.exe') -ArgumentList '-n', '900', '127.0.0.1' -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 2
+          if ($p.HasExited) { throw "the old host did not stay running" }
+
+          $stage  = Join-Path $env:RUNNER_TEMP 'stage-migrate'
+          $prefix = Join-Path $env:RUNNER_TEMP 'idm-migrate'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          'exit 0' | Set-Content (Join-Path $stage 'idm.exe')
+          'exit 0' | Set-Content (Join-Path $stage 'idm-host.exe')
+          '# gui'  | Set-Content (Join-Path $stage 'idm_gui.py')
+          Copy-Item ./install.ps1 $stage
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'assets') | Out-Null
+          Copy-Item ./assets/idm.ico, ./assets/idm.png (Join-Path $stage 'assets')
+          Copy-Item -Recurse ./extension (Join-Path $stage 'extension')
+          $zip = Join-Path $env:RUNNER_TEMP 'migrate.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
+          $url = ([System.Uri](Resolve-Path $zip).Path).AbsoluteUri
+
+          ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir (Join-Path $env:RUNNER_TEMP 'dl-migrate')
+
+          if (-not $p.HasExited) { $p | Stop-Process -Force; throw "the old installation's host was left running" }
+          if (Test-Path $old) { throw "%LOCALAPPDATA%\idm is still there" }
+          if ((Get-Content (Join-Path $prefix 'state\queue.json') -Raw) -notmatch 'old') { throw "state was not migrated" }
+          ./install.ps1 -Uninstall -Purge -Prefix $prefix
+          Write-Host "migration from a running pre-0.2 installation OK"
 
       # Reported: "installing on Windows still gives the old 2.0.7". On a real
       # machine the browser keeps idm-host.exe running and the window keeps
@@ -346,6 +452,115 @@ jobs:
           $running | ForEach-Object { if (-not $_.HasExited) { $_ | Stop-Process -Force } }
           & (Join-Path $prefix 'install.ps1') -Uninstall
           Write-Host "upgrade over a running installation OK"
+
+  windows-host:
+    # The browser -> host link on Windows, with the real idm-host.exe, found
+    # the way Chrome finds it: HKCU registry -> manifest -> `path`, launched
+    # through cmd.exe. Reported from 2.1.9: Chrome "could not talk to IDM". A
+    # browser started before the install never sees the user variables the
+    # installer persists, so a host launched with no flags failed closed --
+    # this clears them in the child, exactly that browser's view.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - name: Build engine + host
+        working-directory: engine
+        run: cargo build --release --bin idm-host --bin idm
+
+      - name: Native message through the registered manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root  = Join-Path $env:RUNNER_TEMP 'host'
+          $stage = Join-Path $root 'stage'
+          # A Czech user name in both paths: the wrapper is a batch file, and
+          # cmd.exe reads those in the OEM code page.
+          $c = [string][char]0x010D
+          $prefix = Join-Path $root "idm-$c"
+          $dl     = Join-Path $env:USERPROFILE "Downloads\idm-ci-$c"
+          New-Item -ItemType Directory -Force -Path $stage, (Join-Path $stage 'assets') | Out-Null
+          Copy-Item engine/target/release/idm.exe, engine/target/release/idm-host.exe $stage
+          Copy-Item ./gui/idm_gui.py, ./install.ps1 $stage
+          Copy-Item ./scripts/ensure-aria2.ps1, ./scripts/ensure-ytdlp.ps1 $stage
+          Copy-Item ./assets/idm.ico, ./assets/idm.png (Join-Path $stage 'assets')
+          Copy-Item -Recurse ./extension (Join-Path $stage 'extension')
+          $zip = Join-Path $root 'idm-windows-x64.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
+          $url = ([System.Uri](Resolve-Path $zip).Path).AbsoluteUri
+
+          ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir $dl
+          # Something for get_settings to find, so the reply proves --settings
+          # reached the host (with IDM_SETTINGS cleared below).
+          '{"min_size_kb": 1}' | Set-Content (Join-Path $prefix 'state\settings.json')
+
+          $manifest = (Get-Item 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.tonec.idm').GetValue('')
+          $hostPath = (Get-Content $manifest -Raw | ConvertFrom-Json).path
+          Write-Host "manifest $manifest -> $hostPath"
+
+          # How Chrome launches a host on Windows (native_process_launcher_win):
+          # cmd.exe /d /s /c with the quoted path and the origin, cwd = the
+          # host's own directory.
+          $psi = [System.Diagnostics.ProcessStartInfo]::new($env:ComSpec)
+          $psi.Arguments = "/d /s /c `"`"$hostPath`" chrome-extension://gnhajaopemmibmjhkaafdebogmkkcljc/ --parent-window=0`""
+          $psi.WorkingDirectory = Split-Path -Parent $hostPath
+          $psi.UseShellExecute = $false
+          $psi.RedirectStandardInput = $true
+          $psi.RedirectStandardOutput = $true
+          $psi.RedirectStandardError = $true
+          $psi.CreateNoWindow = $true
+          foreach ($v in 'IDM_ALLOWED_DIR', 'IDM_SETTINGS') { [void]$psi.Environment.Remove($v) }
+          $p = [System.Diagnostics.Process]::Start($psi)
+          $err = $p.StandardError.ReadToEndAsync()
+
+          $in = $p.StandardInput.BaseStream
+          foreach ($req in '{"id":1,"action":"ping"}', '{"id":2,"action":"get_settings"}') {
+            $body = [System.Text.Encoding]::UTF8.GetBytes($req)
+            $in.Write([BitConverter]::GetBytes([uint32]$body.Length), 0, 4)
+            $in.Write($body, 0, $body.Length)
+          }
+          $in.Flush()
+          $in.Close()   # EOF: the host answers what it has and exits
+
+          $buf = [System.IO.MemoryStream]::new()
+          $copy = $p.StandardOutput.BaseStream.CopyToAsync($buf)
+          if (-not $copy.Wait(60000)) { $p.Kill(); throw "the host did not finish in 60 s" }
+          $p.WaitForExit()
+          $bytes = $buf.ToArray()
+          Write-Host "exit $($p.ExitCode), $($bytes.Length) bytes on stdout, stderr: $($err.Result)"
+
+          # Every byte on stdout must belong to a frame: one echoed line from
+          # the batch file and Chrome reads garbage as a length.
+          $replies = @{}
+          $at = 0
+          while ($at -lt $bytes.Length) {
+            if ($at + 4 -gt $bytes.Length) { throw "stray bytes at $at of $($bytes.Length)" }
+            $len = [BitConverter]::ToUInt32($bytes, $at)
+            if ($at + 4 + $len -gt $bytes.Length) { throw "frame at $at claims $len bytes; stdout is not just frames" }
+            $msg = [System.Text.Encoding]::UTF8.GetString($bytes, $at + 4, $len) | ConvertFrom-Json
+            $replies[[int]$msg.id] = $msg
+            $at += 4 + $len
+          }
+          if ($replies.Count -ne 2) { throw "expected 2 replies, got $($replies.Count)" }
+          $ping = $replies[1]
+          if (-not $ping.ok -or $ping.msg -ne 'pong') { throw "ping: $($ping | ConvertTo-Json -Compress)" }
+          $set = $replies[2]
+          if (-not $set.ok -or $set.source -ne 'file') {
+            throw "get_settings did not read state\settings.json: $($set | ConvertTo-Json -Compress)"
+          }
+          if ($p.ExitCode -ne 0) { throw "host exited $($p.ExitCode)" }
+
+          & (Join-Path $prefix 'install.ps1') -Uninstall -Purge
+          if (Test-Path $prefix) { throw "-Purge left $prefix" }
+          Write-Host "native messaging through the registered wrapper OK"
 
   windows-update:
     # `idm update` on a real Windows machine, with the real engine. Reported
