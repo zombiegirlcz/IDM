@@ -246,6 +246,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path (Join-Path $stage 'assets') | Out-Null
           Copy-Item ./assets/idm.ico (Join-Path $stage 'assets')
           Copy-Item ./assets/idm.png (Join-Path $stage 'assets')
+          # The extension travels in the zip, as release.yml packs it.
+          Copy-Item -Recurse ./extension (Join-Path $stage 'extension')
           $zip = Join-Path $env:RUNNER_TEMP 'idm-windows-x64.zip'
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
           $sha = (Get-FileHash $zip -Algorithm SHA256).Hash
@@ -257,7 +259,9 @@ jobs:
           # The flat archive must have been arranged into the same layout
           # install.sh builds, so one IDM_DIR means one thing on both systems.
           foreach ($f in 'bin\idm.exe', 'bin\idm-host.exe', 'bin\ensure-aria2.ps1',
-                         'gui\idm_gui.py', 'assets\idm.ico', 'install.ps1', 'VERSION') {
+                         'gui\idm_gui.py', 'assets\idm.ico', 'install.ps1', 'VERSION',
+                         'extension\manifest.json', 'extension\background.js',
+                         'extension\content.js') {
             if (-not (Test-Path (Join-Path $prefix $f))) { throw "missing after install: $f" }
           }
           if ([Environment]::GetEnvironmentVariable('IDM_DIR', 'User') -ne $prefix) {
@@ -315,8 +319,21 @@ jobs:
             Start-Process (Join-Path $prefix 'bin\idm-host.exe') -ArgumentList '-n','900','127.0.0.1' -PassThru -WindowStyle Hidden
           )
           Start-Sleep -Seconds 2
+          # What 2.1.9's `idm update` left behind on a real machine: the old
+          # bin\ it could not delete (its own exe was running), plus whatever
+          # an interrupted run leaves. A reinstall stops the processes, so it
+          # can and must clear them.
+          New-Item -ItemType Directory -Force -Path (Join-Path $prefix 'bin.old'),
+            (Join-Path $prefix 'extension.old'), (Join-Path $prefix '.update\unpack'),
+            (Join-Path $prefix '.trash\bin-1') | Out-Null
+          Copy-Item $oldExe (Join-Path $prefix 'bin.old\idm.exe')
+          '2.0.6' | Set-Content (Join-Path $prefix 'VERSION.old')
 
           ./install.ps1 -ArchiveUrl (New-Archive '2.1.7' $newExe) -Prefix $prefix -DownloadsDir $dl
+
+          $left = @(Get-ChildItem -Force $prefix | Where-Object {
+            $_.Name -match '\.old$' -or $_.Name -in '.update', '.trash' } | ForEach-Object Name)
+          if ($left) { throw "a reinstall left behind: $($left -join ', ')" }
 
           $gui = Get-Content (Join-Path $prefix 'gui\idm_gui.py') -Raw
           if ($gui -notmatch '2\.1\.7') { throw "gui\idm_gui.py is still the old one: $gui" }
@@ -329,3 +346,106 @@ jobs:
           $running | ForEach-Object { if (-not $_.HasExited) { $_ | Stop-Process -Force } }
           & (Join-Path $prefix 'install.ps1') -Uninstall
           Write-Host "upgrade over a running installation OK"
+
+  windows-update:
+    # `idm update` on a real Windows machine, with the real engine. Reported
+    # from 2.1.9: bin.old\ stayed behind after every update (the updater and
+    # the window's server run from it, and Windows will not delete a running
+    # exe), and extension\ came out EMPTY because the zip had none -- Chrome
+    # then refused to load it. Nothing but Windows can show either.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - name: Build engine
+        working-directory: engine
+        run: cargo build --release --bin idm
+
+      - name: Update a running installation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe  = (Resolve-Path engine/target/release/idm.exe).Path
+          $root = Join-Path $env:RUNNER_TEMP 'upd'
+          $I    = Join-Path $root 'idm'
+          $srv  = Join-Path $root 'srv'
+          $stage = Join-Path $root 'stage'
+
+          # The installation as it stands: the real engine in bin\, and an
+          # extension folder the user loaded into Chrome.
+          foreach ($d in 'bin', 'gui', 'assets', 'state', 'extension') {
+            New-Item -ItemType Directory -Force -Path (Join-Path $I $d) | Out-Null
+          }
+          Copy-Item $exe (Join-Path $I 'bin\idm.exe')
+          Copy-Item (Join-Path $env:SystemRoot 'System32\PING.EXE') (Join-Path $I 'bin\idm-host.exe')
+          '# old gui' | Set-Content (Join-Path $I 'gui\idm_gui.py')
+          '{"old": true}' | Set-Content (Join-Path $I 'extension\manifest.json')
+          '0.0.1' | Set-Content (Join-Path $I 'VERSION')
+
+          # The release, served locally and packed the way release.yml packs it.
+          New-Item -ItemType Directory -Force -Path $srv, (Join-Path $stage 'assets') | Out-Null
+          Copy-Item $exe (Join-Path $stage 'idm.exe')
+          Copy-Item $exe (Join-Path $stage 'idm-host.exe')
+          Copy-Item ./gui/idm_gui.py, ./install.ps1 $stage
+          Copy-Item ./scripts/ensure-aria2.ps1, ./scripts/ensure-aria2.sh $stage
+          Copy-Item ./scripts/ensure-ytdlp.ps1, ./scripts/ensure-ytdlp.sh $stage
+          Copy-Item ./assets/idm.ico, ./assets/idm.png (Join-Path $stage 'assets')
+          Copy-Item -Recurse ./extension (Join-Path $stage 'extension')
+          $zip = Join-Path $srv 'idm-windows-x64.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
+          $sha = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$sha  idm-windows-x64.zip" | Set-Content "$zip.sha256"
+          '{"tag_name": "v9.9.9"}' | Set-Content (Join-Path $srv 'latest.json')
+          $http = Start-Process python -ArgumentList '-m', 'http.server', '18765',
+            '--bind', '127.0.0.1', '--directory', $srv -PassThru -WindowStyle Hidden
+          $deadline = (Get-Date).AddSeconds(20)
+          while (-not (Test-NetConnection 127.0.0.1 -Port 18765 -InformationLevel Quiet -WarningAction SilentlyContinue)) {
+            if ((Get-Date) -gt $deadline) { throw "local release server did not start" }
+            Start-Sleep -Milliseconds 300
+          }
+
+          # What runs out of bin\ on a real machine: the browser keeps
+          # idm-host.exe alive, the window keeps `idm.exe --serve`.
+          $dl = Join-Path $root 'dl'
+          New-Item -ItemType Directory -Force -Path $dl | Out-Null
+          $held = @(
+            Start-Process (Join-Path $I 'bin\idm-host.exe') -ArgumentList '-n', '900', '127.0.0.1' -PassThru -WindowStyle Hidden
+            Start-Process (Join-Path $I 'bin\idm.exe') -ArgumentList '--serve', '127.0.0.1:18766',
+              '--output-dir', $dl, '--state-dir', (Join-Path $I 'state') -PassThru -WindowStyle Hidden
+          )
+          Start-Sleep -Seconds 2
+          $held | ForEach-Object { if ($_.HasExited) { throw "$($_.Name) did not stay running" } }
+
+          $env:IDM_DIR = $I
+          $env:IDM_UPDATE_API = 'http://127.0.0.1:18765/latest.json'
+          $env:IDM_UPDATE_BASE = 'http://127.0.0.1:18765'
+          & (Join-Path $I 'bin\idm.exe') update
+          if ($LASTEXITCODE -ne 0) { throw "idm update failed ($LASTEXITCODE)" }
+
+          $left = @(Get-ChildItem -Force $I | Where-Object { $_.Name -match '\.(old|new|rollback)$' } | ForEach-Object Name)
+          if ($left) { throw "left next to bin\ after the update: $($left -join ', ')" }
+          foreach ($f in 'extension\manifest.json', 'extension\background.js', 'extension\content.js',
+                         'bin\ensure-ytdlp.ps1', 'bin\ensure-aria2.ps1', 'gui\idm_gui.py') {
+            if (-not (Test-Path (Join-Path $I $f))) { throw "missing after the update: $f" }
+          }
+          if ((Get-Content (Join-Path $I 'extension\manifest.json') -Raw) -match '"old"') {
+            throw "extension\ was not replaced by the release's"
+          }
+          if ((Get-Content (Join-Path $I 'VERSION') -Raw).Trim() -ne 'v9.9.9') { throw "VERSION not stamped" }
+
+          # Once nothing runs from the old tree any more, the next command
+          # sweeps what the update had to leave.
+          foreach ($p in $held) { if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force; $p.WaitForExit() } }
+          & (Join-Path $I 'bin\idm.exe') --version
+          $rest = @(Get-ChildItem -Force $I | Where-Object { $_.Name -in '.trash', '.update' } | ForEach-Object Name)
+          if ($rest) { throw "not swept by the next command: $($rest -join ', ')" }
+          Stop-Process -Id $http.Id -Force
+          Write-Host "update of a running Windows installation OK"
