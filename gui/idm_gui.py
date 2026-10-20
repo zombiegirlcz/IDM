@@ -106,7 +106,7 @@ THEMES = {
         "row_even": "#eef1f5",
         "grid": "#d4d9e0",        # row separators and panel borders
         "accent": "#1565c0",
-        "ok": "#1b7f3b",          # a finished row
+        "ok": "#176c33",          # a finished row
         "err": "#c62828",         # a failed row
         "selection_bg": "#cfe2ff",
         "selection_fg": "#10243e",
