@@ -405,3 +405,107 @@ fn a_download_finishes_after_the_browser_goes_away() {
     let got = fs::read(&out).expect("the download must complete");
     assert_eq!(String::from_utf8_lossy(&got), PAYLOAD);
 }
+
+/// A stand-in for the window's server: answers one /api/add and hands back
+/// the raw request it got.
+fn fake_gui(state: &Path) -> std::sync::mpsc::Receiver<String> {
+    let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    fs::write(state.join("api-addr"), l.local_addr().unwrap().to_string()).unwrap();
+    fs::write(state.join("api-token"), "tok-123").unwrap();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        if let Ok((mut s, _)) = l.accept() {
+            s.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+            let mut buf = Vec::new();
+            let mut chunk = [0u8; 4096];
+            loop {
+                let n = s.read(&mut chunk).unwrap_or(0);
+                if n == 0 { break; }
+                buf.extend_from_slice(&chunk[..n]);
+                let text = String::from_utf8_lossy(&buf).to_string();
+                if let Some((head, body)) = text.split_once("\r\n\r\n") {
+                    let len = head.lines()
+                        .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse::<usize>().unwrap_or(0)))
+                        .unwrap_or(0);
+                    if body.len() >= len { break; }
+                }
+            }
+            let body = br#"{"ok":true,"id":7}"#;
+            let _ = s.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).as_bytes());
+            let _ = s.write_all(body);
+            let _ = tx.send(String::from_utf8_lossy(&buf).to_string());
+        }
+    });
+    rx
+}
+
+fn spawn_host_with_settings(allowed: &Path, yt_dlp: &Path, settings: &Path) -> (Child, ChildStdin, ChildStdout) {
+    let mut child = Command::new(HOST_BIN)
+        .arg("--engine").arg(ENGINE_BIN)
+        .arg("--allowed-dir").arg(allowed)
+        .arg("--yt-dlp-path").arg(yt_dlp)
+        .arg("--settings").arg(settings)
+        .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null())
+        .spawn().unwrap();
+    let stdin = child.stdin.take().unwrap();
+    let stdout = child.stdout.take().unwrap();
+    (child, stdin, stdout)
+}
+
+// With the window running, a download from the browser goes into its queue,
+// where the user can see it progress, and the browser gets an answer at once.
+#[test]
+fn a_download_goes_to_the_running_window() {
+    let dir = unique_dir("togui");
+    let state = dir.join("state");
+    fs::create_dir_all(&state).unwrap();
+    let got = fake_gui(&state);
+    let stub = make_slow_stub(&dir, 30); // must never be run
+    let (mut child, mut stdin, mut stdout) = spawn_host_with_settings(&dir, &stub, &state.join("settings.json"));
+    write_frame(&mut stdin, &serde_json::json!({
+        "action": "download", "id": 20, "url": "https://www.youtube.com/watch?v=abc",
+        "output": dir.join("clip.mp4").to_string_lossy(), "force_media": true, "format": "18",
+        "cookies": [{"domain": ".youtube.com", "path": "/", "name": "SID", "value": "v"}]
+    }));
+    let started = std::time::Instant::now();
+    let resp = read_frame(&mut stdout);
+    assert!(started.elapsed() < std::time::Duration::from_secs(5), "took {:?}", started.elapsed());
+    assert_eq!(resp["ok"], serde_json::json!(true), "resp: {}", resp);
+    assert_eq!(resp["queued"], serde_json::json!(true), "resp: {}", resp);
+    assert_eq!(resp["gui_id"], serde_json::json!(7), "resp: {}", resp);
+
+    let req = got.recv_timeout(std::time::Duration::from_secs(5)).expect("the window got nothing");
+    assert!(req.starts_with("POST /api/add "), "{}", req);
+    assert!(req.to_ascii_lowercase().contains("x-idm-token: tok-123"), "{}", req);
+    let body: serde_json::Value = serde_json::from_str(req.split_once("\r\n\r\n").unwrap().1).unwrap();
+    assert_eq!(body["url"], "https://www.youtube.com/watch?v=abc");
+    assert_eq!(body["force_media"], true);
+    assert_eq!(body["format"], "18");
+    assert_eq!(body["filename"], "clip.mp4");
+    assert_eq!(body["cookies"][0]["name"], "SID");
+    drop(stdin);
+    let _ = child.kill();
+}
+
+// No window running: the host downloads by itself, exactly as before.
+#[test]
+fn without_a_window_the_host_downloads_itself() {
+    let dir = unique_dir("nogui");
+    let state = dir.join("state");
+    fs::create_dir_all(&state).unwrap();
+    fs::write(state.join("api-addr"), "127.0.0.1:9").unwrap(); // discard: nobody serves
+    fs::write(state.join("api-token"), "tok").unwrap();
+    let (stub, _log) = make_stub(&dir);
+    let out = dir.join("self.m4a");
+    let (mut child, mut stdin, mut stdout) = spawn_host_with_settings(&dir, &stub, &state.join("settings.json"));
+    write_frame(&mut stdin, &serde_json::json!({
+        "action": "download", "id": 21, "url": "https://youtu.be/abc",
+        "output": out.to_string_lossy(), "force_media": true
+    }));
+    let resp = read_frame(&mut stdout);
+    assert_eq!(resp["ok"], serde_json::json!(true), "resp: {}", resp);
+    assert!(resp.get("queued").is_none(), "resp: {}", resp);
+    assert_eq!(fs::read_to_string(&out).unwrap(), PAYLOAD);
+    drop(stdin);
+    let _ = child.wait();
+}
