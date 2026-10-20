@@ -4,7 +4,7 @@ Replikace architektury Internet Download Manageru: multi-connection HTTP Range
 stahování s resume, native-messaging host pro prohlížeč, MV3 extension a
 nativní Tk okno.
 
-**Stav.** Verze 0.1.5, instalace přes `install.sh` / `install.ps1` stahuje
+**Stav.** Verze 2.2.0, instalace přes `install.sh` / `install.ps1` stahuje
 hotové binárky z GitHub release. Všechno leží v jedné složce `$IDM_DIR`
 (výchozí `~/.idm`, na Windows `%USERPROFILE%\.idm`).
 
