@@ -188,3 +188,153 @@ fn a_failed_download_tells_the_browser_why() {
     drop(stdin);
     let _ = child.wait();
 }
+
+/// yt-dlp stub that records its argv and, when given --cookies FILE, what the
+/// file held at that moment (the host deletes it afterwards).
+fn make_cookie_stub(dir: &Path) -> PathBuf {
+    let stub = dir.join("yt-dlp");
+    let log = dir.join("cookie.log");
+    let script = format!(
+        r#"#!/usr/bin/env bash
+echo "ARGV $*" >> "{log}"
+prev=""
+for a in "$@"; do
+  if [[ "$prev" == "--cookies" ]]; then echo "FILE $a" >> "{log}"; cat "$a" >> "{log}"; fi
+  prev="$a"
+done
+if [[ "$*" == *"-J"* ]]; then echo '{{"id":"a","title":"t","ext":"mp4","formats":[]}}'; exit 0; fi
+out=""
+while [[ $# -gt 0 ]]; do if [[ "$1" == "-o" ]]; then out="$2"; shift 2; else shift; fi; done
+printf 'x' > "$out"
+"#,
+        log = log.display()
+    );
+    fs::write(&stub, script).unwrap();
+    let mut perm = fs::metadata(&stub).unwrap().permissions();
+    perm.set_mode(0o755);
+    fs::set_permissions(&stub, perm).unwrap();
+    stub
+}
+
+fn browser_cookies() -> serde_json::Value {
+    serde_json::json!([
+        {"domain": ".youtube.com", "path": "/", "secure": true, "httpOnly": true,
+         "expirationDate": 1893456000.5, "name": "SID", "value": "abc123"},
+        {"domain": "www.youtube.com", "path": "/", "secure": false,
+         "name": "PREF", "value": "f6=40000000"}
+    ])
+}
+
+fn cookie_log(dir: &Path) -> String {
+    fs::read_to_string(dir.join("cookie.log")).unwrap_or_default()
+}
+
+fn the_cookie_file_named_in(log: &str) -> PathBuf {
+    let line = log.lines().find(|l| l.starts_with("FILE ")).expect("yt-dlp got no --cookies file");
+    PathBuf::from(line.trim_start_matches("FILE "))
+}
+
+#[test]
+fn browser_cookies_reach_yt_dlp_as_a_netscape_file_for_a_listing() {
+    let dir = unique_dir("ck_list");
+    let stub = make_cookie_stub(&dir);
+    let (mut child, mut stdin, mut stdout) = spawn_host(&dir, &stub);
+    write_frame(&mut stdin, &serde_json::json!({
+        "action": "list_formats", "id": 1,
+        "url": "https://www.youtube.com/watch?v=abc", "cookies": browser_cookies()
+    }));
+    let resp = read_frame(&mut stdout);
+    assert_eq!(resp["ok"], serde_json::json!(true), "resp: {}", resp);
+    let log = cookie_log(&dir);
+    assert!(log.contains("# Netscape HTTP Cookie File"), "log: {}", log);
+    // domain, subdomains flag, path, secure, expiry, name, value
+    assert!(log.contains("#HttpOnly_.youtube.com\tTRUE\t/\tTRUE\t1893456000\tSID\tabc123"), "log: {}", log);
+    assert!(log.contains("www.youtube.com\tFALSE\t/\tFALSE\t"), "log: {}", log);
+    assert!(log.contains("\tPREF\tf6=40000000"), "log: {}", log);
+    drop(stdin);
+    let _ = child.wait();
+}
+
+#[test]
+fn browser_cookies_reach_yt_dlp_for_a_download_and_the_file_is_removed() {
+    let dir = unique_dir("ck_dl");
+    let stub = make_cookie_stub(&dir);
+    let out = dir.join("out.mp4");
+    let (mut child, mut stdin, mut stdout) = spawn_host(&dir, &stub);
+    write_frame(&mut stdin, &serde_json::json!({
+        "action": "download", "id": 2,
+        "url": "https://www.youtube.com/watch?v=abc",
+        "output": out.to_string_lossy(), "force_media": true, "cookies": browser_cookies()
+    }));
+    let resp = read_frame(&mut stdout);
+    assert_eq!(resp["ok"], serde_json::json!(true), "resp: {}", resp);
+    let log = cookie_log(&dir);
+    assert!(log.contains("\tSID\tabc123"), "log: {}", log);
+    let file = the_cookie_file_named_in(&log);
+    assert!(!file.exists(), "session cookies must not be left on disk: {}", file.display());
+    drop(stdin);
+    let _ = child.wait();
+}
+
+#[test]
+fn the_cookie_file_is_private() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = unique_dir("ck_mode");
+    let stub = dir.join("yt-dlp");
+    let mode_log = dir.join("mode.log");
+    fs::write(&stub, format!(r#"#!/usr/bin/env bash
+prev=""
+for a in "$@"; do
+  if [[ "$prev" == "--cookies" ]]; then stat -c %a "$a" >> "{}"; fi
+  prev="$a"
+done
+echo '{{"id":"a","title":"t","ext":"mp4","formats":[]}}'
+"#, mode_log.display())).unwrap();
+    let mut perm = fs::metadata(&stub).unwrap().permissions();
+    perm.set_mode(0o755);
+    fs::set_permissions(&stub, perm).unwrap();
+    let (mut child, mut stdin, mut stdout) = spawn_host(&dir, &stub);
+    write_frame(&mut stdin, &serde_json::json!({
+        "action": "list_formats", "id": 3,
+        "url": "https://www.youtube.com/watch?v=abc", "cookies": browser_cookies()
+    }));
+    let _ = read_frame(&mut stdout);
+    assert_eq!(fs::read_to_string(&mode_log).unwrap_or_default().trim(), "600");
+    drop(stdin);
+    let _ = child.wait();
+}
+
+#[test]
+fn a_cookie_that_could_break_the_file_format_is_dropped() {
+    let dir = unique_dir("ck_bad");
+    let stub = make_cookie_stub(&dir);
+    let (mut child, mut stdin, mut stdout) = spawn_host(&dir, &stub);
+    write_frame(&mut stdin, &serde_json::json!({
+        "action": "list_formats", "id": 4,
+        "url": "https://www.youtube.com/watch?v=abc",
+        "cookies": [
+            {"domain": ".youtube.com", "path": "/", "name": "EVIL", "value": "x\n.evil.com\tTRUE\t/\tFALSE\t0\tSID\tstolen"},
+            {"domain": ".youtube.com", "path": "/", "name": "OK", "value": "fine"}
+        ]
+    }));
+    let _ = read_frame(&mut stdout);
+    let log = cookie_log(&dir);
+    assert!(!log.contains("stolen"), "log: {}", log);
+    assert!(log.contains("\tOK\tfine"), "log: {}", log);
+    drop(stdin);
+    let _ = child.wait();
+}
+
+#[test]
+fn without_cookies_yt_dlp_gets_no_cookie_flag() {
+    let dir = unique_dir("ck_none");
+    let stub = make_cookie_stub(&dir);
+    let (mut child, mut stdin, mut stdout) = spawn_host(&dir, &stub);
+    write_frame(&mut stdin, &serde_json::json!({
+        "action": "list_formats", "id": 5, "url": "https://www.youtube.com/watch?v=abc"
+    }));
+    let _ = read_frame(&mut stdout);
+    assert!(!cookie_log(&dir).contains("--cookies"), "log: {}", cookie_log(&dir));
+    drop(stdin);
+    let _ = child.wait();
+}

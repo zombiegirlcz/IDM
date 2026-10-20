@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 
 const ext = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-async function loadBackground() {
+async function loadBackground({ cookies } = {}) {
   const posted = [];
   const listeners = [];
   const runtimeListeners = [];
@@ -49,6 +49,7 @@ async function loadBackground() {
       removeAll: (cb) => (cb ? cb() : undefined),
       onClicked: { addListener: () => {} },
     },
+    cookies: cookies && { getAll: (q, cb) => { const r = cookies(q); return cb ? cb(r) : Promise.resolve(r); } },
     tabs: { onRemoved: { addListener: () => {} }, sendMessage: () => Promise.resolve({ ok: true, links: [] }) },
   };
   await import(pathToFileURL(join(ext, 'background.js')).href + `?t=${Math.random()}`);
@@ -80,4 +81,39 @@ test('a caller that names a browser still gets it passed through', async () => {
   await bg.ask({ type: 'download', url: 'https://www.youtube.com/watch?v=abc', cookiesFromBrowser: 'firefox' });
   const req = bg.posted.find((m) => m.action === 'download');
   assert.equal(req.cookies_from_browser, 'firefox');
+});
+
+const BROWSER = [
+  { domain: '.youtube.com', path: '/', secure: true, httpOnly: true, expirationDate: 1893456000, name: 'SID', value: 'abc', hostOnly: false },
+];
+
+test('the popup sends the cookies the browser holds for that page', async () => {
+  const asked = [];
+  const bg = await loadBackground({ cookies: (q) => { asked.push(q); return BROWSER; } });
+  await bg.ask({ type: 'list_formats', url: 'https://www.youtube.com/watch?v=abc' });
+  const req = bg.posted.find((m) => m.action === 'list_formats');
+  assert.deepEqual(req.cookies.map((c) => c.name), ['SID'], JSON.stringify(req));
+  assert.equal(req.cookies[0].domain, '.youtube.com');
+  assert.equal(asked[0].url, 'https://www.youtube.com/watch?v=abc');
+});
+
+test('a download from the popup carries the browser cookies too', async () => {
+  const bg = await loadBackground({ cookies: () => BROWSER });
+  await bg.ask({ type: 'download', url: 'https://www.youtube.com/watch?v=abc', forceMedia: true });
+  const req = bg.posted.find((m) => m.action === 'download');
+  assert.deepEqual(req.cookies.map((c) => c.name), ['SID'], JSON.stringify(req));
+});
+
+test('a cookie lookup that fails does not stop the request', async () => {
+  const bg = await loadBackground({ cookies: () => { throw new Error('denied'); } });
+  await bg.ask({ type: 'list_formats', url: 'https://www.youtube.com/watch?v=abc' });
+  const req = bg.posted.find((m) => m.action === 'list_formats');
+  assert.ok(req, 'the listing must still go out');
+  assert.equal('cookies' in req, false);
+});
+
+test('the manifest asks for the cookies permission', async () => {
+  const { readFileSync } = await import('node:fs');
+  const m = JSON.parse(readFileSync(join(ext, 'manifest.json'), 'utf8'));
+  assert.ok(m.permissions.includes('cookies'));
 });

@@ -140,6 +140,12 @@ pub fn yt_dlp_available(bin: &Path) -> bool {
 }
 
 fn apply_auth(cmd: &mut tokio::process::Command, cookie: Option<&str>, referer: Option<&str>) {
+    // A Netscape cookie file the native host wrote from the browser's own
+    // cookies. yt-dlp's YouTube extractor reads its cookie jar, not a Cookie
+    // header, so a logged-in session only gets through this way.
+    if let Some(f) = std::env::var_os("IDM_COOKIES_FILE").filter(|v| !v.is_empty()) {
+        cmd.arg("--cookies").arg(f);
+    }
     if let Some(c) = cookie {
         cmd.arg("--add-header").arg(format!("Cookie: {}", c));
     }
