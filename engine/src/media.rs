@@ -247,11 +247,15 @@ pub async fn probe_json(
     referer: Option<&str>,
     proxy: Option<&str>,
     auth_env: Option<&str>,
+    cookies_from_browser: Option<&str>,
 ) -> anyhow::Result<serde_json::Value> {
     let mut cmd = tokio::process::Command::new(yt_dlp);
     cmd.hide_console();
     scrub_auth_env(&mut cmd, auth_env);
     cmd.arg("-J").arg("--no-playlist").arg("--no-warnings");
+    if let Some(b) = cookies_from_browser {
+        cmd.arg("--cookies-from-browser").arg(b);
+    }
     apply_auth(&mut cmd, cookie, referer);
     if let Some(p) = proxy {
         cmd.arg("--proxy").arg(p);
@@ -379,12 +383,16 @@ pub async fn download(
     referer: Option<&str>,
     proxy: Option<&str>,
     auth_env: Option<&str>,
+    cookies_from_browser: Option<&str>,
     speed: Speed,
 ) -> anyhow::Result<PathBuf> {
     let mut cmd = tokio::process::Command::new(yt_dlp);
     cmd.hide_console();
     scrub_auth_env(&mut cmd, auth_env);
     cmd.arg("--no-playlist").arg("--no-warnings");
+    if let Some(b) = cookies_from_browser {
+        cmd.arg("--cookies-from-browser").arg(b);
+    }
     apply_speed(&mut cmd, &speed);
     if let Some(p) = proxy {
         cmd.arg("--proxy").arg(p);

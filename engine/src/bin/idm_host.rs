@@ -548,7 +548,16 @@ fn main() {
         p.set_file_name("idm");
         p
     });
-    let yt_dlp = yt_dlp.unwrap_or_else(|| PathBuf::from("yt-dlp"));
+    let yt_dlp = yt_dlp.unwrap_or_else(|| {
+        // Chrome spawns the native host with a minimal PATH that often lacks
+        // /usr/local/bin, where yt-dlp is typically installed. Fall back to
+        // common absolute locations before relying on PATH lookup.
+        for cand in ["/usr/local/bin/yt-dlp", "/usr/bin/yt-dlp", "/opt/yt-dlp/yt-dlp"] {
+            let p = PathBuf::from(cand);
+            if p.is_file() { return p; }
+        }
+        PathBuf::from("yt-dlp")
+    });
 
     // --allowed-dir is mandatory: without it the host fails closed so a page
     // can never cause a write outside a controlled directory.

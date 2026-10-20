@@ -109,6 +109,12 @@ struct Args {
     #[arg(long)]
     referer: Option<String>,
 
+    /// Read cookies from the given browser (chrome, chromium, edge, firefox, ...)
+    /// and pass them to yt-dlp, so sites like YouTube that require a logged-in
+    /// session work without the user exporting cookies by hand. Empty = off.
+    #[arg(long)]
+    cookies_from_browser: Option<String>,
+
     /// Route requests through a proxy, e.g. http://127.0.0.1:8080 or socks5://host:1080
     #[arg(long)]
     proxy: Option<String>,
@@ -220,6 +226,8 @@ struct Net {
     ua: String,
     cookie: Option<String>,
     referer: Option<String>,
+    /// Browser to read cookies from for yt-dlp (chrome, chromium, firefox, ...)
+    cookies_from_browser: Option<String>,
     limit_rate: u64,
     /// HTTP basic credentials as USER:PASSWORD, from --auth.
     auth: Option<String>,
@@ -1534,7 +1542,10 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
 
     // --list-formats: report what the backend offers and exit.
     if args.list_formats {
-        let meta = media::probe_json(&yt_dlp, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
+        let meta = media::probe_json(
+            &yt_dlp, url, cookie, referer, args.proxy.as_deref(),
+            args.auth_env.as_deref(), net.cookies_from_browser.as_deref(),
+        ).await?;
         println!("{}", serde_json::to_string_pretty(&media::summarize(&meta))?);
         return Ok(());
     }
@@ -1545,7 +1556,10 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
             // No explicit --output: name the file after the media title (not the
             // URL slug) and honour --category-dir / --output-dir, exactly like
             // the direct path does with filename_from_url.
-            let meta = media::probe_json(&yt_dlp, url, cookie, referer, args.proxy.as_deref(), args.auth_env.as_deref()).await?;
+            let meta = media::probe_json(
+                &yt_dlp, url, cookie, referer, args.proxy.as_deref(),
+                args.auth_env.as_deref(), net.cookies_from_browser.as_deref(),
+            ).await?;
             let name = media::output_name(&meta, args.format.as_deref());
             if let Some(base) = args.category_dir.as_deref() {
                 let n = name.file_name().map(|x| x.to_owned()).unwrap_or_default();
@@ -1579,6 +1593,7 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
         referer,
         args.proxy.as_deref(),
         args.auth_env.as_deref(),
+        net.cookies_from_browser.as_deref(),
         media_speed(args).await?,
     )
     .await?;
@@ -1743,6 +1758,9 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
         if let Some(r) = &args.referer {
             cmd.arg("--referer").arg(r);
         }
+        if let Some(b) = &args.cookies_from_browser {
+            cmd.arg("--cookies-from-browser").arg(b);
+        }
         if args.limit_rate > 0 {
             cmd.arg("--limit-rate").arg(args.limit_rate.to_string());
         }
@@ -1889,6 +1907,7 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
         ua: args.user_agent.clone(),
         cookie: args.cookie.clone(),
         referer: args.referer.clone(),
+        cookies_from_browser: args.cookies_from_browser.clone(),
         limit_rate: args.limit_rate,
         auth: auth_from(&args),
     };
