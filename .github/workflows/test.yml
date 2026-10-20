@@ -266,3 +266,57 @@ jobs:
             throw "IDM_DIR survived -Uninstall"
           }
           Write-Host "install + uninstall OK"
+
+      # Reported: "installing on Windows still gives the old 2.0.7". On a real
+      # machine the browser keeps idm-host.exe running and the window keeps
+      # idm.exe running, and Windows will not delete or overwrite an exe that
+      # is in use -- so a reinstall over a live installation must stop those
+      # processes first, or it leaves the old files in place.
+      - name: Upgrade over a running installation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $prefix = Join-Path $env:RUNNER_TEMP 'idm-upgrade'
+          $dl     = Join-Path $env:RUNNER_TEMP 'idm-upgrade-dl'
+          function New-Archive([string]$tag, [string]$exe) {
+            $stage = Join-Path $env:RUNNER_TEMP "stage-$tag"
+            New-Item -ItemType Directory -Force -Path $stage | Out-Null
+            # Real executables, so they can run and hold their files open.
+            Copy-Item $exe (Join-Path $stage 'idm.exe')
+            Copy-Item $exe (Join-Path $stage 'idm-host.exe')
+            "VERSION = `"$tag`"" | Set-Content (Join-Path $stage 'idm_gui.py')
+            Copy-Item ./install.ps1 $stage
+            Copy-Item ./scripts/ensure-aria2.ps1 $stage
+            New-Item -ItemType Directory -Force -Path (Join-Path $stage 'assets') | Out-Null
+            Copy-Item ./assets/idm.ico, ./assets/idm.png (Join-Path $stage 'assets')
+            $dir = Join-Path $env:RUNNER_TEMP "archive-$tag"
+            New-Item -ItemType Directory -Force -Path $dir | Out-Null
+            $zip = Join-Path $dir 'idm-windows-x64.zip'
+            Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
+            $sha = (Get-FileHash $zip -Algorithm SHA256).Hash
+            "$sha  idm-windows-x64.zip" | Set-Content "$zip.sha256"
+            return ([System.Uri](Resolve-Path $zip).Path).AbsoluteUri
+          }
+          $oldExe = Join-Path $env:SystemRoot 'System32\PING.EXE'
+          $newExe = Join-Path $env:SystemRoot 'System32\HOSTNAME.EXE'
+
+          ./install.ps1 -ArchiveUrl (New-Archive '2.0.7' $oldExe) -Prefix $prefix -DownloadsDir $dl
+          $running = @(
+            Start-Process (Join-Path $prefix 'bin\idm.exe') -ArgumentList '-n','900','127.0.0.1' -PassThru -WindowStyle Hidden
+            Start-Process (Join-Path $prefix 'bin\idm-host.exe') -ArgumentList '-n','900','127.0.0.1' -PassThru -WindowStyle Hidden
+          )
+          Start-Sleep -Seconds 2
+
+          ./install.ps1 -ArchiveUrl (New-Archive '2.1.7' $newExe) -Prefix $prefix -DownloadsDir $dl
+
+          $gui = Get-Content (Join-Path $prefix 'gui\idm_gui.py') -Raw
+          if ($gui -notmatch '2\.1\.7') { throw "gui\idm_gui.py is still the old one: $gui" }
+          $want = (Get-FileHash $newExe).Hash
+          foreach ($b in 'idm.exe', 'idm-host.exe') {
+            if ((Get-FileHash (Join-Path $prefix "bin\$b")).Hash -ne $want) { throw "bin\$b is still the old one" }
+          }
+          $ver = (Get-Content (Join-Path $prefix 'VERSION') -Raw).Trim()
+          if ($ver -ne '2.1.7') { throw "VERSION says '$ver', not the version installed" }
+          $running | ForEach-Object { if (-not $_.HasExited) { $_ | Stop-Process -Force } }
+          & (Join-Path $prefix 'install.ps1') -Uninstall
+          Write-Host "upgrade over a running installation OK"
