@@ -283,15 +283,29 @@ fn find_js_runtime() -> Option<String> {
         }
     }
     dirs.extend(["/usr/local/bin", "/usr/bin", "/opt/homebrew/bin"].map(PathBuf::from));
-    for name in ["deno", "node", "bun"] {
+    // yt-dlp's own floors (yt_dlp/utils/_jsruntime.py). An older runtime is
+    // "unsupported": yt-dlp solves nothing with it, YouTube then offers only
+    // storyboards and every format is "not available". A system node 20
+    // early on PATH must not hide a node 22+ further along.
+    for (name, min) in [("deno", (2, 3, 0)), ("node", (22, 0, 0)), ("bun", (1, 2, 11))] {
         for d in &dirs {
             let exe = d.join(if cfg!(windows) { format!("{}.exe", name) } else { name.to_string() });
-            if is_executable(&exe) {
+            if is_executable(&exe) && runtime_version(&exe).map_or(false, |v| v >= min) {
                 return Some(format!("{}:{}", name, exe.display()));
             }
         }
     }
     None
+}
+
+/// `deno 2.4.1 (...)`, `v22.12.0`, `1.2.20` -> the version tuple.
+fn runtime_version(exe: &Path) -> Option<(u32, u32, u32)> {
+    let mut cmd = std::process::Command::new(exe);
+    cmd.hide_console();
+    let out = cmd.arg("--version").output().ok()?;
+    String::from_utf8_lossy(&out.stdout)
+        .split_whitespace()
+        .find_map(|tok| parse_version(tok.trim_start_matches('v')))
 }
 
 /// Tell yt-dlp which JavaScript runtime to use for YouTube's challenges, when
