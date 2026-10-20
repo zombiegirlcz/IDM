@@ -326,7 +326,18 @@ pub async fn apply(dir: &Path, prog: &mut Progress) -> anyhow::Result<String> {
     let trees = arrange(&unpack, &stage)?;
 
     prog.phase("swap");
-    swap_in(dir, &trees)?;
+    stop_hosts(dir);
+    if let Err(e) = swap_in(dir, &trees) {
+        // Undone completely, the installation is the one we started from and
+        // the staging directory is just a download: without it the next
+        // command may sweep a stuck .old that blocked this swap. Undone only
+        // in part, the .old trees are the way back and .update keeps the
+        // sweep off them.
+        if e.undone {
+            let _ = discard(dir, &stage);
+        }
+        return Err(e.into());
+    }
     write_atomic(&dir.join("VERSION"), &format!("{}\n", c.latest))?;
     // The cache was written by `check` a moment ago, when VERSION still named
     // the OLD version -- so it says a newer release exists, which is what
@@ -506,7 +517,13 @@ fn make_executable(_p: &Path) {}
 /// Renames only, so the window of a half-swapped install is as small as the
 /// filesystem allows -- and on Windows renaming a directory holding a running
 /// .exe is permitted, where overwriting the file is not.
-fn swap_in(dir: &Path, trees: &[PathBuf]) -> anyhow::Result<()> {
+///
+/// All or nothing: when a tree cannot be swapped, the renames already done
+/// are put back (the new tree to its staging path, `<name>.old` to live)
+/// before the error is returned. A new bin\ next to the old gui\ and the old
+/// VERSION is the mixed install this exists to prevent.
+fn swap_in(dir: &Path, trees: &[PathBuf]) -> Result<(), SwapError> {
+    let mut done: Vec<Swapped> = Vec::new();
     for (i, name) in TREES.iter().enumerate() {
         let new = &trees[i];
         if !new.is_dir() {
@@ -514,13 +531,24 @@ fn swap_in(dir: &Path, trees: &[PathBuf]) -> anyhow::Result<()> {
         }
         let live = dir.join(name);
         let old = dir.join(format!("{name}.old"));
+        let fail = |done: &[Swapped], error| SwapError { tree: *name, error, undone: undo_swap(done) };
         // A bin.old an earlier update could not delete would make the rename
         // below fail: no platform renames a directory onto a non-empty one.
-        discard(dir, &old)?;
-        if live.exists() {
-            std::fs::rename(&live, &old)?;
+        if let Err(e) = discard(dir, &old) {
+            return Err(fail(&done[..], e));
         }
-        std::fs::rename(new, &live)?;
+        let had = live.exists();
+        if had {
+            if let Err(e) = rename(&live, &old) {
+                return Err(fail(&done[..], e));
+            }
+        }
+        if let Err(e) = rename(new, &live) {
+            // Half of this tree's swap is done too: live already went to old.
+            done.push(Swapped { live, staged: None, old: Some(old) });
+            return Err(fail(&done[..], e));
+        }
+        done.push(Swapped { live, staged: Some(new.clone()), old: had.then_some(old) });
     }
     // VERSION moves with them, so --rollback restores the right number.
     let v = dir.join("VERSION");
@@ -529,6 +557,65 @@ fn swap_in(dir: &Path, trees: &[PathBuf]) -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+/// One tree `swap_in` has moved: where its new version came from (now at
+/// `live`), and where the version it replaced went.
+struct Swapped {
+    live: PathBuf,
+    staged: Option<PathBuf>,
+    old: Option<PathBuf>,
+}
+
+/// Put back what `swap_in` already did, newest first. True when every step
+/// was undone, i.e. the installation is the one the update started from.
+fn undo_swap(done: &[Swapped]) -> bool {
+    let mut whole = true;
+    for s in done.iter().rev() {
+        if let Some(staged) = &s.staged {
+            if rename(&s.live, staged).is_err() {
+                // Moving the old tree back would need live empty.
+                whole = false;
+                continue;
+            }
+        }
+        if let Some(old) = &s.old {
+            if rename(old, &s.live).is_err() {
+                whole = false;
+            }
+        }
+    }
+    whole
+}
+
+/// A swap that failed at `tree`, and whether what it had already done was
+/// put back.
+#[derive(Debug)]
+struct SwapError {
+    tree: &'static str,
+    error: std::io::Error,
+    undone: bool,
+}
+
+impl std::fmt::Display for SwapError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.undone {
+            write!(
+                f,
+                "{} nelze vyměnit ({}); instalace zůstala beze změny",
+                self.tree, self.error
+            )
+        } else {
+            write!(
+                f,
+                "{} nelze vyměnit ({}) a vrátit předchozí stav se nepovedlo \
+                 — zkus `idm update --rollback`",
+                self.tree, self.error
+            )
+        }
+    }
+}
+
+impl std::error::Error for SwapError {}
 
 /// Get `path` out of the install directory: delete it, or -- when something
 /// in it is still in use -- move it into the trash for `sweep_leftovers`.
@@ -559,7 +646,7 @@ fn discard(dir: &Path, path: &Path) -> std::io::Result<()> {
     // between our create_dir_all and the rename.
     for i in 0..2 {
         std::fs::create_dir_all(&trash)?;
-        match std::fs::rename(path, trash.join(format!("{name}-{stamp}-{i}"))) {
+        match rename(path, &trash.join(format!("{name}-{stamp}-{i}"))) {
             Ok(()) => return Ok(()),
             Err(e) => last = Some(e),
         }
@@ -594,6 +681,9 @@ pub fn sweep_leftovers(dir: &Path) {
     }
     for name in TREES.iter() {
         let _ = discard(dir, &dir.join(format!("{name}.old")));
+        // What a rollback replaced and could not delete (Windows: the bin\
+        // `idm update --rollback` was running from) is litter just the same.
+        let _ = discard(dir, &dir.join(format!("{name}.rollback")));
     }
     let _ = std::fs::remove_file(dir.join("VERSION.old"));
 }
@@ -614,12 +704,16 @@ pub fn rollback(dir: &Path) -> anyhow::Result<String> {
         let live = dir.join(name);
         let old = dir.join(format!("{name}.old"));
         let scratch = dir.join(format!("{name}.rollback"));
-        let _ = std::fs::remove_dir_all(&scratch);
+        // Through discard(), not remove_dir_all: on Windows the tree being
+        // replaced holds the running `idm update --rollback`, cannot be
+        // deleted, and a bin.rollback left in place would make the next
+        // rollback's rename fail. In the trash it waits for the sweep.
+        discard(dir, &scratch)?;
         if live.exists() {
-            std::fs::rename(&live, &scratch)?;
+            rename(&live, &scratch)?;
         }
-        std::fs::rename(&old, &live)?;
-        let _ = std::fs::remove_dir_all(&scratch);
+        rename(&old, &live)?;
+        let _ = discard(dir, &scratch);
     }
     let vold = dir.join("VERSION.old");
     if vold.is_file() {
@@ -643,24 +737,129 @@ pub fn rollback(dir: &Path) -> anyhow::Result<String> {
 
 // --- Windows: what holds bin\ ------------------------------------------------
 
+/// Stop the native hosts that run from this installation's bin\, so bin\ can
+/// be renamed.
+///
+/// Verified on a real Windows box: a running exe does not stop its directory
+/// being renamed, but a process whose working directory is inside it does
+/// ("used by another process"). Chrome starts the native host with its
+/// working directory in the host's own folder, so with the browser open,
+/// bin\idm-host.exe pinned bin\ and the update failed. The host keeps no
+/// state -- the extension reconnects on its next message -- so it is simply
+/// stopped. `idm.exe --serve` is not: its working directory is the install
+/// root, and the window that owns it would lose its server.
+///
+/// No windows crate here, so PowerShell does the listing and the stopping,
+/// with its console hidden. Every failure is ignored: when nothing could be
+/// stopped, the rename that follows reports the real error.
+fn stop_hosts(dir: &Path) {
+    if !cfg!(windows) {
+        return;
+    }
+    let bin = std::path::absolute(dir.join("bin")).unwrap_or_else(|_| dir.join("bin"));
+    // Single quotes only: the script travels as one argv element, and double
+    // quotes would have to survive two layers of Windows command-line quoting.
+    let listing = powershell(
+        "Get-CimInstance Win32_Process -Filter 'Name=''idm-host.exe''' \
+         -ErrorAction SilentlyContinue | ForEach-Object { \
+         $_.ProcessId.ToString() + [char]9 + $_.ExecutablePath }",
+        None,
+    );
+    let pids = hosts_to_stop(&bin.to_string_lossy(), &listing, std::process::id());
+    if pids.is_empty() {
+        return;
+    }
+    let ids: Vec<String> = pids.iter().map(|p| p.to_string()).collect();
+    // Waited for: the working directory is released when the process is gone,
+    // not when it has been asked to go.
+    powershell(
+        "$ids = $env:IDM_STOP_PIDS -split ',' | ForEach-Object { [int]$_ }; \
+         Stop-Process -Id $ids -Force -ErrorAction SilentlyContinue; \
+         Wait-Process -Id $ids -Timeout 10 -ErrorAction SilentlyContinue",
+        Some(&ids.join(",")),
+    );
+}
+
+/// Run a PowerShell snippet and return its stdout ("" on any failure). The
+/// pids travel in the environment, so nothing is ever interpolated into code.
+fn powershell(script: &str, pids: Option<&str>) -> String {
+    let exe = std::env::var_os("SystemRoot")
+        .map(|r| {
+            PathBuf::from(r)
+                .join("System32")
+                .join("WindowsPowerShell")
+                .join("v1.0")
+                .join("powershell.exe")
+        })
+        .filter(|p| p.is_file())
+        .unwrap_or_else(|| PathBuf::from("powershell"));
+    let mut cmd = std::process::Command::new(exe);
+    cmd.hide_console()
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .stdin(std::process::Stdio::null());
+    if let Some(p) = pids {
+        cmd.env("IDM_STOP_PIDS", p);
+    }
+    cmd.output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default()
+}
+
 /// Which of the listed idm-host.exe processes run from `bin`: the pids of
 /// `listing` lines (`<pid>\t<ExecutablePath>`) to stop before the swap.
-fn hosts_to_stop(_bin: &str, _listing: &str, _me: u32) -> Vec<u32> {
-    Vec::new()
+///
+/// Only a host directly in this bin\ qualifies -- the real Internet Download
+/// Manager or another IDM installation is somebody else's -- and never this
+/// process. Compared the way Windows compares paths: case-insensitive, either
+/// separator.
+fn hosts_to_stop(bin: &str, listing: &str, me: u32) -> Vec<u32> {
+    let norm = |p: &str| p.trim().replace('/', "\\").to_lowercase();
+    let want = format!("{}\\idm-host.exe", norm(bin).trim_end_matches('\\'));
+    listing
+        .lines()
+        .filter_map(|line| {
+            let (pid, path) = line.split_once('\t')?;
+            let pid: u32 = pid.trim().parse().ok()?;
+            (pid != me && norm(path) == want).then_some(pid)
+        })
+        .collect()
 }
 
-/// Whether a failed rename is worth trying again.
-fn transient(_e: &std::io::Error) -> bool {
-    false
+/// Whether a failed rename is worth trying again: access denied, a sharing or
+/// a lock violation -- what Windows says while Defender scans a freshly
+/// unpacked exe or an Explorer window looks into the tree, and stops saying a
+/// moment later. Nowhere else: EACCES on Linux is a permission, and retrying
+/// it only makes a failing update slower.
+fn transient(e: &std::io::Error) -> bool {
+    cfg!(windows) && matches!(e.raw_os_error(), Some(5 | 32 | 33))
 }
 
-/// Run `op` again while it fails with an error `is_transient` accepts.
+/// Run `op` again, after a growing pause, while it fails with an error
+/// `is_transient` accepts and `budget` is not spent.
 fn retry_io<T>(
-    _budget: Duration,
-    _is_transient: impl Fn(&std::io::Error) -> bool,
+    budget: Duration,
+    is_transient: impl Fn(&std::io::Error) -> bool,
     mut op: impl FnMut() -> std::io::Result<T>,
 ) -> std::io::Result<T> {
-    op()
+    let started = Instant::now();
+    let mut pause = Duration::from_millis(25);
+    loop {
+        match op() {
+            Err(e) if is_transient(&e) && started.elapsed() + pause <= budget => {
+                std::thread::sleep(pause);
+                pause = (pause * 2).min(Duration::from_millis(400));
+            }
+            r => return r,
+        }
+    }
+}
+
+/// How long a rename may keep failing transiently before the failure counts.
+const RENAME_BUDGET: Duration = Duration::from_secs(2);
+
+/// `std::fs::rename`, patient with what Windows means only for a moment.
+fn rename(from: &Path, to: &Path) -> std::io::Result<()> {
+    retry_io(RENAME_BUDGET, transient, || std::fs::rename(from, to))
 }
 
 #[cfg(test)]
