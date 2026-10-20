@@ -97,6 +97,27 @@ function Add-UserPath {
     }
 }
 
+# Stop whatever runs out of this installation: idm.exe (the window's server),
+# idm-host.exe (the browser keeps it alive) and the window itself (pythonw
+# running gui\idm_gui.py). Windows will not delete or overwrite an exe that is
+# in use, so without this a reinstall left the old binaries -- and, because
+# the copy then failed, the old GUI too: "it still installs 2.0.7".
+function Stop-IdmProcesses {
+    param([string]$Root)
+    if (-not (Test-Path $Root)) { return }
+    $root = [System.IO.Path]::GetFullPath($Root).TrimEnd('\') + '\'
+    $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) -or
+        ($_.Name -match '^pythonw?(\.exe)?$' -and $_.CommandLine -and
+         $_.CommandLine.IndexOf($root, [StringComparison]::OrdinalIgnoreCase) -ge 0)
+    })
+    foreach ($p in $procs) {
+        Write-Log "zastavuji $($p.Name) (PID $($p.ProcessId))"
+        Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+    foreach ($p in $procs) { Wait-Process -Id $p.ProcessId -Timeout 15 -ErrorAction SilentlyContinue }
+}
+
 function Remove-UserPath {
     param([string]$Dir)
     $cur = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -121,6 +142,7 @@ if ($Uninstall) {
     [Environment]::SetEnvironmentVariable("IDM_DIR", $null, "User")
     Remove-UserPath -Dir (Join-Path $Prefix "bin")
     Remove-UserPath -Dir $Prefix
+    Stop-IdmProcesses -Root $Prefix
     if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix -ErrorAction SilentlyContinue }
     Write-Log "hotovo - odstraneno"
     exit 0
@@ -189,8 +211,12 @@ $guiDir    = Join-Path $Prefix "gui"
 $assetsDir = Join-Path $Prefix "assets"
 $stateDir  = Join-Path $Prefix "state"
 # state/ holds the queue and the vault; a reinstall must not throw them away.
+Stop-IdmProcesses -Root $Prefix
 foreach ($d in @($binDir, $guiDir, $assetsDir)) {
     if (Test-Path $d) { Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue }
+    # A directory that will not go away still holds the old version; carrying
+    # on would report success over it.
+    if (Test-Path $d) { Die "nelze odstranit $d (bezi jeste IDM? zavri okno IDM i prohlizec a spust instalaci znovu)" }
 }
 foreach ($d in @($binDir, $guiDir, $assetsDir, $stateDir)) {
     New-Item -ItemType Directory -Force -Path $d | Out-Null
@@ -229,7 +255,15 @@ foreach ($a in @("idm.ico", "idm.png")) {
 }
 $stageSelf = Join-Path $stage "install.ps1"
 if (Test-Path $stageSelf) { Move-Item $stageSelf (Join-Path $Prefix "install.ps1") -Force }
-Set-Content -Encoding ASCII -Path (Join-Path $Prefix "VERSION") -Value $Version
+# Only a concrete tag is a version (same rule as install.sh): for "latest"
+# record the number the GUI we just installed carries.
+$installedVersion = $Version
+if ($installedVersion -eq "latest") {
+    $guiFile = Join-Path $guiDir "idm_gui.py"
+    $m = if (Test-Path $guiFile) { Select-String -Path $guiFile -Pattern '^VERSION\s*=\s*"([^"]+)"' | Select-Object -First 1 }
+    $installedVersion = if ($m) { $m.Matches[0].Groups[1].Value } else { "" }
+}
+Set-Content -Encoding ASCII -Path (Join-Path $Prefix "VERSION") -Value $installedVersion
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 
 # The last line of the output points at "$Prefix\install.ps1 -Uninstall", so
