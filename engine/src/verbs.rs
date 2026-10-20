@@ -75,28 +75,45 @@ fn run_gui(extra: &[String]) -> i32 {
         );
         return 1;
     }
-    let python = std::env::var("IDM_PYTHON").unwrap_or_else(|_| "python3".into());
+    let configured = std::env::var("IDM_PYTHON").ok();
+    let candidates = python_candidates(cfg!(windows), configured.as_deref());
     // Without tkinter the window used to die into a log nobody reads. Say it
     // here, where the user can see it.
-    let has_tk = std::process::Command::new(&python)
-        .hide_console()
-        .args(["-c", "import tkinter"])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
-    if !has_tk {
-        eprintln!(
-            "[x] okno nelze spustit: '{python}' nemá modul tkinter.\n    \
-             Doinstaluj např.: sudo apt-get install -y python3 python3-tk",
-        );
+    let has_tk = |c: &[String]| {
+        std::process::Command::new(&c[0])
+            .hide_console()
+            .args(&c[1..])
+            .args(["-c", "import tkinter"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    };
+    let Some(python) = candidates.iter().find(|c| has_tk(c)) else {
+        let tried: Vec<String> = candidates.iter().map(|c| c.join(" ")).collect();
+        if cfg!(windows) {
+            eprintln!(
+                "[x] okno nelze spustit: žádný Python s tkinter ({}).\n    \
+                 Nainstaluj Python z python.org (tkinter obsahuje), nebo \
+                 `winget install Python.Python.3.12`, případně nastav IDM_PYTHON.",
+                tried.join(", "),
+            );
+        } else {
+            eprintln!(
+                "[x] okno nelze spustit: '{}' nemá modul tkinter.\n    \
+                 Doinstaluj např.: sudo apt-get install -y python3 python3-tk",
+                tried.join(", "),
+            );
+        }
         return 1;
-    }
+    };
+    let shown = python.join(" ");
 
-    let mut cmd = std::process::Command::new(&python);
+    let mut cmd = std::process::Command::new(&python[0]);
     cmd.hide_console();
-    cmd.arg(&script)
+    cmd.args(&python[1..])
+        .arg(&script)
         .arg("--engine")
         .arg(dir.join("bin").join(exe("idm")))
         .arg("--state-dir")
@@ -106,10 +123,35 @@ fn run_gui(extra: &[String]) -> i32 {
     match cmd.status() {
         Ok(s) => s.code().unwrap_or(0),
         Err(e) => {
-            eprintln!("[x] nepodařilo se spustit {python}: {e}");
+            eprintln!("[x] nepodařilo se spustit {shown}: {e}");
             1
         }
     }
+}
+
+/// The interpreters to try for the window, in order, each as program + args.
+///
+/// Windows has no `python3`: a python.org or winget install provides
+/// pythonw/python and the `py` launcher, and "python3" is at best the
+/// Microsoft Store stub. install.ps1 persists the one it found as IDM_PYTHON,
+/// which goes first everywhere.
+pub fn python_candidates(windows: bool, configured: Option<&str>) -> Vec<Vec<String>> {
+    let one = |s: &str| vec![s.to_string()];
+    let mut out = Vec::new();
+    if let Some(c) = configured.filter(|c| !c.trim().is_empty()) {
+        out.push(one(c));
+        if !windows {
+            return out;
+        }
+    }
+    if windows {
+        out.push(one("pythonw"));
+        out.push(one("python"));
+        out.push(vec!["py".into(), "-3".into()]);
+    } else {
+        out.push(one("python3"));
+    }
+    out
 }
 
 fn exe(name: &str) -> String {
@@ -294,13 +336,91 @@ pub fn strip_rc_block(text: &str) -> Option<String> {
     touched.then_some(out)
 }
 
+/// What `idm uninstall` runs on Windows: the installation's own install.ps1.
+///
+/// Removing files is the small part there. The registry keys of every
+/// browser, the Desktop and Start-menu shortcuts, the user variables and the
+/// PATH entry are what install.ps1 created and knows how to remove; the bash
+/// scripts the Linux path calls do not exist. Everything travels in the
+/// environment, so no path ever becomes PowerShell source. It first waits for
+/// this idm.exe to exit -- Windows will not delete a running exe -- and its
+/// output goes to a log, since by then nobody is watching a console.
+pub const UNINSTALL_SCRIPT: &str = "\
+Wait-Process -Id ([int]$env:IDM_WAIT_PID) -Timeout 30 -ErrorAction SilentlyContinue; \
+if ($env:IDM_UNINSTALL_PURGE -eq '1') { \
+  & $env:IDM_UNINSTALL_PS1 -Uninstall -Purge -Prefix $env:IDM_UNINSTALL_DIR *> $env:IDM_UNINSTALL_LOG \
+} else { \
+  & $env:IDM_UNINSTALL_PS1 -Uninstall -Prefix $env:IDM_UNINSTALL_DIR *> $env:IDM_UNINSTALL_LOG \
+}";
+
+/// The environment UNINSTALL_SCRIPT runs with, or `None` when the
+/// installation has no install.ps1 to hand off to.
+pub fn uninstall_handoff(
+    dir: &Path,
+    purge: bool,
+    wait_pid: u32,
+    temp: &Path,
+) -> Option<Vec<(String, String)>> {
+    let ps1 = dir.join("install.ps1");
+    if !ps1.is_file() {
+        return None;
+    }
+    let s = |p: &Path| p.to_string_lossy().to_string();
+    Some(vec![
+        ("IDM_UNINSTALL_PS1".into(), s(&ps1)),
+        ("IDM_UNINSTALL_DIR".into(), s(dir)),
+        ("IDM_UNINSTALL_PURGE".into(), if purge { "1" } else { "0" }.into()),
+        ("IDM_WAIT_PID".into(), wait_pid.to_string()),
+        ("IDM_UNINSTALL_LOG".into(), s(&temp.join("idm-uninstall.log"))),
+    ])
+}
+
+/// Start UNINSTALL_SCRIPT and leave it running. Not waited for: install.ps1
+/// stops what runs from the installation and deletes bin\idm.exe, so this
+/// process has to be gone first.
+fn spawn_windows_uninstall(env: &[(String, String)]) -> std::io::Result<()> {
+    let ps = std::env::var_os("SystemRoot")
+        .map(|r| {
+            PathBuf::from(r)
+                .join("System32")
+                .join("WindowsPowerShell")
+                .join("v1.0")
+                .join("powershell.exe")
+        })
+        .filter(|p| p.is_file())
+        .unwrap_or_else(|| PathBuf::from("powershell"));
+    let mut cmd = std::process::Command::new(ps);
+    cmd.hide_console()
+        .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", UNINSTALL_SCRIPT])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    cmd.spawn().map(|_| ())
+}
+
 fn run_uninstall(flags: &[String]) -> i32 {
     let dry = flags.iter().any(|f| f == "--dry-run");
     let yes = flags.iter().any(|f| f == "--yes" || f == "-y");
     let purge = flags.iter().any(|f| f == "--purge");
     let plan = uninstall_plan(idm_dir(), purge);
+    let temp = std::env::temp_dir();
+    let handoff = if cfg!(windows) {
+        uninstall_handoff(&plan.dir, purge, std::process::id(), &temp)
+    } else {
+        None
+    };
 
     println!("odinstalace z {}", plan.dir.display());
+    if handoff.is_some() {
+        println!(
+            "  spustit {} -Uninstall{} (registr prohlížečů, zástupci, proměnné, PATH)",
+            plan.dir.join("install.ps1").display(),
+            if purge { " -Purge" } else { "" },
+        );
+    }
     for p in plan.files.iter() {
         if p.exists() || p.is_symlink() {
             println!("  smazat  {}", p.display());
@@ -338,6 +458,30 @@ fn run_uninstall(flags: &[String]) -> i32 {
             println!("zrušeno");
             return 0;
         }
+    }
+
+    if let Some(env) = handoff {
+        return match spawn_windows_uninstall(&env) {
+            Ok(()) => {
+                println!(
+                    "odinstalace běží na pozadí, jakmile tenhle proces skončí \
+                     (průběh: {})",
+                    temp.join("idm-uninstall.log").display(),
+                );
+                0
+            }
+            Err(e) => {
+                eprintln!("[x] install.ps1 -Uninstall nelze spustit: {e}");
+                1
+            }
+        };
+    }
+    if cfg!(windows) {
+        eprintln!(
+            "[!] {} chybí: smažu soubory, ale registr, zástupce a proměnné \
+             odstraní až install.ps1 -Uninstall",
+            plan.dir.join("install.ps1").display(),
+        );
     }
 
     run_integration_uninstall(&plan.dir);
@@ -456,5 +600,80 @@ mod tests {
     #[test]
     fn strip_rc_block_reports_an_untouched_file() {
         assert!(strip_rc_block("# mine\nalias l=ls\n").is_none());
+    }
+
+    // --- Windows: which Python opens the window ----------------------------
+
+    fn names(c: &[Vec<String>]) -> Vec<String> {
+        c.iter().map(|v| v.join(" ")).collect()
+    }
+
+    #[test]
+    fn windows_has_no_python3_so_the_python_org_names_are_tried() {
+        // A python.org or winget install provides pythonw/python and the py
+        // launcher; "python3" is at best the Microsoft Store stub.
+        assert_eq!(names(&python_candidates(true, None)), ["pythonw", "python", "py -3"]);
+    }
+
+    #[test]
+    fn the_python_the_installer_found_comes_first() {
+        let c = python_candidates(true, Some(r"C:\Py\pythonw.exe"));
+        assert_eq!(names(&c)[0], r"C:\Py\pythonw.exe");
+        let c = python_candidates(false, Some("/opt/py/bin/python3"));
+        assert_eq!(names(&c), ["/opt/py/bin/python3"]);
+    }
+
+    #[test]
+    fn linux_keeps_python3() {
+        assert_eq!(names(&python_candidates(false, None)), ["python3"]);
+        // An empty variable is not a choice.
+        assert_eq!(names(&python_candidates(false, Some(""))), ["python3"]);
+    }
+
+    // --- Windows: uninstall hands off to install.ps1 -----------------------
+
+    fn scratch(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("idm_verbs_{tag}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn without_install_ps1_there_is_nothing_to_hand_off_to() {
+        let d = scratch("noscript");
+        assert!(uninstall_handoff(&d, false, 42, Path::new("/tmp")).is_none());
+    }
+
+    #[test]
+    fn the_handoff_names_the_script_the_prefix_and_what_to_wait_for() {
+        let d = scratch("script");
+        std::fs::write(d.join("install.ps1"), "# stub").unwrap();
+        let env: std::collections::HashMap<String, String> =
+            uninstall_handoff(&d, true, 4242, Path::new("/tmp/t")).unwrap().into_iter().collect();
+        assert_eq!(env["IDM_UNINSTALL_PS1"], d.join("install.ps1").to_string_lossy());
+        assert_eq!(env["IDM_UNINSTALL_DIR"], d.to_string_lossy());
+        assert_eq!(env["IDM_UNINSTALL_PURGE"], "1");
+        assert_eq!(env["IDM_WAIT_PID"], "4242");
+        assert_eq!(
+            env["IDM_UNINSTALL_LOG"],
+            Path::new("/tmp/t").join("idm-uninstall.log").to_string_lossy(),
+        );
+        let keep: std::collections::HashMap<String, String> =
+            uninstall_handoff(&d, false, 1, Path::new("/tmp")).unwrap().into_iter().collect();
+        assert_eq!(keep["IDM_UNINSTALL_PURGE"], "0", "state\\ is kept unless --purge");
+    }
+
+    #[test]
+    fn the_uninstall_script_takes_everything_from_the_environment() {
+        // Paths never become PowerShell source: a user name with a quote in
+        // it must not be able to change what runs.
+        for var in ["IDM_UNINSTALL_PS1", "IDM_UNINSTALL_DIR", "IDM_UNINSTALL_PURGE",
+                    "IDM_WAIT_PID", "IDM_UNINSTALL_LOG"] {
+            assert!(UNINSTALL_SCRIPT.contains(&format!("$env:{var}")), "{var}");
+        }
+        assert!(UNINSTALL_SCRIPT.contains("Wait-Process"),
+                "idm.exe must be gone before bin\\idm.exe is deleted");
+        assert!(UNINSTALL_SCRIPT.contains("-Uninstall -Purge"));
     }
 }

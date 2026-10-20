@@ -562,6 +562,46 @@ jobs:
           if (Test-Path $prefix) { throw "-Purge left $prefix" }
           Write-Host "native messaging through the registered wrapper OK"
 
+      # `idm uninstall` on Windows used to run the Linux bash scripts and
+      # delete files, leaving the browsers' registry keys, the shortcuts, the
+      # user variables and PATH behind. It now hands off to install.ps1.
+      - name: idm uninstall removes what install.ps1 created
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root   = Join-Path $env:RUNNER_TEMP 'host'
+          $prefix = Join-Path $root 'idm-verbs'
+          $dl     = Join-Path $root 'dl-verbs'
+          $url = ([System.Uri](Resolve-Path (Join-Path $root 'idm-windows-x64.zip')).Path).AbsoluteUri
+          ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir $dl
+          '[{"id":"mine"}]' | Set-Content (Join-Path $prefix 'state\queue.json')
+          $reg = 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.tonec.idm'
+          if (-not (Test-Path $reg)) { throw "install did not register the host" }
+
+          $env:IDM_DIR = $prefix
+          & (Join-Path $prefix 'bin\idm.exe') uninstall --yes
+          if ($LASTEXITCODE -ne 0) { throw "idm uninstall exited $LASTEXITCODE" }
+          # It runs on after idm.exe has exited; wait for bin\ to go.
+          $deadline = (Get-Date).AddSeconds(90)
+          while (Test-Path (Join-Path $prefix 'bin')) {
+            if ((Get-Date) -gt $deadline) {
+              Get-Content (Join-Path $env:TEMP 'idm-uninstall.log') -ErrorAction SilentlyContinue
+              throw "bin\ still there 90 s after idm uninstall"
+            }
+            Start-Sleep -Milliseconds 500
+          }
+          Start-Sleep -Seconds 2
+          Get-Content (Join-Path $env:TEMP 'idm-uninstall.log') -ErrorAction SilentlyContinue
+          if (Test-Path $reg) { throw "registry key survived idm uninstall" }
+          $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'IDM.lnk'
+          if (Test-Path $lnk) { throw "desktop shortcut survived idm uninstall" }
+          if ([Environment]::GetEnvironmentVariable('IDM_DIR', 'User')) { throw "IDM_DIR survived" }
+          if ([Environment]::GetEnvironmentVariable('IDM_PYTHON', 'User')) { throw "IDM_PYTHON survived" }
+          if (-not (Test-Path (Join-Path $prefix 'state\queue.json'))) {
+            throw "state\ must survive an uninstall without --purge"
+          }
+          Write-Host "idm uninstall on Windows OK"
+
   windows-update:
     # `idm update` on a real Windows machine, with the real engine. Reported
     # from 2.1.9: bin.old\ stayed behind after every update (the updater and
