@@ -5,6 +5,7 @@
   "description": "Captures download URLs in the page and forwards them to the idm-host native messaging host.",
   "permissions": [
     "contextMenus",
+    "cookies",
     "nativeMessaging",
     "downloads",
     "notifications",

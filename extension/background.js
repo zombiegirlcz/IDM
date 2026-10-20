@@ -249,6 +249,32 @@ if (chrome.contextMenus && chrome.contextMenus.onClicked) {
 
 const C2B = new Set(CONTENT_TO_BG);
 
+// The cookies the browser itself would send to the request's URL, attached
+// as `cookies` for the host to hand to yt-dlp. This is what makes a logged-in
+// YouTube session work: yt-dlp reads its cookie jar, not a Cookie header, and
+// reading Chrome's cookie database from outside needs the keyring and goes
+// stale. A failed lookup just sends the request without them.
+async function withBrowserCookies(req) {
+  try {
+    if (!chrome.cookies || !chrome.cookies.getAll) return req;
+    const list = await chrome.cookies.getAll({ url: req.url });
+    if (Array.isArray(list) && list.length) {
+      req.cookies = list.map((c) => ({
+        domain: c.domain,
+        path: c.path,
+        secure: Boolean(c.secure),
+        httpOnly: Boolean(c.httpOnly),
+        expirationDate: c.expirationDate,
+        name: c.name,
+        value: c.value,
+      }));
+    }
+  } catch (e) {
+    log('cookie lookup failed', String(e));
+  }
+  return req;
+}
+
 // A UI/content request turned into a host reply, shared by both entry points.
 function handleRequest(msg, reply) {
   if (!msg || typeof msg !== 'object') return false;
@@ -269,7 +295,7 @@ function handleRequest(msg, reply) {
       reply({ ok: false, error: String(e) });
       return false;
     }
-    sendToHost(req).then(
+    withBrowserCookies(req).then(sendToHost).then(
       (r) => reply({ ok: true, ...normalizeFormats(r) }),
       (e) => reply({ ok: false, error: String(e) }),
     );
@@ -293,7 +319,7 @@ function handleRequest(msg, reply) {
       reply({ ok: false, error: String(e) });
       return false;
     }
-    sendToHost(req).then(reply, (e) => reply({ ok: false, error: String(e) }));
+    withBrowserCookies(req).then(sendToHost).then(reply, (e) => reply({ ok: false, error: String(e) }));
     return true;
   }
   return false;

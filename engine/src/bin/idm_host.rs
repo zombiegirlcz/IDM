@@ -377,6 +377,76 @@ fn stderr_tail(raw: &[u8]) -> String {
     }
 }
 
+/// Browser cookies (`chrome.cookies` objects) written out as a Netscape
+/// cookie file for yt-dlp. Private (0600) and removed when dropped: these are
+/// live session cookies.
+struct CookieFile(PathBuf);
+
+impl Drop for CookieFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+/// One Netscape line, or None for a cookie whose fields would break the
+/// tab/newline format (a value smuggling a second line in, say).
+fn netscape_line(c: &serde_json::Value) -> Option<String> {
+    let s = |k: &str| c.get(k).and_then(|v| v.as_str()).unwrap_or("");
+    let (domain, path, name, value) = (s("domain"), s("path"), s("name"), s("value"));
+    let clean = |f: &str| !f.chars().any(|ch| ch == '\t' || ch == '\n' || ch == '\r');
+    if domain.is_empty() || name.is_empty() || ![domain, path, name, value].iter().all(|f| clean(f)) {
+        return None;
+    }
+    let flag = |b: bool| if b { "TRUE" } else { "FALSE" };
+    let secure = c.get("secure").and_then(|v| v.as_bool()).unwrap_or(false);
+    let http_only = c.get("httpOnly").and_then(|v| v.as_bool()).unwrap_or(false);
+    // A session cookie has no expiry; 0 would read as long expired, so give
+    // it a day -- the file only lives for this one request anyway.
+    let expiry = match c.get("expirationDate").and_then(|v| v.as_f64()) {
+        Some(e) if e > 0.0 => e as u64,
+        _ => std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() + 86_400)
+            .unwrap_or(u64::MAX / 2),
+    };
+    Some(format!(
+        "{}{}\t{}\t{}\t{}\t{}\t{}\t{}",
+        if http_only { "#HttpOnly_" } else { "" },
+        domain,
+        flag(domain.starts_with('.')),
+        if path.is_empty() { "/" } else { path },
+        flag(secure),
+        expiry,
+        name,
+        value
+    ))
+}
+
+/// Write the request's `cookies` (if any) and point the engine at them.
+fn attach_cookies(cmd: &mut Command, req: &serde_json::Value) -> Option<CookieFile> {
+    let list = req.get("cookies")?.as_array()?;
+    let lines: Vec<String> = list.iter().filter_map(netscape_line).collect();
+    if lines.is_empty() {
+        return None;
+    }
+    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let path = std::env::temp_dir().join(format!("idm-cookies-{}-{}.txt", std::process::id(), n));
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    let mut f = opts.open(&path).ok()?;
+    let guard = CookieFile(path);
+    let body = format!("# Netscape HTTP Cookie File\n{}\n", lines.join("\n"));
+    f.write_all(body.as_bytes()).ok()?;
+    cmd.env("IDM_COOKIES_FILE", &guard.0);
+    Some(guard)
+}
+
 fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
     let action = opt_str(req, "action").unwrap_or("");
     match action {
@@ -399,6 +469,7 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
             if let Some(p) = opt_str(req, "proxy") {
                 cmd.arg("--proxy").arg(p);
             }
+            let _cookies = attach_cookies(&mut cmd, req);
             match cmd.output() {
                 Ok(o) if o.status.success() => {
                     match serde_json::from_slice::<serde_json::Value>(&o.stdout) {
@@ -490,6 +561,7 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
             // message included); without it the browser only sees "exit 1".
             cmd.stderr(std::process::Stdio::piped());
 
+            let _cookies = attach_cookies(&mut cmd, req);
             let run = match cmd.output() {
                 Ok(o) => o,
                 Err(e) => {
