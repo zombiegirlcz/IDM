@@ -168,6 +168,9 @@ struct Item {
     cookie: String,
     #[serde(default)]
     referer: String,
+    /// Browser to read cookies from for yt-dlp (chrome, chromium, firefox, ...)
+    #[serde(default)]
+    cookies_from_browser: String,
     /// Force the yt-dlp path even for a URL that does not look like media.
     #[serde(default)]
     force_media: bool,
@@ -620,6 +623,7 @@ struct AddOptions {
     format: String,
     cookie: String,
     referer: String,
+    cookies_from_browser: String,
     force_media: bool,
     /// Target file name, from IDM's `/f NAME`. Empty = derive it from the URL.
     filename: String,
@@ -691,6 +695,7 @@ async fn add_item(
         format: opts.format,
         cookie: opts.cookie,
         referer: opts.referer,
+        cookies_from_browser: opts.cookies_from_browser,
         force_media: opts.force_media,
         attempts: 0,
         retry_at: 0,
@@ -781,6 +786,7 @@ async fn run_item(st: Arc<State>, id: u64) {
         format,
         cookie,
         referer,
+        cookies_from_browser,
         force_media,
     ) = {
         let g = st.items.lock().await;
@@ -800,6 +806,7 @@ async fn run_item(st: Arc<State>, id: u64) {
                 i.format.clone(),
                 i.cookie.clone(),
                 i.referer.clone(),
+                i.cookies_from_browser.clone(),
                 i.force_media,
             ),
             None => return,
@@ -877,6 +884,9 @@ async fn run_item(st: Arc<State>, id: u64) {
     }
     if !referer.is_empty() {
         cmd.arg("--referer").arg(&referer);
+    }
+    if !cookies_from_browser.is_empty() {
+        cmd.arg("--cookies-from-browser").arg(&cookies_from_browser);
     }
     if force_media {
         cmd.arg("--force-media");
@@ -1288,6 +1298,7 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
                 format: v["format"].as_str().unwrap_or("").to_string(),
                 cookie: v["cookie"].as_str().unwrap_or("").to_string(),
                 referer: v["referer"].as_str().unwrap_or("").to_string(),
+                cookies_from_browser: v["cookies_from_browser"].as_str().unwrap_or("").to_string(),
                 force_media: v["force_media"].as_bool().unwrap_or(false),
                 filename: v["filename"].as_str().unwrap_or("").to_string(),
             };
@@ -1419,6 +1430,9 @@ async fn handle_conn(mut sock: TcpStream, st: Arc<State>) {
             }
             if let Some(r) = v["referer"].as_str().filter(|s| !s.is_empty()) {
                 cmd.arg("--referer").arg(r);
+            }
+            if let Some(b) = v["cookies_from_browser"].as_str().filter(|s| !s.is_empty()) {
+                cmd.arg("--cookies-from-browser").arg(b);
             }
             if let Some(p) = v["proxy"].as_str().filter(|s| !s.is_empty()) {
                 cmd.arg("--proxy").arg(p);

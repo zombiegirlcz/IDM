@@ -101,9 +101,10 @@ export function buildPing() {
  *
  * @param {{url: string, output?: string, connections?: number,
  *          format?: string, forceMedia?: boolean, limitRate?: number,
- *          cookie?: string, referer?: string}} opts
+ *          cookie?: string, referer?: string,
+ *          cookiesFromBrowser?: string}} opts
  */
-export function buildDownload({ url, output, connections, format, forceMedia, limitRate, cookie, referer, proxy, categoryDir, dynamic, minSplit, aria2, aria2Path } = {}) {
+export function buildDownload({ url, output, connections, format, forceMedia, limitRate, cookie, referer, proxy, cookiesFromBrowser, categoryDir, dynamic, minSplit, aria2, aria2Path } = {}) {
   assertHttpUrl(url);
   const req = { action: HOST_ACTIONS.DOWNLOAD, url };
   if (output !== undefined) req.output = output;
@@ -131,6 +132,8 @@ export function buildDownload({ url, output, connections, format, forceMedia, li
   if (cookie !== undefined) req.cookie = String(cookie);
   if (referer !== undefined) req.referer = String(referer);
   if (proxy !== undefined) req.proxy = String(proxy);
+  if (cookiesFromBrowser !== undefined)
+    req.cookies_from_browser = String(cookiesFromBrowser);
   if (categoryDir !== undefined) req.category_dir = String(categoryDir);
   if (dynamic !== undefined) req.dynamic = Boolean(dynamic);
   if (aria2 !== undefined) req.aria2 = Boolean(aria2);
