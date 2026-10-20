@@ -244,7 +244,69 @@ def read_update_progress(path: str) -> dict:
             "done": done, "error": error, "label": label}
 
 
-def _dialog_update(parent, engine: str, state_dir: str, latest: str):
+def update_outcome(progress, returncode) -> dict:
+    """How an `idm update` that has exited ended, from its last progress
+    write and its exit code.
+
+    The exit code is the updater's verdict. The dialog used to report
+    "Hotovo" whenever the process had exited, so an updater that died before
+    writing its error -- or whose last write was lost -- passed for a success.
+    `installed` says whether new files are on disk: "uptodate" is fine, but
+    there is nothing to restart into.
+    """
+    raw = progress if isinstance(progress, dict) else {}
+    error = raw.get("error") or None
+    phase = str(raw.get("phase") or "")
+    if error:
+        return {"ok": False, "installed": False,
+                "label": "Aktualizace selhala: %s" % error}
+    if returncode not in (None, 0):
+        return {"ok": False, "installed": False,
+                "label": "Aktualizace selhala (kód %s)" % returncode}
+    if phase == "uptodate":
+        return {"ok": True, "installed": False, "label": "IDM je aktuální"}
+    return {"ok": True, "installed": True, "label": "Hotovo"}
+
+
+def after_update_action(outcome, auto: bool, active_downloads: int) -> str:
+    """What the window does once an update has finished: "restart", "offer"
+    a restart, or "none".
+
+    The new files only matter once something runs them, and on Windows
+    nothing would: the close button hides the window to the notification
+    area, so the old window and the engine it spawned kept running out of
+    bin.old -- holding it, so it could not be deleted -- and a fresh launch
+    reused that engine. The startup update restarts by itself; a running
+    download is never cut off for it, and an update the user started is
+    theirs to finish.
+    """
+    if not isinstance(outcome, dict) or not outcome.get("ok") or not outcome.get("installed"):
+        return "none"
+    if auto and not active_downloads:
+        return "restart"
+    return "offer"
+
+
+# Flags that make the window do one thing and exit. Restarting into one of
+# them would close the window the user just got back.
+_ONE_SHOT_PREFIXES = ("--selftest", "--screenshot")
+
+
+def relaunch_command(executable: str, argv) -> list | None:
+    """The command that starts this window again after an update: the same
+    interpreter and the same arguments, so the new gui/idm_gui.py at the same
+    path runs with the same --engine/--state-dir. None for a one-shot run.
+    """
+    args = [str(a) for a in (argv or [])]
+    if not executable or not args:
+        return None
+    if any(a.startswith(_ONE_SHOT_PREFIXES) for a in args[1:]):
+        return None
+    return [str(executable)] + args
+
+
+def _dialog_update(parent, engine: str, state_dir: str, latest: str,
+                   auto: bool = False, on_restart=None, active=lambda: 0):
     """The install window: progress, no question asked.
 
     It drives `idm update --progress-file` as a separate process and polls the
@@ -252,6 +314,10 @@ def _dialog_update(parent, engine: str, state_dir: str, latest: str):
     that froze the window for the length of a download would look like a
     crash, and a swap half-done inside a process that is about to be replaced
     is worse than that.
+
+    Once it is done, after_update_action() decides whether the window
+    restarts itself (`on_restart`) or offers to; `active()` counts running
+    downloads, which a restart must not cut off.
     """
     import tkinter as tk
     from tkinter import ttk
@@ -267,8 +333,12 @@ def _dialog_update(parent, engine: str, state_dir: str, latest: str):
     bar.pack(fill="x", pady=(8, 6))
     status = tk.StringVar(value="Připravuji aktualizaci…")
     ttk.Label(frame, textvariable=status).pack(anchor="w")
-    close = ttk.Button(frame, text="Zavřít", command=win.destroy, state="disabled")
-    close.pack(anchor="e", pady=(10, 0))
+    buttons = ttk.Frame(frame)
+    buttons.pack(anchor="e", pady=(10, 0))
+    restart = ttk.Button(buttons, text="Restartovat IDM",
+                         command=lambda: on_restart and on_restart())
+    close = ttk.Button(buttons, text="Zavřít", command=win.destroy, state="disabled")
+    close.pack(side="right")
 
     progress_file = os.path.join(state_dir, "update-progress.json")
     try:
@@ -294,22 +364,38 @@ def _dialog_update(parent, engine: str, state_dir: str, latest: str):
         p = read_update_progress(progress_file)
         bar["value"] = p["percent"]
         status.set(p["label"])
-        finished = p["done"] or proc.poll() is not None
-        if finished:
-            # The process can exit before its last write is seen; one more
-            # look keeps "Hotovo" from being reported as "Připravuji".
-            p = read_update_progress(progress_file)
-            status.set(p["label"] if p.get("done") or p.get("error")
-                       else "Hotovo")
-            if not p.get("error"):
-                bar["value"] = 100
-                ttk.Label(
-                    frame,
-                    text="Nová verze se projeví po restartu okna.",
-                ).pack(anchor="w", pady=(6, 0))
-            close.configure(state="normal")
+        if proc.poll() is None:
+            win.after(400, poll)
             return
-        win.after(400, poll)
+        # Judged once the process has exited: the exit code is the verdict,
+        # and the process can exit before its last write is seen.
+        raw = {}
+        try:
+            with open(progress_file, encoding="utf-8") as f:
+                raw = json.load(f)
+        except Exception:  # noqa: BLE001
+            raw = {}
+        outcome = update_outcome(raw, proc.returncode)
+        status.set(outcome["label"])
+        close.configure(state="normal")
+        if not outcome["ok"]:
+            return
+        bar["value"] = 100
+        try:
+            running = int(active() or 0)
+        except Exception:  # noqa: BLE001
+            running = 0
+        act = after_update_action(outcome, auto, running)
+        if act == "restart" and on_restart is not None:
+            status.set("Hotovo — restartuji IDM…")
+            win.after(1200, on_restart)
+        elif act != "none":
+            note = "Nová verze poběží po restartu IDM."
+            if running:
+                note += " Běží stahování — restartuj, až doběhne."
+            ttk.Label(frame, text=note).pack(anchor="w", pady=(6, 0))
+            if on_restart is not None:
+                restart.pack(side="right", padx=(0, 6))
 
     win.after(200, poll)
     return win
@@ -7702,12 +7788,59 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
     # same time, so the NEXT launch knows about today's release -- asking
     # GitHub synchronously here would delay every start by a round trip, for
     # news that is almost never there.
+    # What the last poll saw, so the update dialog can tell whether a restart
+    # would cut a download off.
+    seen = {"items": []}
+
+    def _active_downloads():
+        return sum(1 for it in seen["items"]
+                   if isinstance(it, dict) and it.get("status") in LIVE_STATUSES)
+
+    def _restart_idm():
+        """Run the new version: the window again, with a new engine.
+
+        The old engine is ours to stop -- left running out of bin.old it
+        holds that tree and keeps answering the saved api-token, so the new
+        window would simply reuse it. The tray goes first, or the old icon
+        would sit next to the new one until the mouse passes over it.
+        """
+        nonlocal proc
+        cmd = relaunch_command(sys.executable, sys.argv)
+        if cmd is None:
+            return
+        try:
+            t = tray
+        except NameError:  # the dialog finished before the tray existed
+            t = None
+        if t is not None:
+            t.stop()
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except Exception:  # noqa: BLE001
+                proc.kill()
+        proc = None
+        kwargs = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
+                  "close_fds": True}
+        if os.name == "nt":
+            kwargs["creationflags"] = 0x08000000 | 0x00000008  # NO_WINDOW | DETACHED
+        else:
+            kwargs["start_new_session"] = True
+        try:
+            subprocess.Popen(cmd, **kwargs)
+        except Exception as e:  # noqa: BLE001
+            print("[x] restart se nepovedl: %s" % e, file=sys.stderr)
+            return
+        root.destroy()
+
     if auto_update_enabled(args.state_dir):
         cache = read_update_cache(args.state_dir)
         if should_offer_update(cache):
             try:
                 _dialog_update(root, args.engine, args.state_dir,
-                               str(cache.get("latest")))
+                               str(cache.get("latest")), auto=True,
+                               on_restart=_restart_idm, active=_active_downloads)
             except Exception as e:  # noqa: BLE001
                 print("[!] aktualizacni okno se neotevrelo: %s" % e,
                       file=sys.stderr)
@@ -7762,6 +7895,7 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
                     status_var.set("cannot reach idm --serve")
                 else:
                     status_var.set("Ready")
+                    seen["items"] = items if isinstance(items, list) else []
                     apply_items(items)
                     # /q and /h fire from here: only the poll knows the queue
                     # has drained.
