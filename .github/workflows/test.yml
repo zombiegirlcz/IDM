@@ -197,6 +197,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # The notification-area icon is ctypes against shell32/user32, which
+      # exists only here. Creates the real icon, checks Shell_NotifyIcon
+      # accepted it, removes it and checks the tray thread ended.
+      - name: Tray icon (Shell_NotifyIcon)
+        shell: pwsh
+        run: |
+          python gui/idm_gui.py --selftest-tray
+          if ($LASTEXITCODE -ne 0) { throw "tray selftest failed" }
+
       - name: Parse install.ps1
         shell: pwsh
         run: |

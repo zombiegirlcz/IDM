@@ -40,6 +40,7 @@ import json
 import os
 import secrets
 import re
+import queue
 import shutil
 import subprocess
 import threading
@@ -972,6 +973,9 @@ DEFAULT_SETTINGS = {
     },
     "general": {
         "launch_on_startup": True,
+        # Windows: the close button hides the window to the notification
+        # area; downloads keep running. Exit is in the tray menu.
+        "minimize_to_tray": True,
         "integrate_browsers": True,
         "monitor_clipboard": True,
         "run_ie_monitor": False,
@@ -3052,6 +3056,8 @@ def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="
     g = tab("General")
     add_check(g, "General", "Start IDM on system startup",
               "general.launch_on_startup", s["general"]["launch_on_startup"])
+    add_check(g, "General", "Keep running next to the clock when the window is closed",
+              "general.minimize_to_tray", s["general"]["minimize_to_tray"])
     add_check(g, "General", "Integrate into browsers",
               "general.integrate_browsers", s["general"]["integrate_browsers"])
     add_check(g, "General", "Monitor clipboard for URLs",
@@ -4552,6 +4558,261 @@ def window_icon(master=None):
         return tk.PhotoImage(file=path, master=master)
     except Exception:  # noqa: BLE001
         return None
+
+
+# --- notification-area icon (Windows) --------------------------------------
+#
+# Closing the window used to destroy it and terminate `idm --serve` with it,
+# so every running download stopped. On Windows the close button hides the
+# window instead and an icon next to the clock brings it back. Done with
+# ctypes against shell32/user32: the window is stdlib-only, and pystray would
+# be the first third-party dependency.
+
+TRAY_MENU = [("Open IDM", "show"), ("Exit", "quit")]
+
+_WM_LBUTTONUP = 0x0202
+_WM_LBUTTONDBLCLK = 0x0203
+_WM_RBUTTONUP = 0x0205
+_WM_CONTEXTMENU = 0x007B
+
+
+def close_action(is_windows: bool, tray_running: bool, settings: dict) -> str:
+    """What the window's close button does: "hide" to the tray or "quit".
+
+    Hiding needs an icon to come back through; without one (not Windows, the
+    icon failed, or the user switched it off) closing quits as it always did.
+    """
+    general = (settings or {}).get("general") or {}
+    if is_windows and tray_running and general.get("minimize_to_tray", True) is not False:
+        return "hide"
+    return "quit"
+
+
+def tray_event(mouse_msg: int):
+    """The tray icon's mouse message -> "show", "menu" or None."""
+    if mouse_msg in (_WM_LBUTTONUP, _WM_LBUTTONDBLCLK):
+        return "show"
+    if mouse_msg in (_WM_RBUTTONUP, _WM_CONTEXTMENU):
+        return "menu"
+    return None
+
+
+class _WinTray:
+    """A Shell_NotifyIcon icon with its own hidden window and message loop.
+
+    Everything Win32 runs on one thread of its own, because the icon's window
+    has to pump messages and Tk's mainloop is not going to do it. Events go
+    out through `on_event("show" | "quit")`, called on that thread: the
+    caller hands them to Tk via a queue, never touching widgets from here.
+    """
+
+    def __init__(self, on_event, icon_path: str = "", tip: str = "IDM"):
+        self.on_event = on_event
+        self.icon_path = icon_path
+        self.tip = tip[:127]
+        self.hwnd = None
+        self.added = False
+        self.error = ""
+        self._ready = threading.Event()
+        self._thread = threading.Thread(target=self._run, name="idm-tray", daemon=True)
+
+    def start(self, timeout: float = 5.0) -> bool:
+        self._thread.start()
+        self._ready.wait(timeout)
+        return bool(self.hwnd)
+
+    def stop(self) -> None:
+        """Remove the icon and end the thread. Safe to call twice."""
+        if self.hwnd:
+            import ctypes
+            ctypes.windll.user32.PostMessageW(self.hwnd, 0x0010, 0, 0)  # WM_CLOSE
+        self._thread.join(3.0)
+
+    def _run(self):  # noqa: C901 -- one Win32 window, kept in one place
+        import ctypes
+        from ctypes import wintypes as wt
+
+        user32 = ctypes.windll.user32
+        shell32 = ctypes.windll.shell32
+        kernel32 = ctypes.windll.kernel32
+        LRESULT = ctypes.c_ssize_t
+        WNDPROC = ctypes.WINFUNCTYPE(LRESULT, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
+
+        class WNDCLASSW(ctypes.Structure):
+            _fields_ = [("style", wt.UINT), ("lpfnWndProc", WNDPROC),
+                        ("cbClsExtra", ctypes.c_int), ("cbWndExtra", ctypes.c_int),
+                        ("hInstance", wt.HINSTANCE), ("hIcon", wt.HICON),
+                        ("hCursor", wt.HANDLE), ("hbrBackground", wt.HBRUSH),
+                        ("lpszMenuName", wt.LPCWSTR), ("lpszClassName", wt.LPCWSTR)]
+
+        class GUID(ctypes.Structure):
+            _fields_ = [("Data1", wt.DWORD), ("Data2", wt.WORD), ("Data3", wt.WORD),
+                        ("Data4", ctypes.c_ubyte * 8)]
+
+        class NOTIFYICONDATAW(ctypes.Structure):
+            _fields_ = [("cbSize", wt.DWORD), ("hWnd", wt.HWND), ("uID", wt.UINT),
+                        ("uFlags", wt.UINT), ("uCallbackMessage", wt.UINT),
+                        ("hIcon", wt.HICON), ("szTip", wt.WCHAR * 128),
+                        ("dwState", wt.DWORD), ("dwStateMask", wt.DWORD),
+                        ("szInfo", wt.WCHAR * 256), ("uVersion", wt.UINT),
+                        ("szInfoTitle", wt.WCHAR * 64), ("dwInfoFlags", wt.DWORD),
+                        ("guidItem", GUID), ("hBalloonIcon", wt.HICON)]
+
+        user32.DefWindowProcW.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
+        user32.DefWindowProcW.restype = LRESULT
+        user32.CreateWindowExW.argtypes = [wt.DWORD, wt.LPCWSTR, wt.LPCWSTR, wt.DWORD,
+                                           ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                           ctypes.c_int, wt.HWND, wt.HMENU,
+                                           wt.HINSTANCE, wt.LPVOID]
+        user32.CreateWindowExW.restype = wt.HWND
+        user32.RegisterClassW.argtypes = [ctypes.POINTER(WNDCLASSW)]
+        user32.RegisterClassW.restype = wt.ATOM
+        user32.LoadImageW.argtypes = [wt.HINSTANCE, wt.LPCWSTR, wt.UINT,
+                                      ctypes.c_int, ctypes.c_int, wt.UINT]
+        user32.LoadImageW.restype = wt.HANDLE
+        user32.LoadIconW.argtypes = [wt.HINSTANCE, wt.LPVOID]
+        user32.LoadIconW.restype = wt.HICON
+        user32.CreatePopupMenu.restype = wt.HMENU
+        user32.AppendMenuW.argtypes = [wt.HMENU, wt.UINT, ctypes.c_size_t, wt.LPCWSTR]
+        user32.TrackPopupMenu.argtypes = [wt.HMENU, wt.UINT, ctypes.c_int, ctypes.c_int,
+                                          ctypes.c_int, wt.HWND, wt.LPVOID]
+        user32.TrackPopupMenu.restype = ctypes.c_int
+        user32.DestroyMenu.argtypes = [wt.HMENU]
+        user32.PostMessageW.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
+        user32.SetForegroundWindow.argtypes = [wt.HWND]
+        user32.DestroyWindow.argtypes = [wt.HWND]
+        user32.GetMessageW.argtypes = [ctypes.POINTER(wt.MSG), wt.HWND, wt.UINT, wt.UINT]
+        user32.TranslateMessage.argtypes = [ctypes.POINTER(wt.MSG)]
+        user32.DispatchMessageW.argtypes = [ctypes.POINTER(wt.MSG)]
+        user32.DispatchMessageW.restype = LRESULT
+        user32.RegisterWindowMessageW.argtypes = [wt.LPCWSTR]
+        user32.RegisterWindowMessageW.restype = wt.UINT
+        shell32.Shell_NotifyIconW.argtypes = [wt.DWORD, ctypes.POINTER(NOTIFYICONDATAW)]
+        shell32.Shell_NotifyIconW.restype = wt.BOOL
+        kernel32.GetModuleHandleW.argtypes = [wt.LPCWSTR]
+        kernel32.GetModuleHandleW.restype = wt.HMODULE
+
+        NIM_ADD, NIM_DELETE = 0, 2
+        NIF_MESSAGE, NIF_ICON, NIF_TIP = 1, 2, 4
+        WM_APP_TRAY = 0x8000 + 1
+        WM_CLOSE, WM_DESTROY, WM_NULL = 0x0010, 0x0002, 0x0000
+        TPM_RIGHTBUTTON, TPM_RETURNCMD, TPM_NONOTIFY = 0x0002, 0x0100, 0x0080
+        MF_STRING = 0x0000
+        taskbar_created = user32.RegisterWindowMessageW("TaskbarCreated")
+        hinst = kernel32.GetModuleHandleW(None)
+
+        hicon = None
+        if self.icon_path and os.path.exists(self.icon_path):
+            # IMAGE_ICON, LR_LOADFROMFILE | LR_DEFAULTSIZE
+            hicon = user32.LoadImageW(None, self.icon_path, 1, 0, 0, 0x0010 | 0x0040)
+        if not hicon:
+            hicon = user32.LoadIconW(None, ctypes.c_void_p(32512))  # IDI_APPLICATION
+
+        nid = NOTIFYICONDATAW()
+        nid.cbSize = ctypes.sizeof(NOTIFYICONDATAW)
+        nid.uID = 1
+        nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP
+        nid.uCallbackMessage = WM_APP_TRAY
+        nid.hIcon = hicon
+        nid.szTip = self.tip
+
+        def add_icon():
+            self.added = bool(shell32.Shell_NotifyIconW(NIM_ADD, ctypes.byref(nid)))
+
+        def show_menu(hwnd):
+            menu = user32.CreatePopupMenu()
+            for i, (label, _action) in enumerate(TRAY_MENU, start=1):
+                user32.AppendMenuW(menu, MF_STRING, i, label)
+            pt = wt.POINT()
+            user32.GetCursorPos(ctypes.byref(pt))
+            # Without the foreground switch the menu does not close when the
+            # user clicks elsewhere (a documented Shell_NotifyIcon quirk).
+            user32.SetForegroundWindow(hwnd)
+            cmd = user32.TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
+                                        pt.x, pt.y, 0, hwnd, None)
+            user32.PostMessageW(hwnd, WM_NULL, 0, 0)
+            user32.DestroyMenu(menu)
+            if 1 <= cmd <= len(TRAY_MENU):
+                self.on_event(TRAY_MENU[cmd - 1][1])
+
+        def wndproc(hwnd, msg, wparam, lparam):
+            try:
+                if msg == WM_APP_TRAY:
+                    ev = tray_event(lparam & 0xFFFF)
+                    if ev == "show":
+                        self.on_event("show")
+                    elif ev == "menu":
+                        show_menu(hwnd)
+                    return 0
+                if taskbar_created and msg == taskbar_created:
+                    # Explorer restarted and forgot every icon.
+                    add_icon()
+                    return 0
+                if msg == WM_CLOSE:
+                    shell32.Shell_NotifyIconW(NIM_DELETE, ctypes.byref(nid))
+                    self.added = False
+                    user32.DestroyWindow(hwnd)
+                    return 0
+                if msg == WM_DESTROY:
+                    user32.PostQuitMessage(0)
+                    return 0
+            except Exception as e:  # noqa: BLE001
+                self.error = str(e)
+            return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+
+        self._wndproc = WNDPROC(wndproc)  # keep it alive as long as the window
+        try:
+            wc = WNDCLASSW()
+            wc.lpfnWndProc = self._wndproc
+            wc.hInstance = hinst
+            wc.lpszClassName = "IDMTrayWindow"
+            user32.RegisterClassW(ctypes.byref(wc))
+            hwnd = user32.CreateWindowExW(0, "IDMTrayWindow", "IDM tray", 0,
+                                          0, 0, 0, 0, None, None, hinst, None)
+            if not hwnd:
+                self.error = "CreateWindowExW failed"
+                return
+            nid.hWnd = hwnd
+            add_icon()
+            self.hwnd = hwnd
+        finally:
+            self._ready.set()
+        msg = wt.MSG()
+        while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+            user32.TranslateMessage(ctypes.byref(msg))
+            user32.DispatchMessageW(ctypes.byref(msg))
+        self.hwnd = None
+
+
+def start_tray(on_event, icon_path: str = "", tip: str = "Internet Download Manager"):
+    """Put IDM's icon in the notification area; None where there is none.
+
+    None also when anything Win32 fails: the caller then keeps the old
+    close-quits behaviour rather than hiding a window nobody can get back.
+    """
+    if os.name != "nt":
+        return None
+    try:
+        tray = _WinTray(on_event, icon_path, tip)
+        if tray.start() and tray.added:
+            return tray
+        tray.stop()
+    except Exception as e:  # noqa: BLE001
+        print("[!] ikona v liste se nevytvorila: %s" % e, file=sys.stderr)
+    return None
+
+
+def selftest_tray() -> int:
+    """CI on Windows: create the real icon, check it registered, remove it."""
+    events = []
+    tray = start_tray(events.append, os.path.join(assets_dir(), "idm.ico"))
+    ok = tray is not None and tray.added and bool(tray.hwnd)
+    print("R:" + json.dumps({"started": ok, "error": getattr(tray, "error", "")}), flush=True)
+    if tray is not None:
+        tray.stop()
+        ok = ok and not tray.added and not tray._thread.is_alive()
+    print("R2:" + json.dumps({"stopped": ok}), flush=True)
+    return 0 if ok else 1
 
 
 def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""):
@@ -7209,6 +7470,7 @@ def main(argv=None):
     p.add_argument("--selftest-row", action="store_true")
     p.add_argument("--selftest-scrollbars", action="store_true")
     p.add_argument("--selftest-icons", action="store_true")
+    p.add_argument("--selftest-tray", action="store_true")
     p.add_argument("--selftest-gridlines", action="store_true")
     p.add_argument("--selftest-gridlines-resize", action="store_true")
     p.add_argument("--selftest-gridlines-theme", action="store_true")
@@ -7293,6 +7555,8 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
         return selftest_scrollbars()
     if args.selftest_icons:
         return selftest_icons()
+    if args.selftest_tray:
+        return selftest_tray()
     if args.selftest_gridlines:
         return selftest_gridlines()
     if args.selftest_gridlines_resize:
@@ -7564,10 +7828,49 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
         if act["quit"]:
             root.after(200, root.destroy)
 
+    # Windows: the close button hides to the notification area, so running
+    # downloads survive it; the icon's menu (or File > Exit) quits.
+    tray_events = queue.Queue()
+    tray = start_tray(tray_events.put, os.path.join(assets_dir(), "idm.ico"))
+
+    def _show_window():
+        root.deiconify()
+        root.lift()
+        try:
+            root.focus_force()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _on_close_button():
+        if close_action(os.name == "nt", tray is not None,
+                        load_settings(args.state_dir)) == "hide":
+            root.withdraw()
+        else:
+            root.destroy()
+
+    def _poll_tray():
+        try:
+            while True:
+                ev = tray_events.get_nowait()
+                if ev == "show":
+                    _show_window()
+                elif ev == "quit":
+                    root.destroy()
+                    return
+        except queue.Empty:
+            pass
+        root.after(150, _poll_tray)
+
+    if tray is not None:
+        root.protocol("WM_DELETE_WINDOW", _on_close_button)
+        root.after(150, _poll_tray)
+
     tick()
     try:
         root.mainloop()
     finally:
+        if tray is not None:
+            tray.stop()
         if proc is not None:
             proc.terminate()
     return 0
