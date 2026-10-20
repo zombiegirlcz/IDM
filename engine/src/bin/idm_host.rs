@@ -25,6 +25,9 @@ use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
+#[path = "../cookies.rs"]
+mod cookies;
+
 fn read_exact_or_eof<R: Read>(r: &mut R, buf: &mut [u8]) -> std::io::Result<bool> {
     let mut filled = 0;
     while filled < buf.len() {
@@ -388,63 +391,96 @@ impl Drop for CookieFile {
     }
 }
 
-/// One Netscape line, or None for a cookie whose fields would break the
-/// tab/newline format (a value smuggling a second line in, say).
-fn netscape_line(c: &serde_json::Value) -> Option<String> {
-    let s = |k: &str| c.get(k).and_then(|v| v.as_str()).unwrap_or("");
-    let (domain, path, name, value) = (s("domain"), s("path"), s("name"), s("value"));
-    let clean = |f: &str| !f.chars().any(|ch| ch == '\t' || ch == '\n' || ch == '\r');
-    if domain.is_empty() || name.is_empty() || ![domain, path, name, value].iter().all(|f| clean(f)) {
-        return None;
-    }
-    let flag = |b: bool| if b { "TRUE" } else { "FALSE" };
-    let secure = c.get("secure").and_then(|v| v.as_bool()).unwrap_or(false);
-    let http_only = c.get("httpOnly").and_then(|v| v.as_bool()).unwrap_or(false);
-    // A session cookie has no expiry; 0 would read as long expired, so give
-    // it a day -- the file only lives for this one request anyway.
-    let expiry = match c.get("expirationDate").and_then(|v| v.as_f64()) {
-        Some(e) if e > 0.0 => e as u64,
-        _ => std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() + 86_400)
-            .unwrap_or(u64::MAX / 2),
-    };
-    Some(format!(
-        "{}{}\t{}\t{}\t{}\t{}\t{}\t{}",
-        if http_only { "#HttpOnly_" } else { "" },
-        domain,
-        flag(domain.starts_with('.')),
-        if path.is_empty() { "/" } else { path },
-        flag(secure),
-        expiry,
-        name,
-        value
-    ))
-}
-
 /// Write the request's `cookies` (if any) and point the engine at them.
 fn attach_cookies(cmd: &mut Command, req: &serde_json::Value) -> Option<CookieFile> {
-    let list = req.get("cookies")?.as_array()?;
-    let lines: Vec<String> = list.iter().filter_map(netscape_line).collect();
-    if lines.is_empty() {
-        return None;
-    }
+    let body = cookies::netscape_file(req.get("cookies")?.as_array()?)?;
     static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     let path = std::env::temp_dir().join(format!("idm-cookies-{}-{}.txt", std::process::id(), n));
-    let mut opts = std::fs::OpenOptions::new();
-    opts.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        opts.mode(0o600);
-    }
-    let mut f = opts.open(&path).ok()?;
+    cookies::write_private(&path, &body).ok()?;
     let guard = CookieFile(path);
-    let body = format!("# Netscape HTTP Cookie File\n{}\n", lines.join("\n"));
-    f.write_all(body.as_bytes()).ok()?;
     cmd.env("IDM_COOKIES_FILE", &guard.0);
     Some(guard)
+}
+
+/// Where the window's server listens and its API secret, when it is running.
+/// Both files sit in the state dir, which is the directory of settings.json.
+fn gui_endpoint(ctx: &HostCtx) -> Option<(String, String)> {
+    let state = ctx
+        .settings
+        .and_then(|p| p.parent().map(Path::to_path_buf))
+        .or_else(|| std::env::var_os("IDM_STATE_DIR").map(PathBuf::from))?;
+    let addr = std::fs::read_to_string(state.join("api-addr")).ok()?.trim().to_string();
+    let token = std::fs::read_to_string(state.join("api-token")).ok()?.trim().to_string();
+    if addr.is_empty() || token.is_empty() {
+        return None;
+    }
+    Some((addr, token))
+}
+
+/// One JSON POST to the window's API; the parsed reply when it is a 200.
+fn post_json(addr: &str, token: &str, path: &str, body: &serde_json::Value) -> Option<serde_json::Value> {
+    use std::net::{TcpStream, ToSocketAddrs};
+    use std::time::Duration;
+    let sock = addr.to_socket_addrs().ok()?.next()?;
+    let mut s = TcpStream::connect_timeout(&sock, Duration::from_secs(2)).ok()?;
+    s.set_read_timeout(Some(Duration::from_secs(10))).ok()?;
+    s.set_write_timeout(Some(Duration::from_secs(10))).ok()?;
+    let body = body.to_string();
+    let req = format!(
+        "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nX-IDM-Token: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        path, addr, token, body.len(), body
+    );
+    s.write_all(req.as_bytes()).ok()?;
+    let mut resp = Vec::new();
+    s.read_to_end(&mut resp).ok()?;
+    let text = String::from_utf8_lossy(&resp);
+    let (head, payload) = text.split_once("\r\n\r\n")?;
+    if head.split_whitespace().nth(1) != Some("200") {
+        return None;
+    }
+    serde_json::from_str(payload).ok()
+}
+
+/// Put the download into the window's queue, where the user sees its
+/// progress, instead of running it inside this process. None = no window
+/// (or it refused): the caller downloads by itself, as it always did.
+fn hand_to_gui(req: &serde_json::Value, url: &str, out: &Path, ctx: &HostCtx) -> Option<serde_json::Value> {
+    let (addr, token) = gui_endpoint(ctx)?;
+    let mut body = serde_json::json!({
+        "url": url,
+        "out_dir": out.parent()?.to_string_lossy(),
+        "filename": out.file_name()?.to_string_lossy(),
+        "force_media": opt_bool(req, "force_media"),
+    });
+    let obj = body.as_object_mut()?;
+    if let Some(n) = opt_u64(req, "connections") {
+        obj.insert("connections".into(), n.into());
+    }
+    if let Some(r) = opt_u64(req, "limit_rate") {
+        obj.insert("limit_rate".into(), r.into());
+    }
+    for key in ["format", "cookie", "referer", "proxy"] {
+        if let Some(v) = opt_str(req, key) {
+            obj.insert(key.into(), v.into());
+        }
+    }
+    if opt_bool(req, "aria2") {
+        obj.insert("aria2".into(), true.into());
+    }
+    if let Some(c) = req.get("cookies").filter(|c| c.is_array()) {
+        obj.insert("cookies".into(), c.clone());
+    }
+    let reply = post_json(&addr, &token, "/api/add", &body)?;
+    if reply.get("ok").and_then(|v| v.as_bool()) != Some(true) {
+        return None;
+    }
+    Some(serde_json::json!({
+        "ok": true,
+        "queued": true,
+        "gui_id": reply.get("id").cloned().unwrap_or(serde_json::Value::Null),
+        "output": out.to_string_lossy(),
+    }))
 }
 
 fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
@@ -507,6 +543,12 @@ fn handle(req: &serde_json::Value, ctx: &HostCtx) -> serde_json::Value {
                 Ok(o) => o,
                 Err(e) => return e,
             };
+            // The window is running: let its queue do it, so the download
+            // shows up there with its progress (the path is the one already
+            // checked against the allowed dir).
+            if let Some(queued) = hand_to_gui(req, &url, &final_path(&out, &cat, &url), ctx) {
+                return queued;
+            }
 
             let conns = opt_u64(req, "connections").unwrap_or(4);
             let mut cmd = Command::new(ctx.engine);

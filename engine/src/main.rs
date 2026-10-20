@@ -18,6 +18,7 @@ use tokio::sync::{Mutex, Semaphore};
 use crate::console::HideConsole;
 
 mod console;
+mod cookies;
 mod gui;
 mod media;
 mod secrets;
