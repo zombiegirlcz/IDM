@@ -70,7 +70,7 @@ fi
 # python zipapp is the fallback that runs anywhere python does.
 if command -v python3 >/dev/null 2>&1; then
   warn "the standalone build did not run here, trying pip"
-  if python3 -m pip install --user --quiet --upgrade yt-dlp >/dev/null 2>&1; then
+  if python3 -m pip install --user --quiet --upgrade "yt-dlp[default]" >/dev/null 2>&1; then
     if command -v yt-dlp >/dev/null 2>&1; then
       command -v yt-dlp
       exit 0

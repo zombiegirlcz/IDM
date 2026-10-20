@@ -161,3 +161,26 @@ fn the_download_gets_the_runtime_too() {
     let argv = fs::read_to_string(&log).unwrap();
     assert!(argv.contains("--js-runtimes deno:"), "argv: {}", argv);
 }
+
+// A pip-installed yt-dlp has the runtime but not the challenge solver
+// scripts (yt-dlp-ejs); without them YouTube offers only storyboards and
+// every format selector fails with "Requested format is not available".
+#[test]
+fn the_solver_scripts_are_allowed_to_be_fetched_with_the_runtime() {
+    let dir = unique_dir("ejs");
+    let (s, log) = stub(&dir, "2026.08.19");
+    let (_bin, path) = runtimes(&dir, &["deno"]);
+    list_formats(&s, &path, &dir);
+    let argv = fs::read_to_string(&log).unwrap();
+    assert!(argv.contains("--remote-components ejs:github"), "argv: {}", argv);
+}
+
+#[test]
+fn an_old_yt_dlp_is_not_given_remote_components_either() {
+    let dir = unique_dir("ejs_old");
+    let (s, log) = stub(&dir, "2025.01.15");
+    let (_bin, path) = runtimes(&dir, &["deno"]);
+    list_formats(&s, &path, &dir);
+    let argv = fs::read_to_string(&log).unwrap();
+    assert!(!argv.contains("--remote-components"), "argv: {}", argv);
+}

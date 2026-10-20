@@ -92,3 +92,12 @@ test('the release archive carries them', () => {
   assert.match(wf, /ensure-ytdlp/,
     'release.yml packs ensure-aria2; it must pack ensure-ytdlp too');
 });
+
+test('the pip fallback brings the YouTube challenge solver along', () => {
+  // Plain `pip install yt-dlp` leaves out yt-dlp-ejs, and YouTube then offers
+  // no downloadable format at all ("Requested format is not available").
+  const text = readFileSync(sh, 'utf8');
+  const pip = text.split('\n').find((l) => l.includes('pip install'));
+  assert.ok(pip, 'no pip fallback line');
+  assert.match(pip, /yt-dlp\[default\]/, pip);
+});

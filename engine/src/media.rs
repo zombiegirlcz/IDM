@@ -310,6 +310,10 @@ fn apply_js_runtime(cmd: &mut tokio::process::Command, yt_dlp: &Path) {
     }
     if let Some(rt) = find_js_runtime() {
         cmd.arg("--js-runtimes").arg(rt);
+        // The runtime alone is not enough: the solver scripts ship in
+        // yt-dlp-ejs, which a plain pip install leaves out. Let yt-dlp fetch
+        // them from its own GitHub releases (cached after the first time).
+        cmd.arg("--remote-components").arg("ejs:github");
     }
 }
 
