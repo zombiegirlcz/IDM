@@ -517,3 +517,6 @@ jobs:
           $left = @(Get-ChildItem -Force $I | Where-Object { $_.Name -match '\.(old|new|rollback)$' } | ForEach-Object Name)
           if ($left) { throw "left next to bin\ after the undone swap: $($left -join ', ')" }
           Write-Host "a half-way swap failure is undone on Windows OK"
+          # The runner exits with $LASTEXITCODE, which is still the failure
+          # this step expected from `idm update`.
+          exit 0
