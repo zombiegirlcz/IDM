@@ -39,6 +39,19 @@ test('the GUI and the engine report the same version', () => {
   );
 });
 
+test('the browser extension carries the same version', () => {
+  // chrome://extensions shows this number. It stayed at 2.0.8 through every
+  // 2.1.x release, so the extension looked like it had never been updated.
+  const manifest = JSON.parse(
+    readFileSync(join(repoRoot, 'extension', 'manifest.json'), 'utf8'),
+  );
+  assert.equal(
+    manifest.version,
+    crateVersion(),
+    'extension/manifest.json version must match engine/Cargo.toml',
+  );
+});
+
 test('Cargo.lock agrees with Cargo.toml', () => {
   const lock = readFileSync(join(repoRoot, 'engine', 'Cargo.lock'), 'utf8');
   const m = /name = "idm-engine"\nversion = "([^"]+)"/.exec(lock);

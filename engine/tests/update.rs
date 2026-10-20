@@ -48,15 +48,26 @@ fn fake_install(version: &str) -> PathBuf {
 
 /// The release archive, built the way release.yml builds it (flat, plus assets/).
 fn fake_archive() -> (PathBuf, String) {
+    fake_archive_with(true, &[])
+}
+
+/// The same archive, with or without extension/ and with extra flat files --
+/// release v2.1.9 shipped a Windows zip with no extension/ at all.
+fn fake_archive_with(with_extension: bool, extra: &[(&str, &str)]) -> (PathBuf, String) {
     let dir = unique_dir("arch");
     let stage = dir.join("dist");
     std::fs::create_dir_all(stage.join("assets")).unwrap();
-    std::fs::create_dir_all(stage.join("extension")).unwrap();
     std::fs::write(stage.join("idm"), "NEW-ENGINE").unwrap();
     std::fs::write(stage.join("idm-host"), "NEW-HOST").unwrap();
     std::fs::write(stage.join("idm_gui.py"), "NEW-GUI").unwrap();
     std::fs::write(stage.join("assets").join("idm.png"), "NEW-ICON").unwrap();
-    std::fs::write(stage.join("extension").join("manifest.json"), "NEW-EXT").unwrap();
+    if with_extension {
+        std::fs::create_dir_all(stage.join("extension")).unwrap();
+        std::fs::write(stage.join("extension").join("manifest.json"), "NEW-EXT").unwrap();
+    }
+    for (name, body) in extra {
+        std::fs::write(stage.join(name), body).unwrap();
+    }
     let tar = dir.join("release.tar.gz");
     let ok = Command::new("tar")
         .arg("-czf")
@@ -495,4 +506,294 @@ fn a_stale_cache_is_rewritten_by_the_next_command() {
         "the cache must name what is installed: {cache}",
     );
     assert_eq!(v["newer"], false, "and stop claiming to be behind: {cache}");
+}
+
+// --- Windows: what an update leaves behind ----------------------------------
+//
+// Reproduced on a real Windows 11 box going 2.1.8 -> 2.1.9: afterwards the
+// install directory held bin.old\idm.exe (the updater itself, and the window's
+// server, were still running from it -- Windows will not delete a running
+// exe), extension\ was EMPTY, and bin\ had lost ensure-ytdlp.ps1.
+
+/// An archive without extension/ says nothing about the extension. Replacing
+/// the installed one with an empty directory is what made Chrome refuse to
+/// load it ("Manifest file is missing or unreadable").
+#[test]
+fn an_archive_without_an_extension_leaves_the_installed_one_alone() {
+    let dir = fake_install(VERSION);
+    let (archive, sha) = fake_archive_with(false, &[]);
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update"], &addr, &addr);
+    assert!(ok, "update must succeed: {out}");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(),
+        "NEW-ENGINE",
+        "the update itself must have happened",
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("extension").join("manifest.json")).ok().as_deref(),
+        Some("OLD-EXT"),
+        "extension/ must not be swapped for an empty directory",
+    );
+}
+
+/// bin/ is everything the archive ships flat for it, not a hand-kept list
+/// that forgot the yt-dlp installer: without it, a video page on a machine
+/// with no yt-dlp fails with "the installer script ... is missing".
+#[test]
+fn update_keeps_the_yt_dlp_and_aria2_installers() {
+    let dir = fake_install(VERSION);
+    let scripts = [
+        ("ensure-ytdlp.sh", "YTDLP-SH"),
+        ("ensure-ytdlp.ps1", "YTDLP-PS1"),
+        ("ensure-aria2.sh", "ARIA2-SH"),
+        ("ensure-aria2.ps1", "ARIA2-PS1"),
+    ];
+    let (archive, sha) = fake_archive_with(true, &scripts);
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update"], &addr, &addr);
+    assert!(ok, "update must succeed: {out}");
+    for (name, body) in scripts {
+        assert_eq!(
+            std::fs::read_to_string(dir.join("bin").join(name)).ok().as_deref(),
+            Some(body),
+            "bin/{name} must come from the archive",
+        );
+    }
+}
+
+/// A directory whose entries cannot be removed, standing in for a running
+/// .exe on Windows. `None` when this process can delete it anyway (root),
+/// because then the test would prove nothing.
+#[cfg(unix)]
+fn undeletable(parent: &Path) -> Option<PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
+    let locked = parent.join("locked");
+    std::fs::create_dir_all(&locked).unwrap();
+    std::fs::write(locked.join("idm.exe"), "RUNNING").unwrap();
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o555)).unwrap();
+    if std::fs::remove_file(locked.join("idm.exe")).is_ok() {
+        eprintln!("skip: this user can delete from a 0555 directory (root?)");
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
+        return None;
+    }
+    Some(locked)
+}
+
+#[cfg(unix)]
+fn unlock(dir: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    let Ok(walk) = std::fs::read_dir(dir) else { return };
+    for e in walk.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            let _ = std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755));
+            unlock(&p);
+        }
+    }
+}
+
+/// Names a user would see next to bin/ gui/ assets/ extension/ state/.
+fn leftovers(dir: &Path) -> Vec<String> {
+    std::fs::read_dir(dir)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|n| n.ends_with(".old") || n.ends_with(".new") || n.ends_with(".rollback"))
+        .collect()
+}
+
+/// The previous bin/ cannot always be deleted right after the swap: on
+/// Windows the updater and the window's server are running from it. It must
+/// still disappear from the install directory, not linger as bin.old.
+#[cfg(unix)]
+#[test]
+fn an_old_tree_that_cannot_be_deleted_yet_is_moved_out_of_sight() {
+    let dir = fake_install(VERSION);
+    let Some(_locked) = undeletable(&dir.join("bin")) else { return };
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update"], &addr, &addr);
+    let left = leftovers(&dir);
+    unlock(&dir);
+    assert!(ok, "update must succeed: {out}");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(),
+        "NEW-ENGINE",
+    );
+    assert!(left.is_empty(), "nothing may be left next to bin/: {left:?}");
+}
+
+/// A bin.old an earlier version could not delete must not block the next
+/// update: renaming bin/ onto a non-empty bin.old fails on every platform.
+#[cfg(unix)]
+#[test]
+fn a_stuck_old_tree_from_an_earlier_update_does_not_block_the_next_one() {
+    let dir = fake_install(VERSION);
+    std::fs::create_dir_all(dir.join("bin.old")).unwrap();
+    let Some(_locked) = undeletable(&dir.join("bin.old")) else { return };
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update"], &addr, &addr);
+    let left = leftovers(&dir);
+    unlock(&dir);
+    assert!(ok, "update must succeed over a stuck bin.old: {out}");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(),
+        "NEW-ENGINE",
+    );
+    assert!(left.is_empty(), "nothing may be left next to bin/: {left:?}");
+}
+
+/// What could not be deleted during the update is deleted by the next run of
+/// the engine, once the processes that held it are gone -- including stale
+/// *.old trees left by versions that predate the trash.
+#[test]
+fn leftovers_are_swept_by_the_next_command() {
+    let dir = fake_install(VERSION);
+    std::fs::create_dir_all(dir.join(".trash").join("bin-1")).unwrap();
+    std::fs::write(dir.join(".trash").join("bin-1").join("idm.exe"), "STALE").unwrap();
+    std::fs::create_dir_all(dir.join("bin.old")).unwrap();
+    std::fs::write(dir.join("bin.old").join("idm.exe"), "STALE").unwrap();
+    std::fs::write(dir.join("VERSION.old"), "2.1.8\n").unwrap();
+
+    let res = Command::new(IDM)
+        .arg("--version")
+        .env("IDM_DIR", &dir)
+        .output()
+        .expect("spawn idm");
+    assert!(res.status.success());
+    assert!(!dir.join(".trash").exists(), "the trash must be emptied and removed");
+    assert!(!dir.join("bin.old").exists(), "a stale bin.old must be swept");
+    assert!(!dir.join("VERSION.old").exists(), "and VERSION.old with it");
+    // What is installed is not a leftover.
+    assert_eq!(std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(), "OLD-ENGINE");
+    assert!(dir.join("state").join("queue.json").is_file());
+}
+
+/// An update that died half way through the swap leaves its staging
+/// directory behind, and then the .old trees are the only way back
+/// (`idm update --rollback`). The sweep must leave those alone.
+#[test]
+fn an_interrupted_swap_keeps_its_old_trees_for_rollback() {
+    let dir = fake_install(VERSION);
+    std::fs::create_dir_all(dir.join(".update").join("unpack")).unwrap();
+    std::fs::create_dir_all(dir.join("bin.old")).unwrap();
+    std::fs::write(dir.join("bin.old").join("idm"), "PREVIOUS").unwrap();
+
+    let res = Command::new(IDM)
+        .arg("--version")
+        .env("IDM_DIR", &dir)
+        .output()
+        .expect("spawn idm");
+    assert!(res.status.success());
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin.old").join("idm")).ok().as_deref(),
+        Some("PREVIOUS"),
+        "an interrupted update's rollback copy must survive the sweep",
+    );
+}
+
+// --- Windows: a swap that cannot finish -------------------------------------
+//
+// Reported from Windows: after an update that failed half way, bin\ was the
+// new release while gui\, extension\ and VERSION were still the old one, and
+// *.old trees lay next to them. Each tree is a separate rename, so the swap
+// as a whole is only atomic if a failure part way through puts back what the
+// earlier renames already did.
+
+/// A directory that can be neither emptied nor moved to another parent --
+/// what a tree with a process's working directory inside it is on Windows.
+/// `false` when this user can do both anyway (root): the test would prove
+/// nothing.
+#[cfg(unix)]
+fn immovable(d: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::create_dir_all(d).unwrap();
+    std::fs::write(d.join("idm.exe"), "RUNNING").unwrap();
+    std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o555)).unwrap();
+    if std::fs::remove_file(d.join("idm.exe")).is_ok() {
+        eprintln!("skip: this user can delete from a 0555 directory (root?)");
+        std::fs::set_permissions(d, std::fs::Permissions::from_mode(0o755)).unwrap();
+        return false;
+    }
+    true
+}
+
+/// bin/ swaps, then gui/ cannot (a gui.old nothing can remove stands in the
+/// way). The update has to fail -- and leave the installation exactly as it
+/// was, not a new engine next to the old window and the old VERSION.
+#[cfg(unix)]
+#[test]
+fn a_swap_that_fails_half_way_puts_back_what_it_already_swapped() {
+    let dir = fake_install(VERSION);
+    if !immovable(&dir.join("gui.old")) {
+        return;
+    }
+    let (archive, sha) = fake_archive();
+    let addr = serve("v9.9.9", &archive, &sha);
+    let (ok, out) = run(&dir, &["update"], &addr, &addr);
+    let left: Vec<String> = leftovers(&dir).into_iter().filter(|n| n != "gui.old").collect();
+    unlock(&dir);
+    assert!(!ok, "an update that could not swap gui/ must fail: {out}");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(),
+        "OLD-ENGINE",
+        "bin/ must be put back when a later tree fails to swap",
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("bin").join("idm-host")).unwrap(),
+        "OLD-HOST",
+    );
+    assert_eq!(std::fs::read_to_string(dir.join("gui").join("idm_gui.py")).unwrap(), "OLD-GUI");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("extension").join("manifest.json")).unwrap(),
+        "OLD-EXT",
+    );
+    assert_eq!(std::fs::read_to_string(dir.join("VERSION")).unwrap().trim(), VERSION);
+    assert!(left.is_empty(), "the undone swap must not leave trees behind: {left:?}");
+}
+
+/// The tree a rollback replaces is parked as <name>.rollback and deleted. On
+/// Windows that delete fails -- `idm update --rollback` runs from bin\ -- and
+/// the stale bin.rollback then made the NEXT rollback fail, because nothing
+/// renames a directory onto a non-empty one.
+#[cfg(unix)]
+#[test]
+fn a_stuck_rollback_scratch_does_not_block_the_next_rollback() {
+    let dir = fake_install(VERSION);
+    std::fs::create_dir_all(dir.join("bin.rollback")).unwrap();
+    let Some(_locked) = undeletable(&dir.join("bin.rollback")) else { return };
+    std::fs::write(dir.join("bin").join("idm"), "NEW-ENGINE").unwrap();
+    std::fs::create_dir_all(dir.join("bin.old")).unwrap();
+    std::fs::write(dir.join("bin.old").join("idm"), "OLD-ENGINE").unwrap();
+    std::fs::write(dir.join("VERSION.old"), format!("{VERSION}\n")).unwrap();
+
+    let addr = "http://127.0.0.1:9";
+    let (ok, out) = run(&dir, &["update", "--rollback"], addr, addr);
+    let left = leftovers(&dir);
+    unlock(&dir);
+    assert!(ok, "rollback must succeed over a stuck bin.rollback: {out}");
+    assert_eq!(std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(), "OLD-ENGINE");
+    assert!(left.is_empty(), "nothing may be left next to bin/: {left:?}");
+}
+
+/// A *.rollback that an earlier rollback could not delete is litter like a
+/// stale *.old, and the next command sweeps it the same way.
+#[test]
+fn a_stale_rollback_scratch_is_swept_by_the_next_command() {
+    let dir = fake_install(VERSION);
+    std::fs::create_dir_all(dir.join("bin.rollback")).unwrap();
+    std::fs::write(dir.join("bin.rollback").join("idm.exe"), "STALE").unwrap();
+    std::fs::create_dir_all(dir.join("gui.rollback")).unwrap();
+
+    let res = Command::new(IDM)
+        .arg("--version")
+        .env("IDM_DIR", &dir)
+        .output()
+        .expect("spawn idm");
+    assert!(res.status.success());
+    assert!(!dir.join("bin.rollback").exists(), "a stale bin.rollback must be swept");
+    assert!(!dir.join("gui.rollback").exists(), "a stale gui.rollback must be swept");
+    assert_eq!(std::fs::read_to_string(dir.join("bin").join("idm")).unwrap(), "OLD-ENGINE");
 }

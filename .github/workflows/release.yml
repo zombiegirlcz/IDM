@@ -72,7 +72,6 @@ jobs:
           cp engine/target/${{ matrix.target }}/release/idm.exe dist/
           cp engine/target/${{ matrix.target }}/release/idm-host.exe dist/
           cp gui/idm_gui.py dist/
-          cp extension/manifest.json dist/ 2>/dev/null || true
           cp install.ps1 dist/
           cp scripts/ensure-aria2.ps1 dist/ 2>/dev/null || true
           cp scripts/ensure-aria2.sh dist/ 2>/dev/null || true
@@ -81,6 +80,12 @@ jobs:
           # The desktop shortcut needs a real icon file; a theme name or a
           # shell32 index is what made it render blank.
           mkdir -p dist/assets && cp assets/idm.ico assets/idm.png dist/assets/
+          # The whole extension, as on Linux. Up to 2.1.9 only manifest.json
+          # went in (at the zip root, where nothing used it): install.ps1 had
+          # no extension\ to install and `idm update` swapped in an empty one,
+          # so Chrome's "Load unpacked" found no manifest.
+          mkdir -p dist/extension
+          cp -r extension/. dist/extension/
           (cd dist && 7z a ../${{ matrix.archive }} .)
 
       - name: Stage artifacts (Linux)

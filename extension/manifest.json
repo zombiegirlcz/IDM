@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "IDM-like Capture (POC)",
-  "version": "2.0.8",
+  "version": "2.2.0",
   "description": "Captures download URLs in the page and forwards them to the idm-host native messaging host.",
   "permissions": [
     "contextMenus",

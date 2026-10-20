@@ -128,10 +128,9 @@ test('persists IDM_ALLOWED_DIR for the fail-closed host', () => {
 
 test('persists IDM_SETTINGS so the extension can see the Options dialog', () => {
   const s = src();
-  // Windows browsers spawn the native host with no arguments and there is no
-  // wrapper script, so --settings cannot be passed; the host falls back to this
-  // variable. Without it get_settings always answers source "default" and the
-  // File Types / key settings have no effect on capture.
+  // native\idm-host.cmd passes --settings; the variable is the host's fallback
+  // for a manifest an older install wrote, which still points straight at
+  // bin\idm-host.exe. (test/windows_host.test.mjs covers the wrapper.)
   assert.match(
     s,
     /SetEnvironmentVariable\(\s*"IDM_SETTINGS"/,

@@ -4,7 +4,7 @@ Replikace architektury Internet Download Manageru: multi-connection HTTP Range
 stahování s resume, native-messaging host pro prohlížeč, MV3 extension a
 nativní Tk okno.
 
-**Stav.** Verze 0.1.5, instalace přes `install.sh` / `install.ps1` stahuje
+**Stav.** Verze 2.2.0, instalace přes `install.sh` / `install.ps1` stahuje
 hotové binárky z GitHub release. Všechno leží v jedné složce `$IDM_DIR`
 (výchozí `~/.idm`, na Windows `%USERPROFILE%\.idm`).
 
@@ -137,6 +137,21 @@ ověřování změn.
 - **Komentář spolkne pokračovací `\`.** V `install.sh` tak zmizel celý `curl`
   a zbyl řádek začínající `-o "$PREFIX/bin/$f"`, který bash zkusil spustit.
   `bash -n` to přijme; hlídá to test na tvar řádků v `test/install.test.mjs`.
+- **Windows: běžící `.exe` nejde smazat, ale jde přejmenovat** (i celý
+  adresář s ním). Proces s **pracovním adresářem** uvnitř `bin\` ale
+  přejmenování `bin\` zablokuje — a Chrome spouští native host s cwd v jeho
+  složce. Proto `idm update` před swapem zastaví `idm-host.exe` z `bin\`,
+  host jde přes `native\idm-host.cmd` a co nejde smazat, putuje do `.trash\`,
+  kterou uklidí další spuštění `idm` (`sweep_leftovers`; `*.old` jen když
+  neexistuje `.update`, jinak je to kopie pro `--rollback`).
+- **Windows zip musí nést celé `extension/`.** Do 2.1.9 tam byl jen
+  `manifest.json` a `idm update` prohodil `extension\` za prázdnou složku —
+  Chrome pak „Load unpacked" odmítl. `arrange()` teď staví strom jen z toho,
+  co archiv opravdu obsahuje; `test/windows_parity.test.mjs` hlídá soulad
+  obou archivů.
+- **Na Windows zavírací tlačítko okno jen schová do trayi**, takže „restartuj
+  okno" po aktualizaci nikdy nenastal a starý engine běžel dál z `bin.old`.
+  Okno se po aktualizaci restartuje samo (`after_update_action`).
 - `settings.json`, `queue.json` i `secrets.json` se píšou **atomicky
   (tmp + rename) s 0600**. Zápis na místo nechává čtenáře vidět torzo.
 

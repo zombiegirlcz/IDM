@@ -8,13 +8,15 @@
 #
 # What it does (user-scoped, no admin):
 #   1. download idm-windows-x64.zip from the latest GitHub release
-#   2. unpack to %LOCALAPPDATA%\idm
-#   3. register the native-messaging host in HKCU (Chrome/Edge/Brave/Chromium)
-#   4. persist IDM_ALLOWED_DIR (the host is fail-closed)
+#   2. unpack to %USERPROFILE%\.idm (bin\ gui\ assets\ extension\)
+#   3. write native\idm-host.cmd (the host with its flags baked in) and
+#      register it in HKCU for Chrome/Edge/Brave/Chromium and Firefox
+#   4. persist IDM_ALLOWED_DIR / IDM_SETTINGS (fallback for older manifests)
 #   5. create a Desktop + Start-Menu shortcut that opens the native window
 #
 # Parameters:
-#   -Uninstall        remove everything
+#   -Uninstall        remove everything except state\ (queue, settings, vault)
+#   -Purge            with -Uninstall: remove state\ too
 #   -Prefix DIR       install directory (default %USERPROFILE%\.idm, or $env:IDM_DIR)
 #   -DownloadsDir DIR download directory (default %USERPROFILE%\Downloads)
 #   -Version TAG      release tag (default: latest)
@@ -24,6 +26,7 @@
 [CmdletBinding()]
 param(
     [switch]$Uninstall,
+    [switch]$Purge,
     [string]$Prefix = "",
     [string]$DownloadsDir = "",
     [string]$Version = "latest",
@@ -67,6 +70,11 @@ if (-not $Prefix) {
     }
 }
 if (-not $DownloadsDir) { $DownloadsDir = Join-Path $env:USERPROFILE "Downloads" }
+# Both end up in the registry and in native\idm-host.cmd, which the browser
+# runs from its own working directory: a relative -Prefix would point it at
+# nothing.
+$Prefix       = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Prefix)
+$DownloadsDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DownloadsDir)
 
 $BrowserRegRoots = @(
     "HKCU:\Software\Google\Chrome\NativeMessagingHosts",
@@ -74,6 +82,8 @@ $BrowserRegRoots = @(
     "HKCU:\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts",
     "HKCU:\Software\Chromium\NativeMessagingHosts"
 )
+# Firefox reads its own key and allows hosts by add-on id, not by origin.
+$FirefoxRegRoot = "HKCU:\Software\Mozilla\NativeMessagingHosts"
 
 function Get-DesktopDir {
     $d = [Environment]::GetFolderPath("Desktop")
@@ -106,10 +116,25 @@ function Stop-IdmProcesses {
     param([string]$Root)
     if (-not (Test-Path $Root)) { return }
     $root = [System.IO.Path]::GetFullPath($Root).TrimEnd('\') + '\'
-    $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-        ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) -or
-        ($_.Name -match '^pythonw?(\.exe)?$' -and $_.CommandLine -and
-         $_.CommandLine.IndexOf($root, [StringComparison]::OrdinalIgnoreCase) -ge 0)
+    $all = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+    # Never our own caller: `idm uninstall` runs this script from bin\idm.exe,
+    # and killing that process takes its exit code and its output with it.
+    # Walk up from $PID and leave the whole chain alone.
+    $parentOf = @{}
+    foreach ($p in $all) { $parentOf[[int]$p.ProcessId] = [int]$p.ParentProcessId }
+    $mine = @{}
+    $id = $PID
+    while ($id -gt 0 -and -not $mine.ContainsKey($id)) {
+        $mine[$id] = $true
+        $id = if ($parentOf.ContainsKey($id)) { $parentOf[$id] } else { 0 }
+    }
+    # cmd.exe counts too: the browser runs native\idm-host.cmd through it, and
+    # its working directory inside native\ keeps that directory from going.
+    $procs = @($all | Where-Object {
+        -not $mine.ContainsKey([int]$_.ProcessId) -and (
+            ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) -or
+            ($_.Name -match '^(pythonw?|cmd)(\.exe)?$' -and $_.CommandLine -and
+             $_.CommandLine.IndexOf($root, [StringComparison]::OrdinalIgnoreCase) -ge 0))
     })
     foreach ($p in $procs) {
         Write-Log "zastavuji $($p.Name) (PID $($p.ProcessId))"
@@ -126,12 +151,64 @@ function Remove-UserPath {
     [Environment]::SetEnvironmentVariable("Path", ($parts -join ';'), "User")
 }
 
+# Pure: how a path is spelled inside native\idm-host.cmd. cmd.exe reads a batch
+# file in the OEM code page, so C:\Users\Lukas-with-a-hacek written out
+# literally can name a different directory. %~dp0 (the wrapper's own folder,
+# native\) and %USERPROFILE% are expanded by cmd itself, in Unicode, which
+# covers the default install and the default downloads folder. A literal % is
+# doubled, or cmd would expand it.
+function ConvertTo-CmdPath {
+    param([string]$Path, [string]$Prefix, [string]$UserProfile)
+    $full = $Path.TrimEnd('\')
+    # Ordered: the prefix usually sits inside the profile, and wins.
+    $bases = [ordered]@{ '%~dp0..' = $Prefix; '%USERPROFILE%' = $UserProfile }
+    foreach ($spelling in $bases.Keys) {
+        $dir = $bases[$spelling]
+        if ([string]::IsNullOrEmpty($dir)) { continue }
+        $dir = $dir.TrimEnd('\')
+        if ($full.Equals($dir, [StringComparison]::OrdinalIgnoreCase)) { return $spelling }
+        if ($full.StartsWith($dir + '\', [StringComparison]::OrdinalIgnoreCase)) {
+            return $spelling + $full.Substring($dir.Length).Replace('%', '%%')
+        }
+    }
+    return $full.Replace('%', '%%')
+}
+
+# Pure: the lines of native\idm-host.cmd, the Windows twin of the Linux
+# idm-host-wrapper.sh. The host is fail-closed without --allowed-dir, and a
+# browser started before the install never sees the user variables this script
+# persists -- so the flags travel in the file the manifest points at. Nothing
+# may reach stdout but the host's own frames, hence @echo off.
+function Get-HostWrapperLines {
+    param([string]$Prefix, [string]$DownloadsDir, [string]$UserProfile)
+    $root = $Prefix.TrimEnd('\')
+    $q = { param([string]$p) '"' + (ConvertTo-CmdPath -Path $p -Prefix $Prefix -UserProfile $UserProfile) + '"' }
+    $hostExe  = & $q "$root\bin\idm-host.exe"
+    $engine   = & $q "$root\bin\idm.exe"
+    $dl       = & $q $DownloadsDir
+    $settings = & $q "$root\state\settings.json"
+    return @(
+        "@echo off",
+        "rem Generated by install.ps1 - do not edit; reinstall to change it.",
+        "$hostExe --engine $engine --allowed-dir $dl --settings $settings %*"
+    )
+}
+
+# Manifests are written as UTF-8 WITHOUT a byte-order mark. Windows
+# PowerShell's -Encoding UTF8 writes one, a browser's JSON parser is entitled
+# to refuse it, and the host then simply looks "not found".
+function Write-JsonFile {
+    param([string]$Path, $Object)
+    $json = ($Object | ConvertTo-Json -Depth 5) + "`r`n"
+    [System.IO.File]::WriteAllText($Path, $json, (New-Object System.Text.UTF8Encoding $false))
+}
+
 # --------------------------------------------------------------------------- #
 # Uninstall
 # --------------------------------------------------------------------------- #
 if ($Uninstall) {
     Write-Log "odinstalace"
-    foreach ($root in $BrowserRegRoots) {
+    foreach ($root in @($BrowserRegRoots) + $FirefoxRegRoot) {
         $key = Join-Path $root $HostName
         if (Test-Path $key) { Remove-Item -Path $key -Recurse -Force -ErrorAction SilentlyContinue }
     }
@@ -140,11 +217,34 @@ if ($Uninstall) {
     [Environment]::SetEnvironmentVariable("IDM_ALLOWED_DIR", $null, "User")
     [Environment]::SetEnvironmentVariable("IDM_SETTINGS", $null, "User")
     [Environment]::SetEnvironmentVariable("IDM_DIR", $null, "User")
+    [Environment]::SetEnvironmentVariable("IDM_PYTHON", $null, "User")
     Remove-UserPath -Dir (Join-Path $Prefix "bin")
     Remove-UserPath -Dir $Prefix
     Stop-IdmProcesses -Root $Prefix
-    if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix -ErrorAction SilentlyContinue }
-    Write-Log "hotovo - odstraneno"
+    $keepState = Join-Path $Prefix "state"
+    if (Test-Path $Prefix) {
+        if ($Purge) {
+            Remove-Item -Recurse -Force $Prefix -ErrorAction SilentlyContinue
+        } else {
+            # Default is to KEEP state\, like install.sh: losing the queue and
+            # the saved passwords is worse than leaving a directory behind.
+            Get-ChildItem -Force $Prefix | Where-Object { $_.Name -ne "state" } | ForEach-Object {
+                Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue
+            }
+            if (-not (Get-ChildItem -Force $Prefix)) { Remove-Item -Force $Prefix -ErrorAction SilentlyContinue }
+        }
+    }
+    # What would not go is still running (or open) somewhere; say so instead
+    # of reporting a clean uninstall over it.
+    if (Test-Path $Prefix) {
+        $left = @(Get-ChildItem -Force $Prefix | Where-Object { $Purge -or $_.Name -ne "state" } | ForEach-Object Name)
+        if ($left) { Write-Warn "nepodarilo se odstranit: $($left -join ', ') v $Prefix (bezi jeste IDM?)" }
+    }
+    if ((-not $Purge) -and (Test-Path $keepState)) {
+        Write-Log "hotovo - stav zustal v $keepState (smazat: -Uninstall -Purge)"
+    } else {
+        Write-Log "hotovo - odstraneno"
+    }
     exit 0
 }
 
@@ -209,9 +309,18 @@ Expand-Archive -Path $zip -DestinationPath $stage -Force
 $binDir    = Join-Path $Prefix "bin"
 $guiDir    = Join-Path $Prefix "gui"
 $assetsDir = Join-Path $Prefix "assets"
+$extDir    = Join-Path $Prefix "extension"
 $stateDir  = Join-Path $Prefix "state"
 # state/ holds the queue and the vault; a reinstall must not throw them away.
 Stop-IdmProcesses -Root $Prefix
+# What an earlier `idm update` could not delete while IDM was running
+# (bin.old\idm.exe up to 2.1.9), plus an interrupted update's staging. The
+# processes are stopped now, so they can go.
+if (Test-Path $Prefix) {
+    Get-ChildItem -Force -Path $Prefix -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -like "*.old" -or $_.Name -in @(".update", ".trash")
+    } | ForEach-Object { Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue }
+}
 foreach ($d in @($binDir, $guiDir, $assetsDir)) {
     if (Test-Path $d) { Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue }
     # A directory that will not go away still holds the old version; carrying
@@ -225,6 +334,9 @@ foreach ($d in @($binDir, $guiDir, $assetsDir, $stateDir)) {
 # Pre-0.2 installs were flat under %LOCALAPPDATA%\idm; move what matters.
 $oldPrefix = Join-Path $env:LOCALAPPDATA "idm"
 if ((Test-Path $oldPrefix) -and ($oldPrefix -ne $Prefix)) {
+    # Its window or the browser's host may still run from there, and Windows
+    # deletes neither a running exe nor its directory.
+    Stop-IdmProcesses -Root $oldPrefix
     $oldState = Join-Path $oldPrefix "state"
     if (Test-Path $oldState) {
         Write-Log "stehuji stav z $oldState"
@@ -252,6 +364,17 @@ foreach ($a in @("idm.ico", "idm.png")) {
                 -OutFile (Join-Path $assetsDir $a)
         } catch { Write-Warn "nestahl $a" }
     }
+}
+# The browser extension, for chrome://extensions -> "Load unpacked". It lives
+# at a fixed path so `idm update` can refresh it in place; the browser only
+# has to reload it. Only replaced when the archive carries one.
+$extSrc = Join-Path $stage "extension"
+if (Test-Path (Join-Path $extSrc "manifest.json")) {
+    if (Test-Path $extDir) { Remove-Item -Recurse -Force $extDir -ErrorAction SilentlyContinue }
+    if (Test-Path $extDir) { Die "nelze nahradit $extDir (je otevrene v jinem programu?)" }
+    Move-Item $extSrc $extDir -Force
+} elseif (-not (Test-Path (Join-Path $extDir "manifest.json"))) {
+    Write-Warn "archiv neobsahuje rozsireni (extension\) - prohlizec nebude mit co nacist"
 }
 $stageSelf = Join-Path $stage "install.ps1"
 if (Test-Path $stageSelf) { Move-Item $stageSelf (Join-Path $Prefix "install.ps1") -Force }
@@ -293,28 +416,62 @@ New-Item -ItemType Directory -Force -Path $DownloadsDir | Out-Null
 # --------------------------------------------------------------------------- #
 # 3) Native-messaging host manifest + registry
 # --------------------------------------------------------------------------- #
-$manifestPath = Join-Path $Prefix "$HostName.json"
-$manifest = [ordered]@{
+# Same layout as Linux: the wrapper and both manifests in native\. The browser
+# runs the host with its working directory there, not in bin\ -- a process
+# whose cwd is inside bin\ keeps `idm update` from renaming bin\.
+$nativeDir = Join-Path $Prefix "native"
+New-Item -ItemType Directory -Force -Path $nativeDir | Out-Null
+$wrapper = Join-Path $nativeDir "idm-host.cmd"
+# OEM, the code page cmd.exe reads batch files in. Get-HostWrapperLines keeps
+# the usual non-ASCII (the user name) out of the file; this covers the rest
+# as far as cmd can.
+Set-Content -Encoding Oem -Path $wrapper -Value (Get-HostWrapperLines -Prefix $Prefix `
+    -DownloadsDir $DownloadsDir -UserProfile $env:USERPROFILE)
+
+$manifestPath = Join-Path $nativeDir "$HostName.json"
+Write-JsonFile -Path $manifestPath -Object ([ordered]@{
     name            = $HostName
     description     = "IDM-like native messaging host"
-    path            = $hostInstalled
+    path            = $wrapper
     type            = "stdio"
     allowed_origins = @("chrome-extension://$ExtensionId/")
+})
+# The add-on id comes from the extension's own Firefox template, like on
+# Linux, so it cannot drift from manifest.json's gecko id. The fallback is
+# for an archive without extension\.
+$geckoIds = @("idm@tonec.local")
+$ffTemplate = Join-Path $extDir "$HostName.firefox.json"
+if (Test-Path $ffTemplate) {
+    $t = Get-Content -Raw $ffTemplate | ConvertFrom-Json
+    if ($t.allowed_extensions) { $geckoIds = @($t.allowed_extensions) }
 }
-$manifest | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 $manifestPath
+$ffManifestPath = Join-Path $nativeDir "$HostName.firefox.json"
+Write-JsonFile -Path $ffManifestPath -Object ([ordered]@{
+    name               = $HostName
+    description        = "IDM-like native messaging host"
+    path               = $wrapper
+    type               = "stdio"
+    allowed_extensions = $geckoIds
+})
+# Up to 2.1.9 the Chrome manifest sat at the prefix root and pointed straight
+# at bin\idm-host.exe.
+Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $Prefix "$HostName.json")
+
 Write-Log "registruji native-messaging hosta (HKCU)"
-foreach ($root in $BrowserRegRoots) {
+$regTargets = @($BrowserRegRoots | ForEach-Object { @{ Root = $_; Manifest = $manifestPath } }) +
+              @{ Root = $FirefoxRegRoot; Manifest = $ffManifestPath }
+foreach ($t in $regTargets) {
     try {
-        $key = Join-Path $root $HostName
+        $key = Join-Path $t.Root $HostName
         New-Item -Path $key -Force | Out-Null
-        Set-ItemProperty -Path $key -Name "(Default)" -Value $manifestPath
+        Set-ItemProperty -Path $key -Name "(Default)" -Value $t.Manifest
     } catch {
-        Write-Warn "nepodarilo se zapsat $root"
+        Write-Warn "nepodarilo se zapsat $($t.Root)"
     }
 }
 
-# The host is fail-closed: it needs an allowed directory. Windows browsers
-# spawn it with no arguments, so we persist it for the user.
+# The wrapper carries --allowed-dir; the variable is the host's fallback for
+# a manifest an older install wrote that still points at bin\idm-host.exe.
 [Environment]::SetEnvironmentVariable("IDM_ALLOWED_DIR", $DownloadsDir, "User")
 $env:IDM_ALLOWED_DIR = $DownloadsDir
 Write-Log "nastaveno IDM_ALLOWED_DIR = $DownloadsDir"
@@ -380,11 +537,18 @@ function Ensure-Python {
 $python = Ensure-Python
 $guiPy  = Join-Path $guiDir "idm_gui.py"
 
+# `idm --gui` starts the window with IDM_PYTHON; the shortcut has the
+# interpreter baked in, a shell does not.
+if ($python) {
+    [Environment]::SetEnvironmentVariable("IDM_PYTHON", $python, "User")
+    $env:IDM_PYTHON = $python
+}
+
 # The browser extension cannot read settings.json itself; it asks the native
-# host (get_settings). On Linux a wrapper passes --settings, but Windows
-# browsers spawn the host with no arguments, so persist the path the same way
-# IDM_ALLOWED_DIR is persisted. Without it the File Types and force/prevent key
-# settings have no effect on what the extension captures.
+# host (get_settings). The wrapper passes --settings; the variable is the
+# fallback for an older manifest, the same way as IDM_ALLOWED_DIR. Without
+# either the File Types and force/prevent key settings have no effect on what
+# the extension captures.
 $settingsFile = Join-Path $stateDir "settings.json"
 [Environment]::SetEnvironmentVariable("IDM_SETTINGS", $settingsFile, "User")
 $env:IDM_SETTINGS = $settingsFile
@@ -458,11 +622,12 @@ if (Test-Path $ensureYtdlp) {
 }
 
 Write-Host "  Stazeni    : $DownloadsDir"
-Write-Host "  Rozsireni  : chrome://extensions -> Load unpacked"
+Write-Host "  Rozsireni  : chrome://extensions -> Developer mode -> Load unpacked -> $extDir"
+Write-Host "  Firefox    : about:debugging -> Load Temporary Add-on -> $extDir\manifest.json"
 if (Test-Path $ensurePs1) {
     Write-Host "  aria2      : prepinac 'Via aria2' v okne; aria2c se doinstaluje sam"
 }
 Write-Host ""
 Write-Host "  Odinstalace: irm <tento-skript> | iex; potom:"
-Write-Host "               (dostupne take: $Prefix\install.ps1 -Uninstall)"
+Write-Host "               (dostupne take: $Prefix\install.ps1 -Uninstall; stav smaze -Purge)"
 Write-Host ""

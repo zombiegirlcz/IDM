@@ -2036,6 +2036,13 @@ async fn main() {
     // already installed -- reported from Windows as "it still says 2.0.3" on
     // 2.0.7. One file read and, only when it is actually wrong, one write.
     let _ = update::reconcile_cache(&verbs::idm_dir());
+    // What the last update had to leave behind (on Windows: the previous
+    // bin\ it was running from) goes now, once nothing runs from it. `update`
+    // itself is skipped: --rollback needs the .old trees, and an update
+    // cleans up after itself.
+    if std::env::args().nth(1).as_deref() != Some("update") {
+        update::sweep_leftovers(&verbs::idm_dir());
+    }
     // The verbs come first: `url` is an optional positional, so clap would
     // read `update` as a URL. Anything that is not a verb falls through
     // untouched.

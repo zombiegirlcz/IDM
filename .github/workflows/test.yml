@@ -225,6 +225,13 @@ jobs:
           Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -ErrorAction Stop
           Invoke-ScriptAnalyzer -Path ./install.ps1 -Severity Error
 
+      # The wrapper Chrome launches is built by two pure functions; this runs
+      # them on paths a real install never gets here (a Czech user name, a
+      # literal %, a sibling of the prefix).
+      - name: Host wrapper lines
+        shell: pwsh
+        run: ./test/install_ps1_wrapper.ps1
+
       # Run it for real against a locally built archive: install, check what
       # landed, then uninstall through the copy it keeps in the prefix. Nothing
       # here touches the network or a release.
@@ -246,18 +253,25 @@ jobs:
           New-Item -ItemType Directory -Force -Path (Join-Path $stage 'assets') | Out-Null
           Copy-Item ./assets/idm.ico (Join-Path $stage 'assets')
           Copy-Item ./assets/idm.png (Join-Path $stage 'assets')
+          # The extension travels in the zip, as release.yml packs it.
+          Copy-Item -Recurse ./extension (Join-Path $stage 'extension')
           $zip = Join-Path $env:RUNNER_TEMP 'idm-windows-x64.zip'
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
           $sha = (Get-FileHash $zip -Algorithm SHA256).Hash
           "$sha  idm-windows-x64.zip" | Set-Content "$zip.sha256"
           $url = ([System.Uri](Resolve-Path $zip).Path).AbsoluteUri
+          # Where 2.1.9 put the Chrome manifest; it pointed at bin\idm-host.exe.
+          New-Item -ItemType Directory -Force -Path $prefix | Out-Null
+          '{"path": "stale"}' | Set-Content (Join-Path $prefix 'com.tonec.idm.json')
 
           ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir $dl
 
           # The flat archive must have been arranged into the same layout
           # install.sh builds, so one IDM_DIR means one thing on both systems.
           foreach ($f in 'bin\idm.exe', 'bin\idm-host.exe', 'bin\ensure-aria2.ps1',
-                         'gui\idm_gui.py', 'assets\idm.ico', 'install.ps1', 'VERSION') {
+                         'gui\idm_gui.py', 'assets\idm.ico', 'install.ps1', 'VERSION',
+                         'extension\manifest.json', 'extension\background.js',
+                         'extension\content.js') {
             if (-not (Test-Path (Join-Path $prefix $f))) { throw "missing after install: $f" }
           }
           if ([Environment]::GetEnvironmentVariable('IDM_DIR', 'User') -ne $prefix) {
@@ -268,13 +282,109 @@ jobs:
           $reg = 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.tonec.idm'
           if (-not (Test-Path $reg)) { throw "native messaging host not registered" }
 
-          & (Join-Path $prefix 'install.ps1') -Uninstall
-          if (Test-Path $prefix) { throw "prefix still present after -Uninstall" }
-          if (Test-Path $reg) { throw "registry key still present after -Uninstall" }
-          if ([Environment]::GetEnvironmentVariable('IDM_DIR', 'User')) {
-            throw "IDM_DIR survived -Uninstall"
+          # The browser launches a wrapper that carries the flags itself: a
+          # Chrome started before this install never sees the new user
+          # variables, and the host fails closed without --allowed-dir.
+          $native  = Join-Path $prefix 'native'
+          $wrapper = Join-Path $native 'idm-host.cmd'
+          if (-not (Test-Path $wrapper)) { throw "no native\idm-host.cmd" }
+          $w = Get-Content $wrapper
+          if ($w[0] -ne '@echo off') { throw "the wrapper must start with @echo off: $($w[0])" }
+          foreach ($flag in '--engine', '--allowed-dir', '--settings', 'idm-host.exe', '%*') {
+            if (($w -join "`n") -notlike "*$flag*") { throw "the wrapper lacks $flag`n$($w -join "`n")" }
           }
+          if (Test-Path (Join-Path $prefix 'com.tonec.idm.json')) { throw "the old root manifest is still there" }
+
+          function Read-Manifest([string]$path) {
+            $bytes = [System.IO.File]::ReadAllBytes($path)
+            if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+              throw "$path starts with a BOM"
+            }
+            return ([System.Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json)
+          }
+          $chrome  = Join-Path $native 'com.tonec.idm.json'
+          $firefox = Join-Path $native 'com.tonec.idm.firefox.json'
+          $cm = Read-Manifest $chrome
+          $fm = Read-Manifest $firefox
+          foreach ($m in $cm, $fm) {
+            if ($m.path -ne $wrapper) { throw "manifest path is $($m.path), not the wrapper" }
+            if ($m.name -ne 'com.tonec.idm' -or $m.type -ne 'stdio') { throw "manifest name/type wrong" }
+          }
+          if ((@($cm.allowed_origins) -join ',') -ne 'chrome-extension://gnhajaopemmibmjhkaafdebogmkkcljc/') {
+            throw "Chrome allowed_origins: $($cm.allowed_origins)"
+          }
+          if ((@($fm.allowed_extensions) -join ',') -ne 'idm@tonec.local') {
+            throw "Firefox allowed_extensions: $($fm.allowed_extensions)"
+          }
+          if ($fm.allowed_origins -or $cm.allowed_extensions) { throw "a manifest carries the other browser's key" }
+
+          $chromeKeys = 'Google\Chrome', 'Microsoft\Edge', 'BraveSoftware\Brave-Browser', 'Chromium' |
+            ForEach-Object { "HKCU:\Software\$_\NativeMessagingHosts\com.tonec.idm" }
+          foreach ($k in $chromeKeys) {
+            $v = (Get-Item $k).GetValue('')
+            if ($v -ne $chrome) { throw "$k -> $v, not $chrome" }
+          }
+          $mozilla = 'HKCU:\Software\Mozilla\NativeMessagingHosts\com.tonec.idm'
+          if (-not (Test-Path $mozilla)) { throw "Firefox host not registered" }
+          if ((Get-Item $mozilla).GetValue('') -ne $firefox) { throw "$mozilla does not point at $firefox" }
+
+          # `idm --gui` starts the window with the interpreter the installer found.
+          $py = [Environment]::GetEnvironmentVariable('IDM_PYTHON', 'User')
+          if (-not $py -or -not (Test-Path $py)) { throw "IDM_PYTHON not persisted: '$py'" }
+
+          # The queue and the vault outlive a plain -Uninstall, as on Linux.
+          '{"items": []}' | Set-Content (Join-Path $prefix 'state\queue.json')
+          & (Join-Path $prefix 'install.ps1') -Uninstall
+          $kept = @(Get-ChildItem -Force $prefix | ForEach-Object Name)
+          if (($kept -join ',') -ne 'state') { throw "-Uninstall left: $($kept -join ', ')" }
+          if (-not (Test-Path (Join-Path $prefix 'state\queue.json'))) { throw "-Uninstall threw state\ away" }
+          foreach ($k in @($chromeKeys) + $mozilla) {
+            if (Test-Path $k) { throw "$k still present after -Uninstall" }
+          }
+          foreach ($v in 'IDM_DIR', 'IDM_PYTHON', 'IDM_ALLOWED_DIR', 'IDM_SETTINGS') {
+            if ([Environment]::GetEnvironmentVariable($v, 'User')) { throw "$v survived -Uninstall" }
+          }
+
+          ./install.ps1 -Uninstall -Purge -Prefix $prefix
+          if (Test-Path $prefix) { throw "prefix still present after -Uninstall -Purge" }
           Write-Host "install + uninstall OK"
+
+      # Installs before 0.2 lived in %LOCALAPPDATA%\idm, and its window or the
+      # browser's host may still be running from there: the directory cannot
+      # be deleted then, and the old host stays registered under a dead tree.
+      - name: Migrate from a running pre-0.2 installation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $old = Join-Path $env:LOCALAPPDATA 'idm'
+          New-Item -ItemType Directory -Force -Path (Join-Path $old 'state') | Out-Null
+          Copy-Item (Join-Path $env:SystemRoot 'System32\PING.EXE') (Join-Path $old 'idm-host.exe')
+          '{"items": ["old"]}' | Set-Content (Join-Path $old 'state\queue.json')
+          $p = Start-Process (Join-Path $old 'idm-host.exe') -ArgumentList '-n', '900', '127.0.0.1' -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 2
+          if ($p.HasExited) { throw "the old host did not stay running" }
+
+          $stage  = Join-Path $env:RUNNER_TEMP 'stage-migrate'
+          $prefix = Join-Path $env:RUNNER_TEMP 'idm-migrate'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          'exit 0' | Set-Content (Join-Path $stage 'idm.exe')
+          'exit 0' | Set-Content (Join-Path $stage 'idm-host.exe')
+          '# gui'  | Set-Content (Join-Path $stage 'idm_gui.py')
+          Copy-Item ./install.ps1 $stage
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'assets') | Out-Null
+          Copy-Item ./assets/idm.ico, ./assets/idm.png (Join-Path $stage 'assets')
+          Copy-Item -Recurse ./extension (Join-Path $stage 'extension')
+          $zip = Join-Path $env:RUNNER_TEMP 'migrate.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
+          $url = ([System.Uri](Resolve-Path $zip).Path).AbsoluteUri
+
+          ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir (Join-Path $env:RUNNER_TEMP 'dl-migrate')
+
+          if (-not $p.HasExited) { $p | Stop-Process -Force; throw "the old installation's host was left running" }
+          if (Test-Path $old) { throw "%LOCALAPPDATA%\idm is still there" }
+          if ((Get-Content (Join-Path $prefix 'state\queue.json') -Raw) -notmatch 'old') { throw "state was not migrated" }
+          ./install.ps1 -Uninstall -Purge -Prefix $prefix
+          Write-Host "migration from a running pre-0.2 installation OK"
 
       # Reported: "installing on Windows still gives the old 2.0.7". On a real
       # machine the browser keeps idm-host.exe running and the window keeps
@@ -315,8 +425,21 @@ jobs:
             Start-Process (Join-Path $prefix 'bin\idm-host.exe') -ArgumentList '-n','900','127.0.0.1' -PassThru -WindowStyle Hidden
           )
           Start-Sleep -Seconds 2
+          # What 2.1.9's `idm update` left behind on a real machine: the old
+          # bin\ it could not delete (its own exe was running), plus whatever
+          # an interrupted run leaves. A reinstall stops the processes, so it
+          # can and must clear them.
+          New-Item -ItemType Directory -Force -Path (Join-Path $prefix 'bin.old'),
+            (Join-Path $prefix 'extension.old'), (Join-Path $prefix '.update\unpack'),
+            (Join-Path $prefix '.trash\bin-1') | Out-Null
+          Copy-Item $oldExe (Join-Path $prefix 'bin.old\idm.exe')
+          '2.0.6' | Set-Content (Join-Path $prefix 'VERSION.old')
 
           ./install.ps1 -ArchiveUrl (New-Archive '2.1.7' $newExe) -Prefix $prefix -DownloadsDir $dl
+
+          $left = @(Get-ChildItem -Force $prefix | Where-Object {
+            $_.Name -match '\.old$' -or $_.Name -in '.update', '.trash' } | ForEach-Object Name)
+          if ($left) { throw "a reinstall left behind: $($left -join ', ')" }
 
           $gui = Get-Content (Join-Path $prefix 'gui\idm_gui.py') -Raw
           if ($gui -notmatch '2\.1\.7') { throw "gui\idm_gui.py is still the old one: $gui" }
@@ -329,3 +452,326 @@ jobs:
           $running | ForEach-Object { if (-not $_.HasExited) { $_ | Stop-Process -Force } }
           & (Join-Path $prefix 'install.ps1') -Uninstall
           Write-Host "upgrade over a running installation OK"
+
+  windows-host:
+    # The browser -> host link on Windows, with the real idm-host.exe, found
+    # the way Chrome finds it: HKCU registry -> manifest -> `path`, launched
+    # through cmd.exe. Reported from 2.1.9: Chrome "could not talk to IDM". A
+    # browser started before the install never sees the user variables the
+    # installer persists, so a host launched with no flags failed closed --
+    # this clears them in the child, exactly that browser's view.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - name: Build engine + host
+        working-directory: engine
+        run: cargo build --release --bin idm-host --bin idm
+
+      - name: Native message through the registered manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root  = Join-Path $env:RUNNER_TEMP 'host'
+          $stage = Join-Path $root 'stage'
+          # A Czech user name in both paths: the wrapper is a batch file, and
+          # cmd.exe reads those in the OEM code page.
+          $c = [string][char]0x010D
+          $prefix = Join-Path $root "idm-$c"
+          $dl     = Join-Path $env:USERPROFILE "Downloads\idm-ci-$c"
+          New-Item -ItemType Directory -Force -Path $stage, (Join-Path $stage 'assets') | Out-Null
+          Copy-Item engine/target/release/idm.exe, engine/target/release/idm-host.exe $stage
+          Copy-Item ./gui/idm_gui.py, ./install.ps1 $stage
+          Copy-Item ./scripts/ensure-aria2.ps1, ./scripts/ensure-ytdlp.ps1 $stage
+          Copy-Item ./assets/idm.ico, ./assets/idm.png (Join-Path $stage 'assets')
+          Copy-Item -Recurse ./extension (Join-Path $stage 'extension')
+          $zip = Join-Path $root 'idm-windows-x64.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
+          $url = ([System.Uri](Resolve-Path $zip).Path).AbsoluteUri
+
+          ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir $dl
+          # Something for get_settings to find, so the reply proves --settings
+          # reached the host (with IDM_SETTINGS cleared below).
+          '{"min_size_kb": 1}' | Set-Content (Join-Path $prefix 'state\settings.json')
+
+          $manifest = (Get-Item 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.tonec.idm').GetValue('')
+          $hostPath = (Get-Content $manifest -Raw | ConvertFrom-Json).path
+          Write-Host "manifest $manifest -> $hostPath"
+
+          # How Chrome launches a host on Windows (native_process_launcher_win):
+          # cmd.exe /d /s /c with the quoted path and the origin, cwd = the
+          # host's own directory.
+          $psi = [System.Diagnostics.ProcessStartInfo]::new($env:ComSpec)
+          $psi.Arguments = "/d /s /c `"`"$hostPath`" chrome-extension://gnhajaopemmibmjhkaafdebogmkkcljc/ --parent-window=0`""
+          $psi.WorkingDirectory = Split-Path -Parent $hostPath
+          $psi.UseShellExecute = $false
+          $psi.RedirectStandardInput = $true
+          $psi.RedirectStandardOutput = $true
+          $psi.RedirectStandardError = $true
+          $psi.CreateNoWindow = $true
+          foreach ($v in 'IDM_ALLOWED_DIR', 'IDM_SETTINGS') { [void]$psi.Environment.Remove($v) }
+          $p = [System.Diagnostics.Process]::Start($psi)
+          $err = $p.StandardError.ReadToEndAsync()
+
+          $in = $p.StandardInput.BaseStream
+          foreach ($req in '{"id":1,"action":"ping"}', '{"id":2,"action":"get_settings"}') {
+            $body = [System.Text.Encoding]::UTF8.GetBytes($req)
+            $in.Write([BitConverter]::GetBytes([uint32]$body.Length), 0, 4)
+            $in.Write($body, 0, $body.Length)
+          }
+          $in.Flush()
+          $in.Close()   # EOF: the host answers what it has and exits
+
+          $buf = [System.IO.MemoryStream]::new()
+          $copy = $p.StandardOutput.BaseStream.CopyToAsync($buf)
+          if (-not $copy.Wait(60000)) { $p.Kill(); throw "the host did not finish in 60 s" }
+          $p.WaitForExit()
+          $bytes = $buf.ToArray()
+          Write-Host "exit $($p.ExitCode), $($bytes.Length) bytes on stdout, stderr: $($err.Result)"
+
+          # Every byte on stdout must belong to a frame: one echoed line from
+          # the batch file and Chrome reads garbage as a length.
+          $replies = @{}
+          $at = 0
+          while ($at -lt $bytes.Length) {
+            if ($at + 4 -gt $bytes.Length) { throw "stray bytes at $at of $($bytes.Length)" }
+            $len = [BitConverter]::ToUInt32($bytes, $at)
+            if ($at + 4 + $len -gt $bytes.Length) { throw "frame at $at claims $len bytes; stdout is not just frames" }
+            $msg = [System.Text.Encoding]::UTF8.GetString($bytes, $at + 4, $len) | ConvertFrom-Json
+            $replies[[int]$msg.id] = $msg
+            $at += 4 + $len
+          }
+          if ($replies.Count -ne 2) { throw "expected 2 replies, got $($replies.Count)" }
+          $ping = $replies[1]
+          if (-not $ping.ok -or $ping.msg -ne 'pong') { throw "ping: $($ping | ConvertTo-Json -Compress)" }
+          $set = $replies[2]
+          if (-not $set.ok -or $set.source -ne 'file') {
+            throw "get_settings did not read state\settings.json: $($set | ConvertTo-Json -Compress)"
+          }
+          if ($p.ExitCode -ne 0) { throw "host exited $($p.ExitCode)" }
+
+          & (Join-Path $prefix 'install.ps1') -Uninstall -Purge
+          if (Test-Path $prefix) { throw "-Purge left $prefix" }
+          Write-Host "native messaging through the registered wrapper OK"
+
+      # `idm uninstall` on Windows used to run the Linux bash scripts and
+      # delete files, leaving the browsers' registry keys, the shortcuts, the
+      # user variables and PATH behind. It now hands off to install.ps1.
+      - name: idm uninstall removes what install.ps1 created
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root   = Join-Path $env:RUNNER_TEMP 'host'
+          $prefix = Join-Path $root 'idm-verbs'
+          $dl     = Join-Path $root 'dl-verbs'
+          $url = ([System.Uri](Resolve-Path (Join-Path $root 'idm-windows-x64.zip')).Path).AbsoluteUri
+          ./install.ps1 -ArchiveUrl $url -Prefix $prefix -DownloadsDir $dl
+          '[{"id":"mine"}]' | Set-Content (Join-Path $prefix 'state\queue.json')
+          $reg = 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.tonec.idm'
+          if (-not (Test-Path $reg)) { throw "install did not register the host" }
+
+          $env:IDM_DIR = $prefix
+          & (Join-Path $prefix 'bin\idm.exe') uninstall --yes
+          if ($LASTEXITCODE -ne 0) { throw "idm uninstall exited $LASTEXITCODE" }
+          # It runs on after idm.exe has exited; wait for bin\ to go.
+          $deadline = (Get-Date).AddSeconds(90)
+          while (Test-Path (Join-Path $prefix 'bin')) {
+            if ((Get-Date) -gt $deadline) {
+              Get-Content (Join-Path $env:TEMP 'idm-uninstall.log') -ErrorAction SilentlyContinue
+              throw "bin\ still there 90 s after idm uninstall"
+            }
+            Start-Sleep -Milliseconds 500
+          }
+          Start-Sleep -Seconds 2
+          Get-Content (Join-Path $env:TEMP 'idm-uninstall.log') -ErrorAction SilentlyContinue
+          if (Test-Path $reg) { throw "registry key survived idm uninstall" }
+          $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'IDM.lnk'
+          if (Test-Path $lnk) { throw "desktop shortcut survived idm uninstall" }
+          if ([Environment]::GetEnvironmentVariable('IDM_DIR', 'User')) { throw "IDM_DIR survived" }
+          if ([Environment]::GetEnvironmentVariable('IDM_PYTHON', 'User')) { throw "IDM_PYTHON survived" }
+          if (-not (Test-Path (Join-Path $prefix 'state\queue.json'))) {
+            throw "state\ must survive an uninstall without --purge"
+          }
+          Write-Host "idm uninstall on Windows OK"
+
+  windows-update:
+    # `idm update` on a real Windows machine, with the real engine. Reported
+    # from 2.1.9: bin.old\ stayed behind after every update (the updater and
+    # the window's server run from it, and Windows will not delete a running
+    # exe), and extension\ came out EMPTY because the zip had none -- Chrome
+    # then refused to load it. Nothing but Windows can show either.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - name: Build engine
+        working-directory: engine
+        run: cargo build --release --bin idm
+
+      # The swap's own decisions -- which idm-host.exe to stop, which rename
+      # error is a passing scanner -- have Windows-only branches that the
+      # Linux `cargo test` compiles out.
+      - name: Unit tests of the updater
+        working-directory: engine
+        run: cargo test --release --bin idm update::tests
+
+      # Steps below run even when an earlier one failed, so a red run shows
+      # every Windows behaviour that is broken, not only the first.
+      - name: Update a running installation
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe  = (Resolve-Path engine/target/release/idm.exe).Path
+          $root = Join-Path $env:RUNNER_TEMP 'upd'
+          $I    = Join-Path $root 'idm'
+          $srv  = Join-Path $root 'srv'
+          $stage = Join-Path $root 'stage'
+
+          # The installation as it stands: the real engine in bin\, and an
+          # extension folder the user loaded into Chrome.
+          foreach ($d in 'bin', 'gui', 'assets', 'state', 'extension') {
+            New-Item -ItemType Directory -Force -Path (Join-Path $I $d) | Out-Null
+          }
+          Copy-Item $exe (Join-Path $I 'bin\idm.exe')
+          Copy-Item (Join-Path $env:SystemRoot 'System32\PING.EXE') (Join-Path $I 'bin\idm-host.exe')
+          '# old gui' | Set-Content (Join-Path $I 'gui\idm_gui.py')
+          '{"old": true}' | Set-Content (Join-Path $I 'extension\manifest.json')
+          '0.0.1' | Set-Content (Join-Path $I 'VERSION')
+
+          # The release, served locally and packed the way release.yml packs it.
+          New-Item -ItemType Directory -Force -Path $srv, (Join-Path $stage 'assets') | Out-Null
+          Copy-Item $exe (Join-Path $stage 'idm.exe')
+          Copy-Item $exe (Join-Path $stage 'idm-host.exe')
+          Copy-Item ./gui/idm_gui.py, ./install.ps1 $stage
+          Copy-Item ./scripts/ensure-aria2.ps1, ./scripts/ensure-aria2.sh $stage
+          Copy-Item ./scripts/ensure-ytdlp.ps1, ./scripts/ensure-ytdlp.sh $stage
+          Copy-Item ./assets/idm.ico, ./assets/idm.png (Join-Path $stage 'assets')
+          Copy-Item -Recurse ./extension (Join-Path $stage 'extension')
+          $zip = Join-Path $srv 'idm-windows-x64.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
+          $sha = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$sha  idm-windows-x64.zip" | Set-Content "$zip.sha256"
+          '{"tag_name": "v9.9.9"}' | Set-Content (Join-Path $srv 'latest.json')
+          $http = Start-Process python -ArgumentList '-m', 'http.server', '18765',
+            '--bind', '127.0.0.1', '--directory', $srv -PassThru -WindowStyle Hidden
+          $deadline = (Get-Date).AddSeconds(20)
+          while (-not (Test-NetConnection 127.0.0.1 -Port 18765 -InformationLevel Quiet -WarningAction SilentlyContinue)) {
+            if ((Get-Date) -gt $deadline) { throw "local release server did not start" }
+            Start-Sleep -Milliseconds 300
+          }
+
+          # What runs out of bin\ on a real machine: the browser keeps
+          # idm-host.exe alive, the window keeps `idm.exe --serve`. Chrome
+          # starts the host with its working directory in the host's folder,
+          # and a working directory inside bin\ is what makes renaming bin\
+          # fail ("used by another process") -- a running exe alone does not.
+          $dl = Join-Path $root 'dl'
+          New-Item -ItemType Directory -Force -Path $dl | Out-Null
+          $held = @(
+            Start-Process (Join-Path $I 'bin\idm-host.exe') -ArgumentList '-n', '900', '127.0.0.1' `
+              -WorkingDirectory (Join-Path $I 'bin') -PassThru -WindowStyle Hidden
+            Start-Process (Join-Path $I 'bin\idm.exe') -ArgumentList '--serve', '127.0.0.1:18766',
+              '--output-dir', $dl, '--state-dir', (Join-Path $I 'state') -PassThru -WindowStyle Hidden
+          )
+          Start-Sleep -Seconds 2
+          $held | ForEach-Object { if ($_.HasExited) { throw "$($_.Name) did not stay running" } }
+
+          $env:IDM_DIR = $I
+          $env:IDM_UPDATE_API = 'http://127.0.0.1:18765/latest.json'
+          $env:IDM_UPDATE_BASE = 'http://127.0.0.1:18765'
+          & (Join-Path $I 'bin\idm.exe') update
+          if ($LASTEXITCODE -ne 0) { throw "idm update failed ($LASTEXITCODE)" }
+
+          $left = @(Get-ChildItem -Force $I | Where-Object { $_.Name -match '\.(old|new|rollback)$' } | ForEach-Object Name)
+          if ($left) { throw "left next to bin\ after the update: $($left -join ', ')" }
+          foreach ($f in 'extension\manifest.json', 'extension\background.js', 'extension\content.js',
+                         'bin\ensure-ytdlp.ps1', 'bin\ensure-aria2.ps1', 'gui\idm_gui.py') {
+            if (-not (Test-Path (Join-Path $I $f))) { throw "missing after the update: $f" }
+          }
+          if ((Get-Content (Join-Path $I 'extension\manifest.json') -Raw) -match '"old"') {
+            throw "extension\ was not replaced by the release's"
+          }
+          if ((Get-Content (Join-Path $I 'VERSION') -Raw).Trim() -ne 'v9.9.9') { throw "VERSION not stamped" }
+          # The host had to go for bin\ to move; the extension reconnects on
+          # its next message. The window's server did not have to.
+          if (-not $held[0].HasExited) { throw "idm-host.exe running from bin\ was not stopped" }
+          if ($held[1].HasExited) { throw "idm.exe --serve was stopped, but it does not hold bin\" }
+
+          # Once nothing runs from the old tree any more, the next command
+          # sweeps what the update had to leave.
+          foreach ($p in $held) { if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force; $p.WaitForExit() } }
+          & (Join-Path $I 'bin\idm.exe') --version
+          $rest = @(Get-ChildItem -Force $I | Where-Object { $_.Name -in '.trash', '.update' } | ForEach-Object Name)
+          if ($rest) { throw "not swept by the next command: $($rest -join ', ')" }
+          Stop-Process -Id $http.Id -Force
+          Write-Host "update of a running Windows installation OK"
+
+      - name: A swap that fails half way is undone
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # bin\ swaps, then gui\ cannot: a file in it is open without
+          # FILE_SHARE_DELETE (an editor, an indexer). Reported as a new
+          # engine next to the old window, the old VERSION and *.old trees;
+          # the update must fail and leave the installation as it was.
+          $exe  = (Resolve-Path engine/target/release/idm.exe).Path
+          $root = Join-Path $env:RUNNER_TEMP 'upd'
+          $srv  = Join-Path $root 'srv'
+          $I    = Join-Path $root 'half'
+          if (-not (Test-Path (Join-Path $srv 'idm-windows-x64.zip'))) { throw "the release from the previous step is missing" }
+          foreach ($d in 'bin', 'gui', 'assets', 'state', 'extension') {
+            New-Item -ItemType Directory -Force -Path (Join-Path $I $d) | Out-Null
+          }
+          Copy-Item $exe (Join-Path $I 'bin\idm.exe')
+          'old' | Set-Content (Join-Path $I 'bin\old-tree.txt')
+          '# old gui' | Set-Content (Join-Path $I 'gui\idm_gui.py')
+          '{"old": true}' | Set-Content (Join-Path $I 'extension\manifest.json')
+          '0.0.1' | Set-Content (Join-Path $I 'VERSION')
+
+          $http = Start-Process python -ArgumentList '-m', 'http.server', '18765',
+            '--bind', '127.0.0.1', '--directory', $srv -PassThru -WindowStyle Hidden
+          $deadline = (Get-Date).AddSeconds(20)
+          while (-not (Test-NetConnection 127.0.0.1 -Port 18765 -InformationLevel Quiet -WarningAction SilentlyContinue)) {
+            if ((Get-Date) -gt $deadline) { throw "local release server did not start" }
+            Start-Sleep -Milliseconds 300
+          }
+
+          $env:IDM_DIR = $I
+          $env:IDM_UPDATE_API = 'http://127.0.0.1:18765/latest.json'
+          $env:IDM_UPDATE_BASE = 'http://127.0.0.1:18765'
+          $lock = [System.IO.File]::Open((Join-Path $I 'gui\idm_gui.py'), 'Open', 'Read', 'Read')
+          try {
+            & (Join-Path $I 'bin\idm.exe') update
+            $code = $LASTEXITCODE
+          } finally {
+            $lock.Dispose()
+            Stop-Process -Id $http.Id -Force
+          }
+          if ($code -eq 0) { throw "update reported success although gui\ could not be swapped" }
+          if (-not (Test-Path (Join-Path $I 'bin\old-tree.txt'))) { throw "bin\ was left as the new release" }
+          if ((Get-Content (Join-Path $I 'gui\idm_gui.py') -Raw).Trim() -ne '# old gui') { throw "gui\ changed" }
+          if ((Get-Content (Join-Path $I 'VERSION') -Raw).Trim() -ne '0.0.1') { throw "VERSION changed" }
+          $left = @(Get-ChildItem -Force $I | Where-Object { $_.Name -match '\.(old|new|rollback)$' } | ForEach-Object Name)
+          if ($left) { throw "left next to bin\ after the undone swap: $($left -join ', ')" }
+          Write-Host "a half-way swap failure is undone on Windows OK"
+          # The runner exits with $LASTEXITCODE, which is still the failure
+          # this step expected from `idm update`.
+          exit 0
