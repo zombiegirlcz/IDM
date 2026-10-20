@@ -292,7 +292,9 @@ fn find_js_runtime() -> Option<String> {
 /// this yt-dlp supports it and one can be found. Nothing found = no flag, so
 /// behaviour is exactly what it was.
 fn apply_js_runtime(cmd: &mut tokio::process::Command, yt_dlp: &Path) {
-    let version = std::process::Command::new(yt_dlp)
+    let mut probe = std::process::Command::new(yt_dlp);
+    probe.hide_console();
+    let version = probe
         .arg("--version")
         .output()
         .ok()
