@@ -344,6 +344,7 @@ fn make_slow_stub(dir: &Path, secs: u32) -> PathBuf {
     let stub = dir.join("yt-dlp");
     let script = format!(
         r#"#!/usr/bin/env bash
+if [[ "$1" == "--version" ]]; then echo 2026.08.19; exit 0; fi
 if [[ "$*" == *"-J"* ]]; then echo '{{"id":"a","title":"t","ext":"mp4","formats":[]}}'; exit 0; fi
 out=""
 while [[ $# -gt 0 ]]; do if [[ "$1" == "-o" ]]; then out="$2"; shift 2; else shift; fi; done
