@@ -693,11 +693,15 @@ fn main() {
     };
 
     let stdin = std::io::stdin();
-    let stdout = std::io::stdout();
     let mut lock_in = stdin.lock();
-    let mut lock_out = stdout.lock();
-
-    loop {
+    // One thread per request: a download is answered only when the file is
+    // complete, which for a video is minutes, and the popup must still get
+    // its formats and pings meanwhile. Replies carry the request id, so their
+    // order does not matter; the mutex keeps two frames from interleaving.
+    // The scope joins every thread before returning, so the browser closing
+    // the port does not kill a download already under way.
+    let out = std::sync::Mutex::new(std::io::stdout());
+    std::thread::scope(|scope| loop {
         let frame = match read_frame(&mut lock_in) {
             Ok(Some(f)) => f,
             Ok(None) => break,
@@ -706,24 +710,27 @@ fn main() {
         let req: serde_json::Value = match serde_json::from_slice(&frame) {
             Ok(v) => v,
             Err(e) => {
+                let mut w = out.lock().unwrap_or_else(|p| p.into_inner());
                 let _ = write_frame(
-                    &mut lock_out,
+                    &mut *w,
                     &serde_json::json!({"ok": false, "error": format!("bad json: {}", e)}),
                 );
                 continue;
             }
         };
-        // Contract: echo the request `id` so the extension can correlate the
-        // reply (background.js keeps a pending map keyed by id).
-        let req_id = req.get("id").cloned();
-        let mut resp = handle(&req, &ctx);
-        if let Some(id) = req_id {
-            if let Some(obj) = resp.as_object_mut() {
-                obj.insert("id".to_string(), id);
+        let (ctx, out) = (&ctx, &out);
+        scope.spawn(move || {
+            // Contract: echo the request `id` so the extension can correlate
+            // the reply (background.js keeps a pending map keyed by id).
+            let req_id = req.get("id").cloned();
+            let mut resp = handle(&req, ctx);
+            if let Some(id) = req_id {
+                if let Some(obj) = resp.as_object_mut() {
+                    obj.insert("id".to_string(), id);
+                }
             }
-        }
-        if write_frame(&mut lock_out, &resp).is_err() {
-            break;
-        }
-    }
+            let mut w = out.lock().unwrap_or_else(|p| p.into_inner());
+            let _ = write_frame(&mut *w, &resp);
+        });
+    });
 }

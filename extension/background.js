@@ -91,10 +91,16 @@ function sendToHost(request) {
   const id = nextId++;
   const framed = { ...request, id };
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      pending.delete(id);
-      reject(new Error('cannot_contact_idm'));
-    }, WATCHDOG_MS * 20); // generous for real downloads
+    // The host answers a download only when the file is complete -- minutes
+    // for a video -- so a download gets no timer: a host that died is
+    // reported by onDisconnect, which rejects everything pending. Quick
+    // requests keep the watchdog.
+    const timer = request.action === 'download'
+      ? undefined
+      : setTimeout(() => {
+        pending.delete(id);
+        reject(new Error('cannot_contact_idm'));
+      }, WATCHDOG_MS * 20);
     pending.set(id, { resolve, reject, timer });
     try {
       port.postMessage(framed);
