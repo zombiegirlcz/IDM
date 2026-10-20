@@ -144,3 +144,47 @@ fn host_forwards_media_download_options() {
     drop(stdin);
     let _ = child.wait();
 }
+
+/// A yt-dlp that refuses, saying why on stderr -- the shape of YouTube's bot
+/// check. Its -J works so the failure happens in the download, not the probe.
+fn make_failing_stub(dir: &Path) -> PathBuf {
+    let stub = dir.join("yt-dlp");
+    let script = r#"#!/usr/bin/env bash
+if [[ "$1" == "-J" ]]; then echo '{"id":"abc","title":"t","ext":"mp4","formats":[]}'; exit 0; fi
+echo "ERROR: [youtube] abc: Sign in to confirm you are not a bot" >&2
+exit 1
+"#;
+    fs::write(&stub, script).unwrap();
+    let mut perm = fs::metadata(&stub).unwrap().permissions();
+    perm.set_mode(0o755);
+    fs::set_permissions(&stub, perm).unwrap();
+    stub
+}
+
+#[test]
+fn a_failed_download_tells_the_browser_why() {
+    let dir = unique_dir("why");
+    let stub = make_failing_stub(&dir);
+    let out = dir.join("out.mp4");
+    let (mut child, mut stdin, mut stdout) = spawn_host(&dir, &stub);
+    write_frame(
+        &mut stdin,
+        &serde_json::json!({
+            "action": "download",
+            "id": 3,
+            "url": "https://youtu.be/abc",
+            "output": out.to_string_lossy(),
+            "force_media": true
+        }),
+    );
+    let resp = read_frame(&mut stdout);
+    assert_eq!(resp["ok"], serde_json::json!(false), "resp: {}", resp);
+    let err = resp["error"].as_str().unwrap_or("");
+    assert!(
+        err.contains("Sign in to confirm you are not a bot"),
+        "the reason must reach the extension, not just an exit code: {}",
+        err
+    );
+    drop(stdin);
+    let _ = child.wait();
+}
