@@ -232,14 +232,19 @@ fn an_unsupported_deno_does_not_win_over_a_supported_node() {
 }
 
 #[test]
-fn only_an_old_node_means_no_runtime_flag() {
+fn an_old_node_is_never_named() {
     let dir = unique_dir("onlyold");
     let (s, log) = stub(&dir, "2026.08.19");
     let bin = dir.join("bin");
     fs::create_dir_all(&bin).unwrap();
     exe(&bin.join("node"), "#!/bin/sh\necho v18.20.4\n");
-    // HOME is the test dir, so no ~/.nvm or ~/.deno can step in.
-    list_formats(&s, &format!("{}", bin.display()), &dir);
+    // The machine's own runtimes (/usr/local/bin, ...) may still be picked;
+    // the old one on PATH must not be.
+    list_formats(&s, &format!("{}:/usr/bin:/bin", bin.display()), &dir);
     let argv = fs::read_to_string(&log).unwrap();
-    assert!(!argv.contains("--js-runtimes node:"), "argv: {}", argv);
+    assert!(
+        !argv.contains(&format!("node:{}", bin.join("node").display())),
+        "argv: {}",
+        argv
+    );
 }
