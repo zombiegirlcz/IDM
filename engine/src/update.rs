@@ -2,10 +2,11 @@
 //
 // It is a downloader, so it downloads its own release: ask the release API for
 // the latest tag, pull the archive, verify the published .sha256, unpack into a
-// staging directory, and only then swap bin/ gui/ assets/ into place. The
-// previous trees are kept next door as bin.old/ gui.old/ assets.old, because
-// an update that installs itself without asking has to have an answer to "it
-// installed itself and now it is broken": `idm update --rollback`.
+// staging directory, and only then swap bin/ gui/ assets/ into place. During
+// the swap the previous trees sit next door as bin.old/ gui.old/ assets.old,
+// so a swap that dies half way can be undone with `idm update --rollback`.
+// Once it succeeds they are deleted -- or, while something still runs from
+// them (Windows), moved to .trash/ and deleted by the next command.
 //
 // What is deliberately NOT touched: state/ (the queue and the vault),
 // the browser manifests and the ~/.local/bin symlink. None of those paths
@@ -29,6 +30,24 @@ const REPO: &str = "zombiegirlcz/IDM";
 /// One `idm update` replaces all of them atomically — GUI, CLI and the
 /// extension in a single swap.
 const TREES: [&str; 4] = ["bin", "gui", "assets", "extension"];
+
+/// Where a tree goes when it cannot be deleted yet. On Windows the previous
+/// bin/ is still busy right after the swap -- the updater runs from it, so do
+/// the window's `idm --serve` and the browser's idm-host.exe -- and Windows
+/// will not delete a running exe. It can rename one, though, so the tree is
+/// moved here, out of the install directory's sight, and the next command
+/// that starts after those processes are gone deletes it (`sweep_leftovers`).
+const TRASH: &str = ".trash";
+
+/// The flat files of the archive that belong in bin/. Every helper the
+/// installers put there has to be listed: `idm update` dropping
+/// ensure-ytdlp.* left a machine without yt-dlp unable to fetch any video.
+const BIN_SCRIPTS: [&str; 4] = [
+    "ensure-aria2.sh",
+    "ensure-aria2.ps1",
+    "ensure-ytdlp.sh",
+    "ensure-ytdlp.ps1",
+];
 
 fn api_url() -> String {
     std::env::var("IDM_UPDATE_API").unwrap_or_else(|_| {
@@ -316,12 +335,15 @@ pub async fn apply(dir: &Path, prog: &mut Progress) -> anyhow::Result<String> {
     let _ = write_cache(dir, &c.latest, &c.latest);
     // The update succeeded: the .old trees are only needed for rollback, and
     // keeping them around clutters the install directory (and an empty-looking
-    // extension.old/ confuses Chrome). Remove them.
+    // extension.old/ confuses Chrome). What is still busy -- on Windows, the
+    // bin.old this very process runs from -- goes to the trash instead.
     for name in TREES.iter() {
-        let _ = std::fs::remove_dir_all(dir.join(format!("{name}.old")));
+        let _ = discard(dir, &dir.join(format!("{name}.old")));
     }
     let _ = std::fs::remove_file(dir.join("VERSION.old"));
-    let _ = std::fs::remove_dir_all(&stage);
+    // Last: while .update exists, the sweep treats any .old as the rollback
+    // copy of an interrupted swap and leaves it alone.
+    let _ = discard(dir, &stage);
 
     prog.done("done");
     Ok(c.latest)
@@ -376,7 +398,7 @@ async fn verify_checksum(url: &str, archive: &Path) -> anyhow::Result<()> {
 /// `tar` handles both the .tar.gz and (as bsdtar, which is what Windows ships
 /// since 1803) the .zip, so there is no archive crate to keep up to date.
 fn extract(archive: &Path, into: &Path) -> anyhow::Result<()> {
-    let status = std::process::Command::new("tar")
+    let status = std::process::Command::new(tar_program())
         .hide_console()
         .arg("-xf")
         .arg(archive)
@@ -389,21 +411,41 @@ fn extract(archive: &Path, into: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Which tar to run. On Windows the one in System32 is bsdtar and reads .zip;
+/// a GNU tar earlier on PATH (Git's usr\bin, MSYS) does not.
+fn tar_program() -> PathBuf {
+    if cfg!(windows) {
+        if let Some(root) = std::env::var_os("SystemRoot") {
+            let t = PathBuf::from(root).join("System32").join("tar.exe");
+            if t.is_file() {
+                return t;
+            }
+        }
+    }
+    PathBuf::from("tar")
+}
+
 /// The archive is flat (plus assets/, extension/); the installation is not.
 /// Build the bin/ gui/ assets/ extension/ trees next to it, exactly as
 /// install.sh arranges them. One `idm update` replaces all four atomically.
+///
+/// A tree is staged only when the archive actually carries something for it;
+/// `swap_in` skips the ones that were not staged. An archive with no
+/// extension/ (the Windows zip up to 2.1.9) says nothing about the extension,
+/// and swapping in an empty directory left Chrome with no manifest to load.
 fn arrange(unpack: &Path, stage: &Path) -> anyhow::Result<Vec<PathBuf>> {
     let bin = stage.join("bin.new");
     let gui = stage.join("gui.new");
     let assets = stage.join("assets.new");
     let extension = stage.join("extension.new");
-    for d in [&bin, &gui, &assets, &extension] {
-        std::fs::create_dir_all(d)?;
-    }
     let exe = |n: &str| if cfg!(windows) { format!("{n}.exe") } else { n.to_string() };
-    for name in [exe("idm"), exe("idm-host"), "ensure-aria2.sh".into(), "ensure-aria2.ps1".into()] {
+    let bin_files = [exe("idm"), exe("idm-host")]
+        .into_iter()
+        .chain(BIN_SCRIPTS.iter().map(|s| s.to_string()));
+    for name in bin_files {
         let src = unpack.join(&name);
         if src.is_file() {
+            std::fs::create_dir_all(&bin)?;
             std::fs::copy(&src, bin.join(&name))?;
             make_executable(&bin.join(&name));
         }
@@ -413,11 +455,13 @@ fn arrange(unpack: &Path, stage: &Path) -> anyhow::Result<Vec<PathBuf>> {
     }
     let g = unpack.join("idm_gui.py");
     if g.is_file() {
+        std::fs::create_dir_all(&gui)?;
         std::fs::copy(&g, gui.join("idm_gui.py"))?;
     }
     for a in ["idm.png", "idm.ico"] {
         let src = unpack.join("assets").join(a);
         if src.is_file() {
+            std::fs::create_dir_all(&assets)?;
             std::fs::copy(&src, assets.join(a))?;
         }
     }
@@ -427,18 +471,8 @@ fn arrange(unpack: &Path, stage: &Path) -> anyhow::Result<Vec<PathBuf>> {
     // (browsers do not let a native host do that), but the files on disk are
     // current after a single update.
     let ext_src = unpack.join("extension");
-    if ext_src.is_dir() {
-        for entry in std::fs::read_dir(&ext_src)? {
-            let entry = entry?;
-            let src = entry.path();
-            let name = entry.file_name();
-            let dst = extension.join(&name);
-            if src.is_dir() {
-                copy_dir_all(&src, &dst)?;
-            } else {
-                std::fs::copy(&src, &dst)?;
-            }
-        }
+    if ext_src.join("manifest.json").is_file() {
+        copy_dir_all(&ext_src, &extension)?;
     }
     Ok(vec![bin, gui, assets, extension])
 }
@@ -480,7 +514,9 @@ fn swap_in(dir: &Path, trees: &[PathBuf]) -> anyhow::Result<()> {
         }
         let live = dir.join(name);
         let old = dir.join(format!("{name}.old"));
-        let _ = std::fs::remove_dir_all(&old);
+        // A bin.old an earlier update could not delete would make the rename
+        // below fail: no platform renames a directory onto a non-empty one.
+        discard(dir, &old)?;
         if live.exists() {
             std::fs::rename(&live, &old)?;
         }
@@ -492,6 +528,74 @@ fn swap_in(dir: &Path, trees: &[PathBuf]) -> anyhow::Result<()> {
         let _ = std::fs::copy(&v, dir.join("VERSION.old"));
     }
     Ok(())
+}
+
+/// Get `path` out of the install directory: delete it, or -- when something
+/// in it is still in use -- move it into the trash for `sweep_leftovers`.
+/// Ok means `path` no longer exists.
+fn discard(dir: &Path, path: &Path) -> std::io::Result<()> {
+    if std::fs::symlink_metadata(path).is_err() {
+        return Ok(());
+    }
+    let removed = if path.is_dir() {
+        std::fs::remove_dir_all(path)
+    } else {
+        std::fs::remove_file(path)
+    };
+    if removed.is_ok() || std::fs::symlink_metadata(path).is_err() {
+        return Ok(());
+    }
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "tree".into());
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let trash = dir.join(TRASH);
+    let mut last = None;
+    // Twice: a sweep in another process may remove an empty trash directory
+    // between our create_dir_all and the rename.
+    for i in 0..2 {
+        std::fs::create_dir_all(&trash)?;
+        match std::fs::rename(path, trash.join(format!("{name}-{stamp}-{i}"))) {
+            Ok(()) => return Ok(()),
+            Err(e) => last = Some(e),
+        }
+    }
+    Err(last.unwrap_or_else(|| std::io::Error::other("discard failed")))
+}
+
+/// Delete what an earlier update could not, now that the processes holding
+/// it may be gone. Runs at the start of every command except `update`.
+///
+/// The trash is always fair game. *.old trees are swept only when there is
+/// no .update: a finished update removes its staging directory, an
+/// interrupted one leaves it -- and then the .old trees are the rollback
+/// copy, not litter. Stale bin.old from 2.1.9 and earlier (which left them
+/// behind on Windows) has no .update next to it, so it goes too.
+pub fn sweep_leftovers(dir: &Path) {
+    let trash = dir.join(TRASH);
+    if let Ok(entries) = std::fs::read_dir(&trash) {
+        for e in entries.flatten() {
+            let p = e.path();
+            let _ = if p.is_dir() {
+                std::fs::remove_dir_all(&p)
+            } else {
+                std::fs::remove_file(&p)
+            };
+        }
+        // Fails while something is still in use, which is the point.
+        let _ = std::fs::remove_dir(&trash);
+    }
+    if dir.join(".update").exists() {
+        return;
+    }
+    for name in TREES.iter() {
+        let _ = discard(dir, &dir.join(format!("{name}.old")));
+    }
+    let _ = std::fs::remove_file(dir.join("VERSION.old"));
 }
 
 pub fn rollback(dir: &Path) -> anyhow::Result<String> {

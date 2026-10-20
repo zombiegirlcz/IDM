@@ -8,7 +8,7 @@
 #
 # What it does (user-scoped, no admin):
 #   1. download idm-windows-x64.zip from the latest GitHub release
-#   2. unpack to %LOCALAPPDATA%\idm
+#   2. unpack to %USERPROFILE%\.idm (bin\ gui\ assets\ extension\)
 #   3. register the native-messaging host in HKCU (Chrome/Edge/Brave/Chromium)
 #   4. persist IDM_ALLOWED_DIR (the host is fail-closed)
 #   5. create a Desktop + Start-Menu shortcut that opens the native window
@@ -209,9 +209,18 @@ Expand-Archive -Path $zip -DestinationPath $stage -Force
 $binDir    = Join-Path $Prefix "bin"
 $guiDir    = Join-Path $Prefix "gui"
 $assetsDir = Join-Path $Prefix "assets"
+$extDir    = Join-Path $Prefix "extension"
 $stateDir  = Join-Path $Prefix "state"
 # state/ holds the queue and the vault; a reinstall must not throw them away.
 Stop-IdmProcesses -Root $Prefix
+# What an earlier `idm update` could not delete while IDM was running
+# (bin.old\idm.exe up to 2.1.9), plus an interrupted update's staging. The
+# processes are stopped now, so they can go.
+if (Test-Path $Prefix) {
+    Get-ChildItem -Force -Path $Prefix -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -like "*.old" -or $_.Name -in @(".update", ".trash")
+    } | ForEach-Object { Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue }
+}
 foreach ($d in @($binDir, $guiDir, $assetsDir)) {
     if (Test-Path $d) { Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue }
     # A directory that will not go away still holds the old version; carrying
@@ -252,6 +261,17 @@ foreach ($a in @("idm.ico", "idm.png")) {
                 -OutFile (Join-Path $assetsDir $a)
         } catch { Write-Warn "nestahl $a" }
     }
+}
+# The browser extension, for chrome://extensions -> "Load unpacked". It lives
+# at a fixed path so `idm update` can refresh it in place; the browser only
+# has to reload it. Only replaced when the archive carries one.
+$extSrc = Join-Path $stage "extension"
+if (Test-Path (Join-Path $extSrc "manifest.json")) {
+    if (Test-Path $extDir) { Remove-Item -Recurse -Force $extDir -ErrorAction SilentlyContinue }
+    if (Test-Path $extDir) { Die "nelze nahradit $extDir (je otevrene v jinem programu?)" }
+    Move-Item $extSrc $extDir -Force
+} elseif (-not (Test-Path (Join-Path $extDir "manifest.json"))) {
+    Write-Warn "archiv neobsahuje rozsireni (extension\) - prohlizec nebude mit co nacist"
 }
 $stageSelf = Join-Path $stage "install.ps1"
 if (Test-Path $stageSelf) { Move-Item $stageSelf (Join-Path $Prefix "install.ps1") -Force }
@@ -458,7 +478,7 @@ if (Test-Path $ensureYtdlp) {
 }
 
 Write-Host "  Stazeni    : $DownloadsDir"
-Write-Host "  Rozsireni  : chrome://extensions -> Load unpacked"
+Write-Host "  Rozsireni  : chrome://extensions -> Developer mode -> Load unpacked -> $extDir"
 if (Test-Path $ensurePs1) {
     Write-Host "  aria2      : prepinac 'Via aria2' v okne; aria2c se doinstaluje sam"
 }
