@@ -55,7 +55,7 @@ DEFAULT_ADDR = "127.0.0.1:8080"
 # "Check for updates" compares this against the newest published tag: at
 # "1.0.0" against tags of v0.1.x it could only ever say "up to date".
 # gui/test/version_sync.test.mjs fails if the two drift apart.
-VERSION = "2.2.0"
+VERSION = "2.2.1"
 
 # Category names exactly as IDM shows them in the left tree.
 CATEGORIES = [
@@ -813,7 +813,8 @@ class Api:
         # it is written to STATE_DIR/api-token when the engine starts.
         self.token = token
 
-    def _req(self, method: str, path: str, body: dict | None = None) -> dict:
+    def _req(self, method: str, path: str, body: dict | None = None,
+             timeout: float | None = None) -> dict:
         data = None
         headers = {}
         if self.token:
@@ -822,7 +823,7 @@ class Api:
             data = json.dumps(body).encode()
             headers["Content-Type"] = "application/json"
         req = urllib.request.Request(self.base + path, data=data, headers=headers, method=method)
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout or self.timeout) as resp:
             raw = resp.read()
         return json.loads(raw) if raw else {}
 
@@ -855,7 +856,10 @@ class Api:
             body["ignore_mtime"] = True
         if (options or {}).get("force_media"):
             body["force_media"] = True
-        r = self._req("POST", "/api/add", body)
+        # A media URL makes the engine probe the backend for its title before
+        # the item is queued, which takes seconds on a real site; the default
+        # five-second socket timeout would abort exactly the adds that work.
+        r = self._req("POST", "/api/add", body, timeout=180.0)
         return int(r.get("id", 0))
 
     def store_password(self, value: str) -> str:
@@ -892,7 +896,7 @@ class Api:
         for key, value in (("cookie", cookie), ("referer", referer), ("proxy", proxy)):
             if value:
                 body[key] = value
-        r = self._req("POST", "/api/formats", body)
+        r = self._req("POST", "/api/formats", body, timeout=180.0)
         if not r.get("ok"):
             return []
         return list(r.get("formats") or [])
@@ -1027,10 +1031,22 @@ def basename(url: str) -> str:
     return name or url
 
 
-def category_of(url: str) -> str:
-    """Which IDM category a URL belongs to (by extension)."""
-    name = basename(url).lower()
-    ext = name.rsplit(".", 1)[-1] if "." in name else ""
+def extension_of(name: str) -> str:
+    """Lower-cased extension of a file name, "" when it has none."""
+    name = (name or "").rsplit("\\", 1)[-1].rsplit("/", 1)[-1].lower()
+    return name.rsplit(".", 1)[-1] if "." in name else ""
+
+
+def category_of(url: str, output: str = "") -> str:
+    """Which IDM category a download belongs to (by extension).
+
+    The file actually being written wins over the URL: a media URL like
+    `youtube.com/watch?v=...` carries no extension at all, so classifying by
+    the URL put every video and every song in "Other" even after it had
+    finished and the queue knew it was a `.mp4`. That is exactly what was
+    reported from Windows.
+    """
+    ext = extension_of(output) or extension_of(basename(url))
     if ext in ("zip", "rar", "7z", "tar", "gz", "bz2", "xz"):
         return "Compressed"
     if ext in ("pdf", "doc", "docx", "txt", "epub", "rtf", "odt", "xls", "xlsx"):
@@ -1926,20 +1942,24 @@ _SORT_KEYS = {
     "eta": lambda it: float(it.get("time_left_s") or 0),
     "queue": lambda it: str(it.get("status", "")) in ("running", "pending"),
     "url": lambda it: str(it.get("url", "")).lower(),
-    "category": lambda it: item_category({}, it.get("url", "")).lower(),
+    "category": lambda it: item_category(
+        {}, it.get("url", ""), str(it.get("output") or "")).lower(),
     "description": lambda it: str(it.get("description") or "").lower(),
 }
 
 
-def item_category(settings: dict, url: str) -> str:
-    """Which category a URL belongs to, custom categories taking precedence."""
-    name = basename(url).lower()
-    ext = name.rsplit(".", 1)[-1] if "." in name else ""
+def item_category(settings: dict, url: str, output: str = "") -> str:
+    """Which category a download belongs to, custom categories winning.
+
+    `output` (the file the engine is writing) takes precedence over the URL,
+    for the same reason as in category_of(): media URLs have no extension.
+    """
+    ext = extension_of(output) or extension_of(basename(url))
     for c in (settings or {}).get("categories", []):
         exts = [str(e).lower().lstrip(".") for e in (c or {}).get("extensions", [])]
         if ext and ext in exts:
             return c.get("name", "")
-    return category_of(url)
+    return category_of(url, output)
 
 
 def filter_items(items: list, category: str, query: str, settings: dict) -> list:
@@ -1964,7 +1984,8 @@ def filter_items(items: list, category: str, query: str, settings: dict) -> list
             # Not per-file categories: these nodes hold their own objects.
             keep = False
         else:
-            keep = item_category(settings, url) == category
+            keep = item_category(settings, url,
+                                 str(it.get("output") or "")) == category
         if keep and needle and needle not in basename(url).lower():
             keep = False
         if keep:
@@ -4263,7 +4284,7 @@ def row_values(it: dict, settings: dict = None) -> tuple:
     label, bar = _status_and_progress(it)
     return (
         item_name(it),
-        item_category(settings or {}, url),
+        item_category(settings or {}, url, str(it.get("output") or "")),
         f"{fmt_size(dl)} / {fmt_size(total)}" if total else fmt_size(dl),
         label,
         bar,
@@ -4300,10 +4321,20 @@ def _dialog_complete(parent, path, state_dir: str = ""):
     ttk.Label(win, text=path).pack(anchor="w", padx=10, pady=2)
     row = ttk.Frame(win)
     row.pack(anchor="w", padx=10, pady=6)
+    def _act_and_close(action):
+        """Open the file (or its folder) and close the dialog.
+
+        Both buttons used to leave the window on screen, so it looked like the
+        click had done nothing and had to be dismissed by hand -- reported as
+        "dialogove okno s open file or open dir se po zvoleni nezavira".
+        """
+        action(path)
+        win.destroy()
+
     ttk.Button(row, text="Open",
-               command=lambda: open_path(path)).pack(side="left", padx=(0, 4))
+               command=lambda: _act_and_close(open_path)).pack(side="left", padx=(0, 4))
     ttk.Button(row, text="Open Folder",
-               command=lambda: reveal_path(path)).pack(side="left", padx=4)
+               command=lambda: _act_and_close(reveal_path)).pack(side="left", padx=4)
 
     hide = tk.BooleanVar(value=False)
 
@@ -4498,13 +4529,48 @@ def _read_meta_segments(meta_path):
     return fracs, overall, total
 
 
+def progress_info_text(it: dict, percent=None, total=None) -> str:
+    """The line under the file name in Download Progress.
+
+    How far along, how fast, how long is left. The dialog used to say only
+    `62 % (12345 bytes)`, so a running download never showed speed or ETA even
+    though /api/items carries both -- reported from Windows as "u toho
+    progresu nema nic ani rychlost stahovani ani eta".
+    """
+    it = it if isinstance(it, dict) else {}
+    dl = int(it.get("downloaded") or 0)
+    tot = int(it.get("total") or 0) or int(total or 0)
+    if percent is None:
+        percent = (100.0 * dl / tot) if tot else 0.0
+    parts = [f"{float(percent):.0f} %"]
+    if tot:
+        parts.append(f"{fmt_size(dl)} / {fmt_size(tot)}")
+    elif dl:
+        parts.append(fmt_size(dl))
+    speed = fmt_speed(it.get("speed_bps"))
+    if speed:
+        parts.append(speed)
+    eta = fmt_eta(it.get("time_left_s"))
+    if eta:
+        parts.append(f"{eta} left")
+    return "  \u00b7  ".join(parts)
+
+
 def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None,
-                     on_options=None):
+                     on_options=None, item=None):
     """IDM 'Download Progress' (File Download) dialog with a segment graph.
 
     `on_options` backs the "Options on completion" button; with none given it
     opens the Options dialog on its Downloads tab, which is where the
     post-download switches live.
+
+    `item` is the queue row, for the speed and ETA line: the .idmmeta sidecar
+    only knows bytes, and the whole dialog used to ignore the numbers the API
+    already had.
+
+    Every colour comes from the palette. They used to be hard-coded light hex
+    values, so switching to the dark theme repainted the canvas and left every
+    drawn rectangle white -- the "half switched" dialog that was reported.
     """
     import tkinter as tk
     from tkinter import ttk
@@ -4512,13 +4578,14 @@ def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None,
     win = themed_toplevel(parent)
     win.title("Download Progress")
     win.geometry("520x330")
+    pal = theme_palette(current_theme(parent))
 
     ttk.Label(win, text=name, font=("", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 2))
     info = ttk.Label(win, text="Connecting...")
     info.pack(anchor="w", padx=10)
 
-    canvas = tk.Canvas(win, height=120, background="#ffffff", highlightthickness=1,
-                       highlightbackground="#999")
+    canvas = tk.Canvas(win, height=120, background=pal["surface"],
+                       highlightthickness=1, highlightbackground=pal["grid"])
     canvas.pack(fill="x", padx=10, pady=8)
 
     n = max(0, connections)
@@ -4527,13 +4594,18 @@ def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None,
     width = 480
     for i in range(n):
         y = top + i * (height + gap)
-        canvas.create_rectangle(6, y, width, y + height, outline="#bbb", fill="#f0f0f0")
-        bar = canvas.create_rectangle(6, y, 6, y + height, outline="", fill="#2d6cdf")
-        canvas.create_text(width + 4, y + height // 2, anchor="w", text=f"{i + 1}.", font=("", 8))
+        canvas.create_rectangle(6, y, width, y + height, outline=pal["grid"],
+                                fill=pal["row_even"])
+        bar = canvas.create_rectangle(6, y, 6, y + height, outline="",
+                                      fill=pal["accent"])
+        canvas.create_text(width + 4, y + height // 2, anchor="w",
+                           text=f"{i + 1}.", font=("", 8), fill=pal["muted"])
         bars.append(bar)
     oy = top + n * (height + gap) + 4
-    canvas.create_rectangle(6, oy, width, oy + height, outline="#888", fill="#e8e8e8")
-    overall = canvas.create_rectangle(6, oy, 6, oy + height, outline="", fill="#1a9850")
+    canvas.create_rectangle(6, oy, width, oy + height, outline=pal["muted"],
+                            fill=pal["row_even"])
+    overall = canvas.create_rectangle(6, oy, 6, oy + height, outline="",
+                                      fill=pal["ok"])
 
     btns = ttk.Frame(win)
     btns.pack(fill="x", padx=10, pady=8)
@@ -4574,8 +4646,13 @@ def _dialog_progress(parent, name, connections=4, on_pause=None, meta_path=None,
             fx = x0 + int((x1 - x0) * max(0.0, min(1.0, frac)))
             canvas.coords(bars[i], x0, y0, fx, y1)
         x0, x1, oy0, oy1 = overall_geo
-        canvas.coords(overall, x0, oy0, x0 + int((x1 - x0) * max(0.0, min(1.0, ov))), oy1)
-        info.config(text=f"{int(ov * 100)}%  ({total} bytes)")
+        canvas.coords(overall, x0, oy0,
+                      x0 + int((x1 - x0) * max(0.0, min(1.0, ov))), oy1)
+        if isinstance(item, dict):
+            info.config(text=progress_info_text(item, percent=ov * 100.0,
+                                                total=total))
+        else:
+            info.config(text=f"{int(ov * 100)}%  ({total} bytes)")
 
     win._idm_segment_bars = bars
     win._idm_overall_bar = overall
@@ -5306,10 +5383,11 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         if it.get("status") in ("running", "pending"):
             _dialog_progress(
                 root,
-                basename(it.get("url", "")),
+                item_name(it),
                 connections=int(it.get("connections") or 4),
                 on_pause=lambda: (api.pause(i), refresh()),
                 meta_path=str(it.get("output", "")) + ".idmmeta",
+                item=it,
             )
         else:
             before = {

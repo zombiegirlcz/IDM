@@ -428,6 +428,15 @@ fn read_report(path: &Path, asked: &Path) -> Option<(Option<PathBuf>, u64)> {
     Some((accept_reported_file(asked, &r.file), r.total))
 }
 
+/// A non-blank option value, for the optional arguments of a backend probe.
+fn non_blank(s: &str) -> Option<&str> {
+    if s.trim().is_empty() {
+        None
+    } else {
+        Some(s)
+    }
+}
+
 /// File name for a URL, safe to join onto the output directory.
 ///
 /// The name comes from a remote URL, so it is sanitized: no path separators
@@ -662,12 +671,56 @@ async fn add_item(
     // `/f NAME` renames the target. The value can arrive from a desktop file
     // association, so only the file component is kept: a name carrying `..` or
     // an absolute path must not write outside the download directory.
-    let wanted = Path::new(&opts.filename)
+    let mut wanted = Path::new(&opts.filename)
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .filter(|n| !n.is_empty() && n != "." && n != "..")
         .unwrap_or_else(|| basename(&url));
-    let output = dir.join(wanted);
+
+    // A media URL carries no file extension (`youtube.com/watch?v=...`), so
+    // naming the file after the URL gave every video the same name: "watch"
+    // is what the user saw on Windows for every single download. When no name
+    // was asked for explicitly, ask the backend for the real title instead --
+    // and keep the title as the description, which is what the list shows.
+    // The same probe decides that this really is media, so the download takes
+    // the yt-dlp path even when the caller never said `force_media`.
+    let mut description = String::new();
+    let mut force_media = opts.force_media;
+    let asked_name = !opts.filename.is_empty();
+    let looks_media = opts.force_media
+        || !opts.format.is_empty()
+        || Path::new(&wanted).extension().is_none();
+    if !asked_name && looks_media {
+        // Bounded: a backend that hangs must not hold the /api/add request (and
+        // with it the window) hostage. On timeout the URL-derived name stands.
+        let probed = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            crate::media::probe_json(
+                &st.yt_dlp,
+                &url,
+                non_blank(&opts.cookie),
+                non_blank(&opts.referer),
+                non_blank(&opts.proxy),
+                None,
+                non_blank(&opts.cookies_from_browser),
+            ),
+        )
+        .await;
+        if let Ok(Ok(meta)) = probed {
+            if let Some(name) =
+                crate::media::output_name(&meta, non_blank(&opts.format)).file_name()
+            {
+                wanted = name.to_string_lossy().to_string();
+            }
+            description = meta
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            force_media = true;
+        }
+    }
+    let output = dir.join(&wanted);
 
     // Credentials: a reference the GUI already made, or the legacy
     // "user:password" field, whose password goes into the vault right here so
@@ -720,10 +773,10 @@ async fn add_item(
         referer: opts.referer,
         cookies_from_browser: opts.cookies_from_browser,
         cookies_file,
-        force_media: opts.force_media,
+        force_media,
         attempts: 0,
         retry_at: 0,
-        description: String::new(),
+        description,
         status: "pending".to_string(),
         downloaded: 0,
         total: 0,

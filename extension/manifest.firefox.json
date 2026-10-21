@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "IDM-like Capture (POC)",
+  "version": "2.2.1",
+  "description": "Captures download URLs in the page and forwards them to the idm-host native messaging host.",
+  "permissions": [
+    "contextMenus",
+    "cookies",
+    "nativeMessaging",
+    "downloads",
+    "notifications",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "type": "module"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "idm@tonec.local",
+      "strict_min_version": "128.0"
+    }
+  },
+  "action": {
+    "default_title": "IDM — stáhnout",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": []
+}

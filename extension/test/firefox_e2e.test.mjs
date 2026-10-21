@@ -19,7 +19,9 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import {
+  readFileSync, existsSync, mkdirSync, rmSync, statSync, cpSync, copyFileSync,
+} from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -34,7 +36,10 @@ const ext = join(here, '..');
 const repoRoot = join(ext, '..');
 
 const FIREFOX = process.env.FIREFOX_BIN || '/bin/firefox';
-const EXPECTED_ID = JSON.parse(readFileSync(join(ext, 'manifest.json'), 'utf8'))
+// The Firefox manifest is its own file: Chrome's manifest.json carries
+// `background.service_worker`, which Firefox MV3 refuses outright ("background
+// manifest version of 2 or lower"), so the two cannot share one file.
+const EXPECTED_ID = JSON.parse(readFileSync(join(ext, 'manifest.firefox.json'), 'utf8'))
   .browser_specific_settings.gecko.id;
 
 test('REAL Firefox: click on <a download> -> idm-host -> file with correct CRC',
@@ -56,8 +61,16 @@ test('REAL Firefox: click on <a download> -> idm-host -> file with correct CRC',
     const tag = `${process.pid}_${randomBytes(4).toString('hex')}`;
     const dlDir = join(tmpdir(), `idm_ff_dl_${tag}`);
     const home = join(tmpdir(), `idm_ff_home_${tag}`);
+    const addonDir = join(tmpdir(), `idm_ff_addon_${tag}`);
     mkdirSync(dlDir, { recursive: true });
     mkdirSync(home, { recursive: true });
+    // Firefox must not be handed the Chrome manifest: `background.service_worker`
+    // is refused outright there ("Could not install Add-on:
+    // background.service_worker is currently disabled. Add background.scripts").
+    // The tree is otherwise identical, so stage a copy whose manifest.json IS
+    // the Firefox one.
+    cpSync(ext, addonDir, { recursive: true });
+    copyFileSync(join(ext, 'manifest.firefox.json'), join(addonDir, 'manifest.json'));
     const outFile = join(dlDir, 'file.bin');
 
     const wrapper = writeWrapper({ home, hostBin, engineBin, allowedDir: dlDir });
@@ -79,7 +92,7 @@ test('REAL Firefox: click on <a download> -> idm-host -> file with correct CRC',
       await m.start({ headless: true });
 
       // 1) The add-on must load, with the id allowed_extensions names.
-      const gotId = await m.installAddon(ext);
+      const gotId = await m.installAddon(addonDir);
       assert.equal(gotId, EXPECTED_ID,
         `add-on id mismatch: ${gotId}; the Firefox host manifest allows ${EXPECTED_ID}`);
 
@@ -118,5 +131,6 @@ test('REAL Firefox: click on <a download> -> idm-host -> file with correct CRC',
       server.close();
       rmSync(dlDir, { recursive: true, force: true });
       rmSync(home, { recursive: true, force: true });
+      rmSync(addonDir, { recursive: true, force: true });
     }
   });

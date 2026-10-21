@@ -528,20 +528,49 @@ pub async fn download(
     // One progress line for both pipes: yt-dlp's messages are printed above
     // it, its template lines only move it.
     let bar = std::sync::Arc::new(std::sync::Mutex::new(crate::progress::Line::stderr()));
+    // One sidecar writer for both pipes. yt-dlp prints its progress to stderr
+    // on most versions and to stdout on others; parsing only stdout meant a
+    // real download could run almost to the end without the queue ever
+    // learning how far along it was, and the bar only appeared at 99 % when
+    // the last line finally landed. Both streams are parsed now; a line that
+    // does not parse as progress is still shown to the person.
+    let meta_path = progress_meta_path(out);
+    let agg = std::sync::Arc::new(std::sync::Mutex::new(ProgressAgg::default()));
     let stderr_pipe = child.stderr.take();
     let stderr_bar = bar.clone();
+    let stderr_meta = meta_path.clone();
+    let stderr_agg = agg.clone();
     let stderr_task = tokio::spawn(async move {
         use tokio::io::{AsyncBufReadExt, BufReader};
         let mut seen = String::new();
         if let Some(err) = stderr_pipe {
             let mut lines = BufReader::new(err).lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                if let Ok(mut b) = stderr_bar.lock() {
-                    b.message(&line);
-                }
-                if seen.len() < 64 * 1024 {
-                    seen.push_str(&line);
-                    seen.push('\n');
+                match parse_template_line(&line)
+                    .or_else(|| parse_progress(&line))
+                    .or_else(|| parse_aria2_line(&line))
+                {
+                    Some(p) => {
+                        let overall = match stderr_agg.lock() {
+                            Ok(mut a) => a.update(p),
+                            Err(_) => p,
+                        };
+                        write_progress_meta(&stderr_meta, overall);
+                        let done =
+                            ((overall.total as f64) * (overall.percent / 100.0)) as u64;
+                        if let Ok(mut b) = stderr_bar.lock() {
+                            b.draw(done, Some(overall.total));
+                        }
+                    }
+                    None => {
+                        if let Ok(mut b) = stderr_bar.lock() {
+                            b.message(&line);
+                        }
+                        if seen.len() < 64 * 1024 {
+                            seen.push_str(&line);
+                            seen.push('\n');
+                        }
+                    }
                 }
             }
         }
@@ -549,23 +578,31 @@ pub async fn download(
     });
     if let Some(stdout) = child.stdout.take() {
         use tokio::io::{AsyncBufReadExt, BufReader};
-        let meta = progress_meta_path(out);
+        let meta = meta_path;
         let mut lines = BufReader::new(stdout).lines();
-        let mut agg = ProgressAgg::default();
         while let Ok(Some(line)) = lines.next_line().await {
-            if let Some(p) = parse_template_line(&line)
+            match parse_template_line(&line)
                 .or_else(|| parse_progress(&line))
                 .or_else(|| parse_aria2_line(&line))
             {
-                let overall = agg.update(p);
-                write_progress_meta(&meta, overall);
-                let done = ((overall.total as f64) * (overall.percent / 100.0)) as u64;
-                if let Ok(mut b) = bar.lock() {
-                    b.draw(done, Some(overall.total));
+                Some(p) => {
+                    let overall = match agg.lock() {
+                        Ok(mut a) => a.update(p),
+                        Err(_) => p,
+                    };
+                    write_progress_meta(&meta, overall);
+                    let done =
+                        ((overall.total as f64) * (overall.percent / 100.0)) as u64;
+                    if let Ok(mut b) = bar.lock() {
+                        b.draw(done, Some(overall.total));
+                    }
                 }
-            } else if let Ok(mut b) = bar.lock() {
-                // Everything else yt-dlp says is for the person.
-                b.message(&line);
+                None => {
+                    // Everything else yt-dlp says is for the person.
+                    if let Ok(mut b) = bar.lock() {
+                        b.message(&line);
+                    }
+                }
             }
         }
     }

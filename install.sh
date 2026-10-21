@@ -412,7 +412,11 @@ if [[ -n "${EXT_SRC:-}" && -d "$EXT_SRC" ]]; then
   chmod +x "$IDM_DIR/extension/"*.sh 2>/dev/null || true
 else
   RAW="https://raw.githubusercontent.com/$REPO/master"
-  for f in manifest.json background.js content.js popup.html popup.js \
+  # Two extension manifests travel: Chrome's manifest.json (MV3 with
+  # background.service_worker) and manifest.firefox.json (background.scripts),
+  # because Firefox refuses service_worker outright.
+  for f in manifest.json manifest.firefox.json background.js content.js \
+           popup.html popup.js \
            settings.js schema.js install-host.sh install-shell.sh \
            com.tonec.idm.json com.tonec.idm.firefox.json; do
     curl -fsSL "$RAW/extension/$f" -o "$IDM_DIR/extension/$f" 2>/dev/null || warn "nestáhl $f"

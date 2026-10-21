@@ -623,7 +623,7 @@ if (Test-Path $ensureYtdlp) {
 
 Write-Host "  Stazeni    : $DownloadsDir"
 Write-Host "  Rozsireni  : chrome://extensions -> Developer mode -> Load unpacked -> $extDir"
-Write-Host "  Firefox    : about:debugging -> Load Temporary Add-on -> $extDir\manifest.json"
+Write-Host "  Firefox    : about:debugging -> Load Temporary Add-on -> $extDir\manifest.firefox.json"
 if (Test-Path $ensurePs1) {
     Write-Host "  aria2      : prepinac 'Via aria2' v okne; aria2c se doinstaluje sam"
 }
