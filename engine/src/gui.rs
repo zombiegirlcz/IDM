@@ -804,6 +804,20 @@ async fn kill_tree(child: &mut tokio::process::Child) {
         let _ = child.wait().await;
         return;
     }
+    // Windows has no process group to signal, and child.kill() ends idm.exe
+    // alone: aria2c / yt-dlp / ffmpeg under it kept downloading after Stop.
+    // taskkill /T walks the tree by parent pid, so it has to run while
+    // idm.exe is still alive to anchor it -- before the kill() below.
+    #[cfg(windows)]
+    if let Some(pid) = child.id() {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .hide_console()
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .await;
+    }
     let _ = child.kill().await;
 }
 
@@ -1710,6 +1724,7 @@ mod tests {
         #[cfg(windows)]
         {
             let out = std::process::Command::new("tasklist")
+                .hide_console()
                 .args(["/FI", &format!("PID eq {}", pid), "/NH", "/FO", "CSV"])
                 .output()
                 .expect("tasklist");
@@ -1732,6 +1747,7 @@ mod tests {
         #[cfg(unix)]
         let mut cmd = {
             let mut c = Command::new("sh");
+            c.hide_console();
             c.arg("-c")
                 .arg(format!("sleep 60 & echo $! > '{}'; wait", pidfile.display()));
             c.process_group(0);
@@ -1740,6 +1756,7 @@ mod tests {
         #[cfg(windows)]
         let mut cmd = {
             let mut c = Command::new("powershell");
+            c.hide_console();
             c.args([
                 "-NoProfile",
                 "-Command",
@@ -1787,6 +1804,7 @@ mod tests {
             }
             #[cfg(windows)]
             let _ = std::process::Command::new("taskkill")
+                .hide_console()
                 .args(["/PID", &grandchild.to_string(), "/F"])
                 .output();
         }
