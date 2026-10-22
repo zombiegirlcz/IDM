@@ -111,6 +111,9 @@ THEMES = {
         "err": "#c62828",         # a failed row
         "selection_bg": "#cfe2ff",
         "selection_fg": "#10243e",
+        # A selected download row. Its text keeps the status colour, so every
+        # one of them has to read on it -- selection_bg is too strong for that.
+        "row_selected": "#dbe9fc",
         "heading_bg": "#e4e8ee",
         "heading_fg": "#1b1f24",
     },
@@ -127,6 +130,7 @@ THEMES = {
         "err": "#ff7b72",
         "selection_bg": "#2d4a6b",
         "selection_fg": "#eaf2ff",
+        "row_selected": "#1d3557",
         "heading_bg": "#272b33",
         "heading_fg": "#e6e9ef",
     },
@@ -4101,6 +4105,11 @@ def tk_widget_palette(cls_name: str, palette: dict) -> dict:
     if role in ("button", "menu"):
         opts["activebackground"] = p["selection_bg"]
         opts["activeforeground"] = p["selection_fg"]
+    if str(cls_name) in ("Checkbutton", "Radiobutton"):
+        # Tk's own hover colour is a light grey, and the box is white.
+        opts["activebackground"] = p["bg"]
+        opts["activeforeground"] = p["fg"]
+        opts["selectcolor"] = p["surface"]
     # Flatness is per-widget on classic Tk and has nothing to do with colour:
     # a correctly coloured dark dialog still came out with a light bevel
     # around every button. The focus ring goes too -- it is drawn in a
@@ -4180,6 +4189,47 @@ def tab_colors(palette: dict, selected: bool) -> dict:
         # The current tab reads as part of the page below it.
         return {"background": p["surface"], "foreground": p["fg"]}
     return {"background": p["heading_bg"], "foreground": p["muted"]}
+
+
+def state_maps(p: dict) -> dict:
+    """The colours ttk styles take in hover / pressed / read-only / selected.
+
+    clam brings its own light colours for these states, and `style.map`
+    replaces an option's map only when it is given one: everything left out
+    here showed clam's near-white in the dark theme -- a checkbox turned white
+    under the mouse. Returned as {style: {option: [(state, colour), ...]}}.
+    """
+    hover = p["heading_bg"]
+    box = [("disabled", p["bg"]), ("pressed", p["heading_bg"]),
+           ("", p["surface"])]
+    check = {"background": [("active", hover)],
+             "foreground": [("disabled", p["muted"])],
+             "indicatorbackground": box,
+             "indicatorforeground": [("", p["fg"])],
+             "upperbordercolor": [("", p["grid"])],
+             "lowerbordercolor": [("", p["grid"])]}
+    field = {"fieldbackground": [("readonly", p["surface"]),
+                                 ("disabled", p["bg"])],
+             "foreground": [("disabled", p["muted"])],
+             "selectbackground": [("", p["selection_bg"])],
+             "selectforeground": [("", p["selection_fg"])]}
+    combo = dict(field, background=[("active", hover), ("pressed", p["grid"])],
+                 arrowcolor=[("", p["fg"])])
+    return {
+        "TCheckbutton": check,
+        "TRadiobutton": dict(check),
+        "TButton": {"background": [("pressed", p["grid"]), ("active", hover)]},
+        "TEntry": field,
+        "TCombobox": combo,
+        "TSpinbox": dict(combo),
+        "TScrollbar": {"background": [("pressed", p["grid"]),
+                                      ("active", hover)]},
+        # The text keeps its status colour when the row is selected; only the
+        # row behind it changes. Painting it selection_fg made the whole row
+        # -- progress bar included, it is text -- go white on a click.
+        "Treeview": {"background": [("selected", p["row_selected"])],
+                     "foreground": []},
+    }
 
 
 def apply_theme(root, name: str) -> dict:
@@ -4282,9 +4332,9 @@ def apply_theme(root, name: str) -> dict:
                     relief=METRICS["relief"], borderwidth=0,
                     padding=(8, (METRICS["heading_height"] - 16) // 2))
     style.map("Treeview.Heading", background=[("active", p["grid"])])
-    style.map("Treeview",
-              background=[("selected", p["selection_bg"])],
-              foreground=[("selected", p["selection_fg"])])
+    for widget, options in state_maps(p).items():
+        style.map(widget, **{opt: [((st,) if st else (), c) for st, c in val]
+                             for opt, val in options.items()})
     # option_add only reaches widgets created afterwards, and a theme toggle
     # happens on a window that is already built -- including any open dialog.
     theme_widget_tree(root, p)
