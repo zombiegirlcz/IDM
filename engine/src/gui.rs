@@ -1700,6 +1700,99 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
+    /// Is a process with this pid still running?
+    fn alive(pid: u32) -> bool {
+        #[cfg(unix)]
+        {
+            // SAFETY: signal 0 only asks whether the pid exists.
+            unsafe { libc::kill(pid as i32, 0) == 0 }
+        }
+        #[cfg(windows)]
+        {
+            let out = std::process::Command::new("tasklist")
+                .args(["/FI", &format!("PID eq {}", pid), "/NH", "/FO", "CSV"])
+                .output()
+                .expect("tasklist");
+            String::from_utf8_lossy(&out.stdout).contains(&format!("\"{}\"", pid))
+        }
+    }
+
+    /// Reported on Windows: Stop, and the file kept downloading. Stop kills the
+    /// queue's child (`idm.exe`), but the bytes are moved by ITS children --
+    /// aria2c, yt-dlp, ffmpeg -- and on Windows only the direct child died.
+    #[tokio::test]
+    async fn kill_tree_stops_the_grandchildren_too() {
+        let dir = std::env::temp_dir().join(format!("idm_killtree_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let pidfile = dir.join("grandchild.pid");
+        let _ = std::fs::remove_file(&pidfile);
+
+        // A child that starts a long-running grandchild, writes its pid and
+        // waits on it -- the shape of idm.exe running aria2c.
+        #[cfg(unix)]
+        let mut cmd = {
+            let mut c = Command::new("sh");
+            c.arg("-c")
+                .arg(format!("sleep 60 & echo $! > '{}'; wait", pidfile.display()));
+            c.process_group(0);
+            c
+        };
+        #[cfg(windows)]
+        let mut cmd = {
+            let mut c = Command::new("powershell");
+            c.args([
+                "-NoProfile",
+                "-Command",
+                &format!(
+                    "$p = Start-Process -FilePath ping -ArgumentList '-n','60','127.0.0.1' \
+                     -NoNewWindow -PassThru; Set-Content -Path '{}' -Value $p.Id; \
+                     Wait-Process -Id $p.Id",
+                    pidfile.display()
+                ),
+            ]);
+            c
+        };
+        cmd.stdout(std::process::Stdio::null());
+        let mut child = cmd.spawn().expect("spawn the child");
+
+        let mut grandchild = None;
+        for _ in 0..200 {
+            if let Some(pid) = std::fs::read_to_string(&pidfile)
+                .ok()
+                .and_then(|s| s.trim().parse::<u32>().ok())
+            {
+                grandchild = Some(pid);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        let grandchild = grandchild.expect("the child never started its grandchild");
+        assert!(alive(grandchild), "the grandchild must be running before Stop");
+
+        kill_tree(&mut child).await;
+
+        let mut gone = false;
+        for _ in 0..100 {
+            if !alive(grandchild) {
+                gone = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        if !gone {
+            // Do not leave it behind on the runner.
+            #[cfg(unix)]
+            unsafe {
+                libc::kill(grandchild as i32, libc::SIGKILL);
+            }
+            #[cfg(windows)]
+            let _ = std::process::Command::new("taskkill")
+                .args(["/PID", &grandchild.to_string(), "/F"])
+                .output();
+        }
+        assert!(gone, "Stop left pid {} running: the download goes on", grandchild);
+    }
+
     #[test]
     fn a_first_sample_is_the_rate_itself() {
         // Nothing to blend with yet, so the instant reading stands.

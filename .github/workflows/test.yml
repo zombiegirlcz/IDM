@@ -626,10 +626,12 @@ jobs:
 
       # The swap's own decisions -- which idm-host.exe to stop, which rename
       # error is a passing scanner -- have Windows-only branches that the
-      # Linux `cargo test` compiles out.
+      # Linux `cargo test` compiles out. Same for Stop: it must take down
+      # idm.exe's children too (aria2c, yt-dlp, ffmpeg) -- on Windows only the
+      # direct child died and the download carried on.
       - name: Unit tests of the updater
         working-directory: engine
-        run: cargo test --release --bin idm update::tests
+        run: cargo test --release --bin idm -- update::tests gui::tests::kill_tree
 
       # Steps below run even when an earlier one failed, so a red run shows
       # every Windows behaviour that is broken, not only the first.
