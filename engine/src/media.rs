@@ -541,14 +541,12 @@ pub async fn download(
     let stderr_meta = meta_path.clone();
     let stderr_agg = agg.clone();
     let stderr_task = tokio::spawn(async move {
-        use tokio::io::{AsyncBufReadExt, BufReader};
         let mut seen = String::new();
         if let Some(err) = stderr_pipe {
-            let mut lines = BufReader::new(err).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                match parse_template_line(&line)
-                    .or_else(|| parse_progress(&line))
-                    .or_else(|| parse_aria2_line(&line))
+            for_each_segment(err, |line| {
+                match parse_template_line(line)
+                    .or_else(|| parse_progress(line))
+                    .or_else(|| parse_aria2_line(line))
                 {
                     Some(p) => {
                         let overall = match stderr_agg.lock() {
@@ -564,26 +562,25 @@ pub async fn download(
                     }
                     None => {
                         if let Ok(mut b) = stderr_bar.lock() {
-                            b.message(&line);
+                            b.message(line);
                         }
                         if seen.len() < 64 * 1024 {
-                            seen.push_str(&line);
+                            seen.push_str(line);
                             seen.push('\n');
                         }
                     }
                 }
-            }
+            })
+            .await;
         }
         seen
     });
     if let Some(stdout) = child.stdout.take() {
-        use tokio::io::{AsyncBufReadExt, BufReader};
         let meta = meta_path;
-        let mut lines = BufReader::new(stdout).lines();
-        while let Ok(Some(line)) = lines.next_line().await {
-            match parse_template_line(&line)
-                .or_else(|| parse_progress(&line))
-                .or_else(|| parse_aria2_line(&line))
+        for_each_segment(stdout, |line| {
+            match parse_template_line(line)
+                .or_else(|| parse_progress(line))
+                .or_else(|| parse_aria2_line(line))
             {
                 Some(p) => {
                     let overall = match agg.lock() {
@@ -600,11 +597,12 @@ pub async fn download(
                 None => {
                     // Everything else yt-dlp says is for the person.
                     if let Ok(mut b) = bar.lock() {
-                        b.message(&line);
+                        b.message(line);
                     }
                 }
             }
-        }
+        })
+        .await;
     }
     let status = child
         .wait()
@@ -777,7 +775,7 @@ mod tests {
 }
 
 /// Where the queue looks for a running download's progress.
-fn progress_meta_path(out: &Path) -> std::path::PathBuf {
+pub fn progress_meta_path(out: &Path) -> std::path::PathBuf {
     let mut s = out.as_os_str().to_os_string();
     s.push(".idmmeta");
     std::path::PathBuf::from(s)
@@ -787,7 +785,7 @@ fn progress_meta_path(out: &Path) -> std::path::PathBuf {
 ///
 /// The shape matches what the Range downloader writes, because gui.rs reads
 /// one format and should not have to learn a second.
-fn write_progress_meta(path: &Path, p: Progress) {
+pub fn write_progress_meta(path: &Path, p: Progress) {
     let downloaded = ((p.total as f64) * (p.percent / 100.0)) as u64;
     let body = serde_json::json!({
         "url": "",
@@ -801,6 +799,52 @@ fn write_progress_meta(path: &Path, p: Progress) {
     let tmp = path.with_extension("idmmeta.tmp");
     if std::fs::write(&tmp, body).is_ok() {
         let _ = std::fs::rename(&tmp, path);
+    }
+}
+
+/// Take every complete segment out of `buf`: text ended by `\n` *or* `\r`.
+///
+/// aria2 redraws its readout with `\r` and never ends it with `\n`, so a
+/// pipe read line by line delivered the whole readout at the end of the
+/// transfer: no progress, then 100 %. Empty segments (`\r\n`) are dropped;
+/// an unfinished tail stays in `buf` for the next read.
+pub fn take_segments(buf: &mut Vec<u8>) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut start = 0;
+    for i in 0..buf.len() {
+        if buf[i] == b'\n' || buf[i] == b'\r' {
+            let seg = String::from_utf8_lossy(&buf[start..i]);
+            if !seg.trim().is_empty() {
+                out.push(seg.into_owned());
+            }
+            start = i + 1;
+        }
+    }
+    buf.drain(..start);
+    out
+}
+
+/// Read `r` to the end, handing `f` each segment as take_segments() cuts it.
+pub async fn for_each_segment<R, F>(mut r: R, mut f: F)
+where
+    R: tokio::io::AsyncRead + Unpin,
+    F: FnMut(&str),
+{
+    use tokio::io::AsyncReadExt;
+    let mut buf = Vec::new();
+    let mut chunk = [0u8; 4096];
+    loop {
+        match r.read(&mut chunk).await {
+            Ok(0) | Err(_) => break,
+            Ok(n) => buf.extend_from_slice(&chunk[..n]),
+        }
+        for seg in take_segments(&mut buf) {
+            f(&seg);
+        }
+    }
+    let rest = String::from_utf8_lossy(&buf);
+    if !rest.trim().is_empty() {
+        f(rest.as_ref());
     }
 }
 
@@ -1075,6 +1119,20 @@ mod progress_tests {
 
         // No percentage: nothing useful to report.
         assert!(parse_aria2_line("[#d1ca0d 0B/0B CN:0 DL:0B]").is_none());
+    }
+
+    #[test]
+    fn a_carriage_return_ends_a_segment_too() {
+        // aria2 redraws its readout with `\r`; read by `\n` alone, every
+        // sample waited for the newline at the very end of the transfer.
+        let mut buf = b"[#a 1MiB/4MiB(25%)]\r[#a 2MiB/4MiB(50%)]\r\nok\n[#a 3Mi".to_vec();
+        assert_eq!(
+            take_segments(&mut buf),
+            vec!["[#a 1MiB/4MiB(25%)]", "[#a 2MiB/4MiB(50%)]", "ok"]
+        );
+        // The unfinished tail waits for the rest of it.
+        assert_eq!(buf, b"[#a 3Mi".to_vec());
+        assert!(take_segments(&mut buf).is_empty());
     }
 
     #[test]

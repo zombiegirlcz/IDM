@@ -1195,7 +1195,9 @@ fn a_finished_media_download_reports_its_real_name_and_size() {
 
     let it = wait_status(&addr, id, "done", 40);
 
-    let real = out.join("abc.webm");
+    // Since the queue names a media item after its title (the `-J` answer),
+    // the stub is handed `Queued Video.webm`, not the URL's `abc`.
+    let real = out.join("Queued Video.webm");
     assert!(real.exists(), "the stub writes {}", real.display());
 
     assert_eq!(
