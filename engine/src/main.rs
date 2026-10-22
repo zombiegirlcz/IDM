@@ -1492,7 +1492,29 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
     }
     cmd.arg(url);
 
-    let status = cmd.status().await?;
+    // aria2c's readout is the only place this download's progress exists.
+    // Left on the console, the queue had no <out>.idmmeta to read, so the
+    // window showed no size, percent or speed and then jumped to 100 %.
+    cmd.stdout(std::process::Stdio::piped());
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| anyhow::anyhow!("running {}: {}", aria2c.display(), e))?;
+    let meta = media::progress_meta_path(&out);
+    if let Some(stdout) = child.stdout.take() {
+        let mut bar = progress::Line::stderr();
+        media::for_each_segment(stdout, |line| match media::parse_aria2_line(line) {
+            Some(p) => {
+                media::write_progress_meta(&meta, p);
+                bar.draw(((p.total as f64) * (p.percent / 100.0)) as u64, Some(p.total));
+            }
+            None => bar.message(line),
+        })
+        .await;
+        bar.finish();
+    }
+    let status = child.wait().await?;
+    // Finished or failed, the real file is the truth from here on.
+    let _ = std::fs::remove_file(&meta);
     if !status.success() {
         anyhow::bail!("aria2c exited with {}", status);
     }
