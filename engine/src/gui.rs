@@ -804,6 +804,20 @@ async fn kill_tree(child: &mut tokio::process::Child) {
         let _ = child.wait().await;
         return;
     }
+    // Windows has no process group to signal, and child.kill() ends idm.exe
+    // alone: aria2c / yt-dlp / ffmpeg under it kept downloading after Stop.
+    // taskkill /T walks the tree by parent pid, so it has to run while
+    // idm.exe is still alive to anchor it -- before the kill() below.
+    #[cfg(windows)]
+    if let Some(pid) = child.id() {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .hide_console()
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .await;
+    }
     let _ = child.kill().await;
 }
 
@@ -1699,6 +1713,105 @@ pub async fn serve(
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    /// Is a process with this pid still running?
+    fn alive(pid: u32) -> bool {
+        #[cfg(unix)]
+        {
+            // SAFETY: signal 0 only asks whether the pid exists.
+            unsafe { libc::kill(pid as i32, 0) == 0 }
+        }
+        #[cfg(windows)]
+        {
+            let out = std::process::Command::new("tasklist")
+                .hide_console()
+                .args(["/FI", &format!("PID eq {}", pid), "/NH", "/FO", "CSV"])
+                .output()
+                .expect("tasklist");
+            String::from_utf8_lossy(&out.stdout).contains(&format!("\"{}\"", pid))
+        }
+    }
+
+    /// Reported on Windows: Stop, and the file kept downloading. Stop kills the
+    /// queue's child (`idm.exe`), but the bytes are moved by ITS children --
+    /// aria2c, yt-dlp, ffmpeg -- and on Windows only the direct child died.
+    #[tokio::test]
+    async fn kill_tree_stops_the_grandchildren_too() {
+        // A child that starts a long-running grandchild, prints its pid and
+        // waits on it -- the shape of idm.exe running aria2c.
+        #[cfg(unix)]
+        let mut cmd = {
+            let mut c = Command::new("sh");
+            c.hide_console();
+            c.arg("-c").arg("sleep 60 & echo $!; wait");
+            c.process_group(0);
+            c
+        };
+        #[cfg(windows)]
+        let mut cmd = {
+            let mut c = Command::new("powershell");
+            c.hide_console();
+            c.args([
+                "-NoProfile",
+                "-Command",
+                "$p = Start-Process -FilePath ping -ArgumentList '-n','60','127.0.0.1' \
+                 -NoNewWindow -PassThru; [Console]::Out.WriteLine($p.Id); \
+                 [Console]::Out.Flush(); Wait-Process -Id $p.Id",
+            ]);
+            c
+        };
+        cmd.stdout(std::process::Stdio::piped());
+        let mut child = cmd.spawn().expect("spawn the child");
+
+        // The grandchild shares the pipe (ping prints too), so the pid is the
+        // first line that is a number, not simply the first line. The reader
+        // stays open to the end: a closed pipe could make the grandchild die
+        // of a failed write, and the test would pass without Stop doing it.
+        use tokio::io::AsyncBufReadExt;
+        let out = child.stdout.take().expect("piped stdout");
+        let mut lines = tokio::io::BufReader::new(out).lines();
+        let grandchild: u32 = {
+            let find = async {
+                while let Ok(Some(line)) = lines.next_line().await {
+                    if let Ok(pid) = line.trim().parse::<u32>() {
+                        return Some(pid);
+                    }
+                }
+                None
+            };
+            tokio::time::timeout(Duration::from_secs(20), find)
+                .await
+                .ok()
+                .flatten()
+                .expect("the child never reported its grandchild's pid")
+        };
+        assert!(alive(grandchild), "the grandchild must be running before Stop");
+
+        kill_tree(&mut child).await;
+
+        let mut gone = false;
+        for _ in 0..100 {
+            if !alive(grandchild) {
+                gone = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        if !gone {
+            // Do not leave it behind on the runner.
+            #[cfg(unix)]
+            unsafe {
+                libc::kill(grandchild as i32, libc::SIGKILL);
+            }
+            #[cfg(windows)]
+            let _ = std::process::Command::new("taskkill")
+                .hide_console()
+                .args(["/PID", &grandchild.to_string(), "/F"])
+                .output();
+        }
+        drop(lines);
+        assert!(gone, "Stop left pid {} running: the download goes on", grandchild);
+    }
 
     #[test]
     fn a_first_sample_is_the_rate_itself() {
