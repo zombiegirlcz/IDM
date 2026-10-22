@@ -55,7 +55,7 @@ DEFAULT_ADDR = "127.0.0.1:8080"
 # "Check for updates" compares this against the newest published tag: at
 # "1.0.0" against tags of v0.1.x it could only ever say "up to date".
 # gui/test/version_sync.test.mjs fails if the two drift apart.
-VERSION = "2.2.1"
+VERSION = "2.2.2"
 
 # Category names exactly as IDM shows them in the left tree.
 CATEGORIES = [
@@ -3024,6 +3024,108 @@ def _dialog_file_info(parent, url, folder, category, formats=None):
     return win, start, later
 
 
+def add_plan(mode: str, settings: dict) -> dict:
+    """How a new download is handed to the engine: run it now, or park it.
+
+    "queue" is the "Add to queue" / "Download Later" button: the item goes to
+    the main queue and is paused right after /api/add, the same thing the /a
+    command-line switch does. Anything else starts it.
+    """
+    if mode == "queue":
+        return {"queue": queue_names(settings)[0], "pause": True}
+    return {"queue": "", "pause": False}
+
+
+def _dialog_clipboard_prompt(parent, url, list_formats=None):
+    """The prompt shown for a URL copied to the clipboard.
+
+    Download / Add to queue / Choose format / Cancel. The format combobox
+    starts on "best" (empty selector); "Choose format" asks `list_formats(url)`
+    for the real list in a thread, since yt-dlp takes seconds. Returns
+    (win, buttons) with `win.selected_format()` like _dialog_file_info.
+    """
+    import threading
+    from tkinter import ttk
+
+    win = themed_toplevel(parent)
+    win.title("Internet Download Manager")
+    win.geometry("560x170")
+    win.columnconfigure(1, weight=1)
+    ttk.Label(win, text="Stáhnout tento odkaz?").grid(
+        row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(10, 2))
+    link = ttk.Entry(win)
+    link.insert(0, url)
+    link.config(state="readonly")
+    link.grid(row=1, column=0, columnspan=2, sticky="we", padx=8, pady=4)
+
+    ttk.Label(win, text="Formát:").grid(row=2, column=0, sticky="w", padx=8, pady=6)
+    state = {"entries": format_labels([])}
+    fmt = ttk.Combobox(win, values=[e["label"] for e in state["entries"]],
+                       state="readonly")
+    fmt.current(0)
+    fmt.grid(row=2, column=1, sticky="we", padx=8, pady=6)
+
+    def selected_format():
+        label = fmt.get()
+        for e in state["entries"]:
+            if e["label"] == label:
+                return e["format"]
+        return ""
+
+    btns = ttk.Frame(win)
+    btns.grid(row=3, column=0, columnspan=2, sticky="e", padx=8, pady=10)
+    start = ttk.Button(btns, text="Stáhnout")
+    queue = ttk.Button(btns, text="Přidat do fronty")
+    pick = ttk.Button(btns, text="Vybrat formát")
+    cancel = ttk.Button(btns, text="Zrušit", command=win.destroy)
+    for b in (start, queue, pick, cancel):
+        b.pack(side="left", padx=4)
+
+    def _fill(formats):
+        keep = fmt.get()
+        state["entries"] = format_labels(formats)
+        labels = [e["label"] for e in state["entries"]]
+        fmt.config(values=labels)
+        fmt.set(keep if keep in labels else labels[0])
+        # A plain file URL has nothing to list; say so instead of a button
+        # that silently does nothing on every click.
+        if len(labels) > 1:
+            pick.config(state="normal", text="Vybrat formát")
+            fmt.focus_set()
+        else:
+            pick.config(state="disabled", text="Žádné formáty")
+
+    def load_formats():
+        if list_formats is None:
+            return
+        pick.config(state="disabled", text="Načítám…")
+        box = {}
+
+        def work():
+            try:
+                box["formats"] = list_formats(url) or []
+            except Exception:  # noqa: BLE001
+                box["formats"] = []
+
+        threading.Thread(target=work, daemon=True).start()
+
+        def poll():
+            if not win.winfo_exists():
+                return
+            if "formats" in box:
+                _fill(box["formats"])
+            else:
+                win.after(100, poll)
+
+        win.after(50, poll)
+
+    pick.config(command=load_formats)
+    win.selected_format = selected_format
+    win.load_formats = load_formats
+    return win, {"start": start, "queue": queue, "pick": pick,
+                 "cancel": cancel, "format": fmt, "link": link}
+
+
 def _dialog_options(parent, settings=None, on_save=None, state_dir="", out_dir="",
                     api=None):
     """IDM 'Options' dialog: all 9 tabs, wired to persisted settings.
@@ -5321,9 +5423,15 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             prefs = dialog_prefs(load_settings(state_dir))
 
             def _add(verb):
+                plan = add_plan("queue" if verb == "queued" else "start",
+                                load_settings(state_dir))
+                if plan["queue"]:
+                    opts["queue"] = plan["queue"]
                 try:
-                    api.add(u, connections=opts["connections"],
-                            aria2=bool(aria2_var.get()), options=opts)
+                    new_id = api.add(u, connections=opts["connections"],
+                                     aria2=bool(aria2_var.get()), options=opts)
+                    if plan["pause"] and new_id:
+                        api.pause(new_id)
                     status.set(f"{verb}: {basename(u)}")
                 except Exception as e:  # noqa: BLE001
                     status.set(f"error: {e}")
@@ -5727,13 +5835,21 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     # event, and remember the last seen value so we only react to new URLs.
     clip_state = {"last": ""}
 
-    def _add_url_now(url):
-        opts = download_options(load_settings(state_dir), url,
-                                fallback_dir=out_dir or ".")
+    def _add_url_now(url, fmt="", mode="start"):
+        settings = load_settings(state_dir)
+        opts = download_options(settings, url, fallback_dir=out_dir or ".")
+        if fmt:
+            opts["format"] = fmt
+        plan = add_plan(mode, settings)
+        if plan["queue"]:
+            opts["queue"] = plan["queue"]
         try:
-            api.add(url, connections=opts["connections"],
-                    aria2=bool(aria2_var.get()), options=opts)
-            status.set(f"added: {basename(url)}")
+            new_id = api.add(url, connections=opts["connections"],
+                             aria2=bool(aria2_var.get()), options=opts)
+            if plan["pause"] and new_id:
+                api.pause(new_id)
+            status.set(("queued: " if plan["pause"] else "added: ")
+                       + basename(url))
         except Exception as e:  # noqa: BLE001
             status.set(f"error: {e}")
         refresh()
@@ -5754,14 +5870,28 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             pass
         root.after(1000, _poll_clipboard)
 
+    def _list_formats(url):
+        opts = download_options(load_settings(state_dir), url,
+                                fallback_dir=out_dir or ".")
+        return api.formats(url, proxy=opts.get("proxy", ""))
+
     def _prompt_clipboard(url):
-        import tkinter.messagebox as mb
-        if mb.askyesno("Internet Download Manager",
-                       f"Stáhnout tento odkaz?\n\n{url}"):
-            _add_url_now(url)
+        win, b = _dialog_clipboard_prompt(root, url, list_formats=_list_formats)
+
+        def go(mode):
+            chosen = win.selected_format()
+            win.destroy()
+            _add_url_now(url, fmt=chosen, mode=mode)
+
+        b["start"].config(command=lambda: go("start"))
+        b["queue"].config(command=lambda: go("queue"))
+        win.bind("<Return>", lambda e: go("start"))
+        win.bind("<Escape>", lambda e: win.destroy())
+        return win, b
 
     root.after(1500, _poll_clipboard)
     w["add_url_now"] = _add_url_now
+    w["prompt_clipboard"] = _prompt_clipboard
 
     # --- Tasks -> add a batch of URLs from the clipboard -----------------
     # People copy a whole list of links at once; we queue every URL in the
@@ -6586,6 +6716,8 @@ class _RecordingApi:
     def __init__(self):
         self.adds = []
         self.added = []
+        self.options = []
+        self.paused = []
 
     def items(self):
         return []
@@ -6595,13 +6727,14 @@ class _RecordingApi:
                           "connections": connections,
                           "out_dir": (options or {}).get("out_dir", "")})
         self.added.append(url)
+        self.options.append(dict(options or {}))
         return len(self.adds)
 
     def resume(self, i):
         pass
 
     def pause(self, i):
-        pass
+        self.paused.append(i)
 
     def remove(self, i):
         pass
@@ -7051,6 +7184,89 @@ def selftest_batch_clipboard():
            "status": w["status_var"].get()}
     root.destroy()
     print("BATCH-CLIP:" + json.dumps(out), flush=True)
+    return 0
+
+
+def selftest_add_plan():
+    """Start vs. Add to queue, as handed to the engine."""
+    out = {"start": add_plan("start", {}), "queue": add_plan("queue", {}),
+           "first_queue": queue_names({})[0]}
+    print("ADD-PLAN:" + json.dumps(out), flush=True)
+    return 0
+
+
+def _pump_until(root, done, seconds=5.0):
+    end = time.time() + seconds
+    while not done() and time.time() < end:
+        root.update()
+        time.sleep(0.02)
+
+
+def selftest_clipboard_prompt():
+    """The clipboard prompt: buttons, best format by default, format listing."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    calls = []
+
+    def loader(url):
+        calls.append(url)
+        return SAMPLE_FORMATS
+
+    url = "https://example.com/watch?v=x"
+    win, b = _dialog_clipboard_prompt(root, url, list_formats=loader)
+    root.update()
+    buttons = [str(b[k].cget("text")) for k in ("start", "queue", "pick", "cancel")]
+    out = {
+        "buttons": buttons,
+        "url_shown": b["link"].get() == url,
+        "default_label": b["format"].get(),
+        "default_format": win.selected_format(),
+        "loader_calls_before": list(calls),
+    }
+    b["pick"].invoke()
+    _pump_until(root, lambda: len(b["format"].cget("values")) > 1)
+    values = [str(v) for v in b["format"].cget("values")]
+    out["loader_calls_after"] = list(calls)
+    out["values_after"] = values
+    out["default_after"] = win.selected_format()
+    b["format"].set(next((v for v in values if v.startswith("137")), ""))
+    out["picked_format"] = win.selected_format()
+    root.destroy()
+    print("CLIP-PROMPT:" + json.dumps(out), flush=True)
+    return 0
+
+
+def selftest_clipboard_actions():
+    """Stáhnout / Přidat do fronty / Zrušit must reach the API as such."""
+    api = _RecordingApi()
+    api.formats = lambda url, **kw: SAMPLE_FORMATS
+    root, _refresh, w = build_window(api, out_dir=".")
+    root.withdraw()
+
+    def record(n):
+        o = api.options[n]
+        return {"url": api.added[n], "format": o.get("format", ""),
+                "queue": o.get("queue", ""), "paused": (n + 1) in api.paused}
+
+    win, b = w["prompt_clipboard"]("https://example.com/a.bin")
+    b["start"].invoke()
+
+    win, b = w["prompt_clipboard"]("https://example.com/watch?v=x")
+    b["pick"].invoke()
+    _pump_until(root, lambda: len(b["format"].cget("values")) > 1)
+    values = [str(v) for v in b["format"].cget("values")]
+    b["format"].set(next((v for v in values if v.startswith("137")), ""))
+    b["queue"].invoke()
+
+    win, b = w["prompt_clipboard"]("https://example.com/c.bin")
+    b["cancel"].invoke()
+
+    out = {"start": record(0), "queued": record(1),
+           "cancelled_adds": len(api.added) - 2}
+    root.destroy()
+    print("CLIP-ACTIONS:" + json.dumps(out), flush=True)
     return 0
 
 
@@ -7644,6 +7860,9 @@ def main(argv=None):
     p.add_argument("--selftest-file-info", action="store_true")
     p.add_argument("--selftest-scheduler", action="store_true")
     p.add_argument("--selftest-batch-clipboard", action="store_true")
+    p.add_argument("--selftest-add-plan", action="store_true")
+    p.add_argument("--selftest-clipboard-prompt", action="store_true")
+    p.add_argument("--selftest-clipboard-actions", action="store_true")
     p.add_argument("--selftest-drop-toggle", action="store_true")
     p.add_argument("--selftest-drop-paste", action="store_true")
     p.add_argument("--selftest-live-graph", action="store_true")
@@ -7709,6 +7928,12 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
         return selftest_live_graph(args.meta)
     if args.selftest_batch_clipboard:
         return selftest_batch_clipboard()
+    if args.selftest_add_plan:
+        return selftest_add_plan()
+    if args.selftest_clipboard_prompt:
+        return selftest_clipboard_prompt()
+    if args.selftest_clipboard_actions:
+        return selftest_clipboard_actions()
     if args.selftest_drop_toggle:
         return selftest_drop_toggle()
     if args.selftest_drop_paste:
