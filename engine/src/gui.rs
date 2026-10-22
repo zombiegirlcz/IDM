@@ -1737,19 +1737,13 @@ mod tests {
     /// aria2c, yt-dlp, ffmpeg -- and on Windows only the direct child died.
     #[tokio::test]
     async fn kill_tree_stops_the_grandchildren_too() {
-        let dir = std::env::temp_dir().join(format!("idm_killtree_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let pidfile = dir.join("grandchild.pid");
-        let _ = std::fs::remove_file(&pidfile);
-
-        // A child that starts a long-running grandchild, writes its pid and
+        // A child that starts a long-running grandchild, prints its pid and
         // waits on it -- the shape of idm.exe running aria2c.
         #[cfg(unix)]
         let mut cmd = {
             let mut c = Command::new("sh");
             c.hide_console();
-            c.arg("-c")
-                .arg(format!("sleep 60 & echo $! > '{}'; wait", pidfile.display()));
+            c.arg("-c").arg("sleep 60 & echo $!; wait");
             c.process_group(0);
             c
         };
@@ -1760,30 +1754,37 @@ mod tests {
             c.args([
                 "-NoProfile",
                 "-Command",
-                &format!(
-                    "$p = Start-Process -FilePath ping -ArgumentList '-n','60','127.0.0.1' \
-                     -NoNewWindow -PassThru; Set-Content -Path '{}' -Value $p.Id; \
-                     Wait-Process -Id $p.Id",
-                    pidfile.display()
-                ),
+                "$p = Start-Process -FilePath ping -ArgumentList '-n','60','127.0.0.1' \
+                 -NoNewWindow -PassThru; [Console]::Out.WriteLine($p.Id); \
+                 [Console]::Out.Flush(); Wait-Process -Id $p.Id",
             ]);
             c
         };
-        cmd.stdout(std::process::Stdio::null());
+        cmd.stdout(std::process::Stdio::piped());
         let mut child = cmd.spawn().expect("spawn the child");
 
-        let mut grandchild = None;
-        for _ in 0..200 {
-            if let Some(pid) = std::fs::read_to_string(&pidfile)
+        // The grandchild shares the pipe (ping prints too), so the pid is the
+        // first line that is a number, not simply the first line. The reader
+        // stays open to the end: a closed pipe could make the grandchild die
+        // of a failed write, and the test would pass without Stop doing it.
+        use tokio::io::AsyncBufReadExt;
+        let out = child.stdout.take().expect("piped stdout");
+        let mut lines = tokio::io::BufReader::new(out).lines();
+        let grandchild: u32 = {
+            let find = async {
+                while let Ok(Some(line)) = lines.next_line().await {
+                    if let Ok(pid) = line.trim().parse::<u32>() {
+                        return Some(pid);
+                    }
+                }
+                None
+            };
+            tokio::time::timeout(Duration::from_secs(20), find)
+                .await
                 .ok()
-                .and_then(|s| s.trim().parse::<u32>().ok())
-            {
-                grandchild = Some(pid);
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-        let grandchild = grandchild.expect("the child never started its grandchild");
+                .flatten()
+                .expect("the child never reported its grandchild's pid")
+        };
         assert!(alive(grandchild), "the grandchild must be running before Stop");
 
         kill_tree(&mut child).await;
@@ -1808,6 +1809,7 @@ mod tests {
                 .args(["/PID", &grandchild.to_string(), "/F"])
                 .output();
         }
+        drop(lines);
         assert!(gone, "Stop left pid {} running: the download goes on", grandchild);
     }
 
