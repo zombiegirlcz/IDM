@@ -2920,6 +2920,82 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir="", project=None):
 # --------------------------------------------------------------------------- #
 # Dialog windows (each mirrors an IDM dialog)
 # --------------------------------------------------------------------------- #
+def edit_menu_items(readonly: bool, has_selection: bool, can_paste: bool) -> list:
+    """The right-click menu of a text field, and which entries apply.
+
+    Each entry fires the virtual event Tk's own Entry/Text bindings already
+    handle, so the menu does exactly what Ctrl+X / C / V / A do.
+    """
+    return [
+        {"label": "Cut", "event": "<<Cut>>",
+         "enabled": has_selection and not readonly},
+        {"label": "Copy", "event": "<<Copy>>", "enabled": has_selection},
+        {"label": "Paste", "event": "<<Paste>>",
+         "enabled": can_paste and not readonly},
+        {"label": "Select All", "event": "<<SelectAll>>", "enabled": True},
+    ]
+
+
+# Every kind of text field the dialogs use. Bound per class, once, so a field
+# in a dialog opened later has the menu without anyone remembering to add it.
+EDIT_MENU_CLASSES = ("TEntry", "Entry", "TCombobox", "Text", "TSpinbox", "Spinbox")
+
+
+def _edit_menu_for(widget):
+    """Build the right-click menu for `widget` as it is right now."""
+    import tkinter as tk
+
+    try:
+        readonly = str(widget.cget("state")) in ("readonly", "disabled")
+    except Exception:  # noqa: BLE001
+        readonly = False
+    try:
+        if widget.winfo_class() == "Text":
+            has_selection = bool(widget.tag_ranges("sel"))
+        else:
+            has_selection = bool(widget.selection_present())
+    except Exception:  # noqa: BLE001
+        has_selection = False
+    try:
+        can_paste = bool(widget.clipboard_get())
+    except Exception:  # noqa: BLE001  (empty clipboard raises TclError)
+        can_paste = False
+
+    menu = tk.Menu(widget, tearoff=0)
+    for item in edit_menu_items(readonly, has_selection, can_paste):
+        menu.add_command(
+            label=item["label"],
+            state="normal" if item["enabled"] else "disabled",
+            command=lambda e=item["event"]: (widget.focus_set(),
+                                             widget.event_generate(e)))
+    return menu
+
+
+def install_edit_menu(root):
+    """Right-click Cut / Copy / Paste / Select All in every text field.
+
+    Tk has no context menu on Entry or Text, on Windows or on Linux: right-
+    clicking the URL field of Add URL did nothing, so a URL could not be
+    pasted in with the mouse.
+    """
+    def show(event):
+        widget = event.widget
+        menu = None
+        try:
+            widget.focus_set()
+            menu = _edit_menu_for(widget)
+            menu.tk_popup(event.x_root, event.y_root)
+        except Exception:  # noqa: BLE001
+            return
+        finally:
+            if menu is not None:
+                menu.grab_release()
+
+    for cls in EDIT_MENU_CLASSES:
+        root.bind_class(cls, "<Button-3>", show, add="+")
+    return show
+
+
 def _dialog_add_url(parent):
     """IDM 'Add URL' dialog: URL box + 'Use authorization'."""
     import tkinter as tk
@@ -5089,6 +5165,7 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     root.title("Internet Download Manager")
     root.geometry("1040x560")
     root.minsize(820, 420)
+    install_edit_menu(root)
     # The title bar and the panel showed an empty placeholder because nothing
     # ever set an icon. Tk 8.6 reads PNG itself, so assets/idm.png needs no
     # third-party imaging library to become the window icon.
@@ -7270,6 +7347,38 @@ def selftest_clipboard_actions():
     return 0
 
 
+def selftest_edit_menu_items():
+    """Which right-click entries apply, for the kinds of field there are."""
+    out = {
+        "editable": edit_menu_items(False, True, True),
+        "empty_field": edit_menu_items(False, False, True),
+        "readonly": edit_menu_items(True, True, True),
+        "empty_clipboard": edit_menu_items(False, False, False),
+    }
+    print("EDIT-MENU-ITEMS:" + json.dumps(out), flush=True)
+    return 0
+
+
+def selftest_edit_menu():
+    """Right-click Paste in Add URL must put the clipboard into the field."""
+    api = _RecordingApi()
+    root, _refresh, w = build_window(api, out_dir=".")
+    root.withdraw()
+    win, url_entry, _auth = _dialog_add_url(root)
+    root.update()
+    bound = [c for c in EDIT_MENU_CLASSES if root.bind_class(c, "<Button-3>")]
+    root.clipboard_clear()
+    root.clipboard_append("https://example.com/pasted.bin")
+    menu = _edit_menu_for(url_entry)
+    labels = [menu.entrycget(i, "label") for i in range(menu.index("end") + 1)]
+    menu.invoke(labels.index("Paste"))
+    root.update()
+    out = {"bound": bound, "labels": labels, "after_paste": url_entry.get()}
+    root.destroy()
+    print("EDIT-MENU:" + json.dumps(out), flush=True)
+    return 0
+
+
 def selftest_drop_toggle():
     """The Tasks entry must show the drop target and hide it again."""
     api = _RecordingApi()
@@ -7861,6 +7970,8 @@ def main(argv=None):
     p.add_argument("--selftest-scheduler", action="store_true")
     p.add_argument("--selftest-batch-clipboard", action="store_true")
     p.add_argument("--selftest-add-plan", action="store_true")
+    p.add_argument("--selftest-edit-menu-items", action="store_true")
+    p.add_argument("--selftest-edit-menu", action="store_true")
     p.add_argument("--selftest-clipboard-prompt", action="store_true")
     p.add_argument("--selftest-clipboard-actions", action="store_true")
     p.add_argument("--selftest-drop-toggle", action="store_true")
@@ -7930,6 +8041,10 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
         return selftest_batch_clipboard()
     if args.selftest_add_plan:
         return selftest_add_plan()
+    if args.selftest_edit_menu_items:
+        return selftest_edit_menu_items()
+    if args.selftest_edit_menu:
+        return selftest_edit_menu()
     if args.selftest_clipboard_prompt:
         return selftest_clipboard_prompt()
     if args.selftest_clipboard_actions:
