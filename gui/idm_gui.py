@@ -55,7 +55,7 @@ DEFAULT_ADDR = "127.0.0.1:8080"
 # "Check for updates" compares this against the newest published tag: at
 # "1.0.0" against tags of v0.1.x it could only ever say "up to date".
 # gui/test/version_sync.test.mjs fails if the two drift apart.
-VERSION = "2.2.6"
+VERSION = "2.2.7"
 
 # Category names exactly as IDM shows them in the left tree.
 CATEGORIES = [

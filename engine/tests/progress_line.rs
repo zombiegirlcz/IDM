@@ -13,6 +13,10 @@
 #[allow(dead_code)]
 mod progress;
 
+#[path = "../src/style.rs"]
+#[allow(dead_code)]
+mod style;
+
 use progress::{human_bytes, human_duration, render, use_color, visible_width, Frame, Line, Style};
 
 fn style(color: bool, columns: usize) -> Style {
@@ -159,4 +163,35 @@ fn finishing_twice_or_without_progress_prints_nothing_extra() {
         line.finish();
     }
     assert!(out.is_empty(), "{:?}", String::from_utf8_lossy(&out));
+}
+
+#[test]
+fn a_child_line_is_coloured_by_its_tag_above_the_bar() {
+    // The complaint that started this: yt-dlp's twenty grey lines and the one
+    // that says ERROR: all looked the same. The tag decides the colour, and
+    // the text itself is never rewritten.
+    let mut out = Vec::new();
+    {
+        let mut line = Line::new(&mut out, true, style(true, 80));
+        line.message("[youtube] abc: Downloading webpage");
+        line.message("ERROR: nope");
+        line.message("plain text");
+    }
+    let s = String::from_utf8(out).unwrap();
+    assert!(s.contains("\x1b[35m[youtube]\x1b[0m"), "{s:?}");
+    assert!(s.contains("\x1b[31mERROR: nope\x1b[0m"), "{s:?}");
+    assert!(s.contains("plain text\n"), "{s:?}");
+    assert!(!s.contains("\x1b[35mplain"), "{s:?}");
+}
+
+#[test]
+fn a_piped_child_line_is_byte_for_byte_what_the_child_wrote() {
+    let mut out = Vec::new();
+    {
+        let mut line = Line::new(&mut out, false, style(false, 80));
+        line.message("[download]  45.2% of 12.3MiB");
+        line.message("ERROR: nope");
+    }
+    let s = String::from_utf8(out).unwrap();
+    assert_eq!(s, "[download]  45.2% of 12.3MiB\nERROR: nope\n");
 }

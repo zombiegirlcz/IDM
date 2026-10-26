@@ -18,6 +18,7 @@ use tokio::sync::{Mutex, Semaphore};
 use crate::console::HideConsole;
 
 mod console;
+mod style;
 mod cookies;
 mod gui;
 mod media;
@@ -25,6 +26,26 @@ mod progress;
 mod secrets;
 mod update;
 mod verbs;
+
+
+/// The `[*] label  value` block a download starts with: dim, aligned label,
+/// plain value. Colour is off when stdout is a pipe, so the text a caller
+/// parses is unchanged.
+fn field(label: &str, value: impl std::fmt::Display) {
+    println!("{}", style::field(style::stdout(), label, value));
+}
+
+fn info_line(text: impl std::fmt::Display) {
+    println!("{}", style::info(style::stdout(), text));
+}
+
+fn done(text: impl std::fmt::Display) {
+    println!("{}", style::ok(style::stdout(), text));
+}
+
+fn warn_line(text: impl std::fmt::Display) {
+    println!("{}", style::warn(style::stdout(), text));
+}
 
 #[derive(Parser, Debug)]
 #[command(name = "idm", version, about = "Multi-connection downloader with resume (IDM-like POC)")]
@@ -647,12 +668,12 @@ async fn run_direct(
     let mpath = meta_path(&out);
 
     let probe = probe(&client, url, net).await?;
-    println!("[*] url          : {}", url);
-    println!("[*] output       : {}", out.display());
-    println!("[*] total size   : {} bytes", probe.total);
-    println!("[*] accept-ranges: {}", probe.ranges);
-    println!("[*] etag         : {:?}", probe.etag);
-    println!("[*] last-modified: {:?}", probe.last_modified);
+    field("url", url);
+    field("output", out.display());
+    field("size", format!("{} bytes", probe.total));
+    field("ranges", probe.ranges);
+    field("etag", format!("{:?}", probe.etag));
+    field("modified", format!("{:?}", probe.last_modified));
 
     if probe.total == 0 {
         anyhow::bail!("server did not report a size; cannot segment (not supported in POC)");
@@ -662,10 +683,10 @@ async fn run_direct(
         let raw = tokio::fs::read_to_string(&mpath).await?;
         let m: Meta = serde_json::from_str(&raw)?;
         if m.total != probe.total || m.url != url {
-            println!("[!] resume meta mismatch (size/url changed) — starting fresh");
+            warn_line("resume meta mismatch (size/url changed) — starting fresh");
             None
         } else if m.etag != probe.etag && m.etag.is_some() && probe.etag.is_some() {
-            println!("[!] ETag changed — starting fresh");
+            warn_line("ETag changed — starting fresh");
             None
         } else if !args.ignore_mtime
             && m.last_modified != probe.last_modified
@@ -674,15 +695,15 @@ async fn run_direct(
         {
             // The file changed under us: its old offsets describe other bytes.
             // --ignore-mtime (Options -> Downloads) resumes anyway.
-            println!("[!] Last-Modified changed — starting fresh");
+            warn_line("Last-Modified changed — starting fresh");
             None
         } else if !matches!(std::fs::metadata(&out), Ok(md) if md.len() == m.total) {
             // The sidecar claims progress, but the file it describes is gone or
             // has a different size — its offsets cannot be trusted.
-            println!("[!] output file missing or wrong size — starting fresh");
+            warn_line("output file missing or wrong size — starting fresh");
             None
         } else {
-            println!("[+] resuming: {} segments in meta", m.segments.len());
+            done(format!("resuming: {} segments in meta", m.segments.len()));
             Some(m)
         }
     } else {
@@ -835,8 +856,8 @@ async fn run_direct(
     }
 
     let (read_total, crc) = crc32_file(&out)?;
-    println!("[*] downloaded   : {} bytes", read_total);
-    println!("[*] crc32        : {:08x}", crc);
+    field("downloaded", format!("{} bytes", read_total));
+    field("crc32", format!("{:08x}", crc));
     if read_total != probe.total {
         anyhow::bail!("size mismatch: expected {}, got {}", probe.total, read_total);
     }
@@ -844,7 +865,7 @@ async fn run_direct(
     let _ = tokio::fs::remove_file(&mpath).await;
     append_history(&args.history, url, &out, read_total, crc);
     write_report(args.report.as_deref(), &out, read_total, crc);
-    println!("[+] done -> {}", out.display());
+    done(format!("-> {}", out.display()));
     Ok(())
 }
 
@@ -1008,11 +1029,11 @@ async fn run_direct_dynamic(
     out: PathBuf,
 ) -> anyhow::Result<()> {
     let probe = probe(&client, url, net).await?;
-    println!("[*] url          : {}", url);
-    println!("[*] output       : {}", out.display());
-    println!("[*] total size   : {} bytes", probe.total);
-    println!("[*] accept-ranges: {}", probe.ranges);
-    println!("[*] dynamic      : on (min-split {} bytes)", args.min_split);
+    field("url", url);
+    field("output", out.display());
+    field("size", format!("{} bytes", probe.total));
+    field("ranges", probe.ranges);
+    field("dynamic", format!("on (min-split {} bytes)", args.min_split));
 
     if probe.total == 0 {
         anyhow::bail!("server did not report a size; cannot segment");
@@ -1241,14 +1262,14 @@ async fn run_direct_dynamic(
     }
 
     let (read_total, crc) = crc32_file(&out)?;
-    println!("[*] downloaded   : {} bytes", read_total);
-    println!("[*] crc32        : {:08x}", crc);
+    field("downloaded", format!("{} bytes", read_total));
+    field("crc32", format!("{:08x}", crc));
     if read_total != total {
         anyhow::bail!("size mismatch: expected {}, got {}", total, read_total);
     }
     append_history(&args.history, url, &out, read_total, crc);
     write_report(args.report.as_deref(), &out, read_total, crc);
-    println!("[+] done -> {}", out.display());
+    done(format!("-> {}", out.display()));
     Ok(())
 }
 
@@ -1298,7 +1319,7 @@ async fn ensure_yt_dlp(args: &Args) -> anyhow::Result<PathBuf> {
         );
     }
 
-    eprintln!("[*] yt-dlp chybi, instaluji ho...");
+    eprintln!("{}", style::info(style::stderr(), "yt-dlp chybi, instaluji ho..."));
     let mut cmd = if cfg!(windows) {
         let mut c = tokio::process::Command::new("powershell");
         c.arg("-ExecutionPolicy").arg("Bypass").arg("-File").arg(&script);
@@ -1327,7 +1348,7 @@ async fn ensure_yt_dlp(args: &Args) -> anyhow::Result<PathBuf> {
         PathBuf::from(printed.lines().last().unwrap_or_default())
     };
     if found.exists() {
-        eprintln!("[*] yt-dlp nainstalovan: {}", found.display());
+        eprintln!("{}", style::info(style::stderr(), format!("yt-dlp nainstalovan: {}", found.display())));
         return Ok(found);
     }
     anyhow::bail!("the yt-dlp installer finished but no yt-dlp was found")
@@ -1409,7 +1430,7 @@ async fn ensure_aria2c(args: &Args) -> anyhow::Result<PathBuf> {
         );
     };
 
-    println!("[*] aria2c     : missing, running {}", installer.display());
+    info_line(format!("aria2c missing, running {}", installer.display()));
 
     let is_ps1 = installer.extension().map(|e| e == "ps1").unwrap_or(false);
     let status = if is_ps1 {
@@ -1462,9 +1483,9 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "download.bin".to_string());
 
-    println!("[*] url          : {}", url);
-    println!("[*] output       : {}", out.display());
-    println!("[*] backend      : aria2c ({})", args.aria2_path.display());
+    field("url", url);
+    field("output", out.display());
+    field("backend", format!("aria2c ({})", args.aria2_path.display()));
 
     let aria2c = ensure_aria2c(args).await?;
     let mut cmd = tokio::process::Command::new(&aria2c);
@@ -1522,9 +1543,9 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
     let (size, crc) = crc32_file(&out)?;
     append_history(&args.history, url, &out, size, crc);
     write_report(args.report.as_deref(), &out, size, crc);
-    println!("[*] downloaded   : {} bytes", size);
-    println!("[*] crc32        : {:08x}", crc);
-    println!("[+] done -> {}", out.display());
+    field("downloaded", format!("{} bytes", size));
+    field("crc32", format!("{:08x}", crc));
+    done(format!("-> {}", out.display()));
     Ok(())
 }
 
@@ -1588,10 +1609,10 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
         }
     };
 
-    println!("[*] url          : {}", url);
-    println!("[*] backend      : yt-dlp ({})", yt_dlp.display());
-    println!("[*] format       : {}", args.format.as_deref().unwrap_or("best"));
-    println!("[*] output       : {}", out.display());
+    field("url", url);
+    field("backend", format!("yt-dlp ({})", yt_dlp.display()));
+    field("format", args.format.as_deref().unwrap_or("best"));
+    field("output", out.display());
 
     if let Some(parent) = out.parent() {
         if !parent.as_os_str().is_empty() {
@@ -1617,9 +1638,9 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
     let (size, crc) = crc32_file(&out)?;
     append_history(&args.history, url, &out, size, crc);
     write_report(args.report.as_deref(), &out, size, crc);
-    println!("[*] downloaded   : {} bytes", size);
-    println!("[*] crc32        : {:08x}", crc);
-    println!("[+] done -> {}", out.display());
+    field("downloaded", format!("{} bytes", size));
+    field("crc32", format!("{:08x}", crc));
+    done(format!("-> {}", out.display()));
     Ok(())
 }
 
@@ -1689,10 +1710,10 @@ fn append_history(
         Ok(mut f) => {
             use std::io::Write;
             if let Err(e) = f.write_all(line.as_bytes()) {
-                eprintln!("[!] history write failed: {}", e);
+                eprintln!("{}", style::warn(style::stderr(), format!("history write failed: {}", e)));
             }
         }
-        Err(e) => eprintln!("[!] history open failed: {}", e),
+        Err(e) => eprintln!("{}", style::warn(style::stderr(), format!("history open failed: {}", e))),
     }
 }
 
@@ -1754,7 +1775,7 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
         .map(|s| s.to_string())
         .collect();
     if urls.is_empty() {
-        println!("[*] queue empty");
+        info_line("queue empty");
         return Ok(());
     }
     let mut ok = 0usize;
@@ -1822,7 +1843,7 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
             }
         }
     }
-    println!("[*] queue done: {} ok, {} failed", ok, fail);
+    info_line(format!("queue done: {} ok, {} failed", ok, fail));
     if fail > 0 {
         anyhow::bail!("{} queue item(s) failed", fail);
     }
@@ -1908,11 +1929,11 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
                             inner
                         );
                     }
-                    println!("[*] scheme     : unwrapped {}", inner);
+                    field("scheme", format!("unwrapped {}", inner));
                     args.url = Some(inner);
                 }
                 None => {
-                    println!("[+] idmreg trigger received — nothing to download");
+                    done("idmreg trigger received — nothing to download");
                     return Ok(());
                 }
             }
@@ -1949,7 +1970,7 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
     let url = match &args.url {
         Some(u) if !u.is_empty() => u.clone(),
         _ => {
-            eprintln!("[x] error: missing URL (or use --queue FILE)");
+            eprintln!("{}", style::err(style::stderr(), "missing URL (or use --queue FILE)"));
             std::process::exit(2);
         }
     };
@@ -1999,7 +2020,7 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
     {
         if let Some(ct) = probe_content_type(&client, &url, &net).await {
             if ct.contains("html") {
-                println!("[*] HTML page detected -> media backend (yt-dlp)");
+                info_line("HTML page detected -> media backend (yt-dlp)");
                 use_media = true;
             }
         }
@@ -2051,6 +2072,7 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() {
+    style::init();
     // Before anything else: the cached release answer may describe a version
     // this machine no longer runs. A manual install, a rollback or the swap
     // at the end of `idm update` all change VERSION, and nothing tells the
@@ -2074,7 +2096,7 @@ async fn main() {
     let args = Args::parse();
     let serving = args.serve.is_some();
     if let Err(e) = run(args).await {
-        eprintln!("[x] error: {:#}", e);
+        eprintln!("{}", style::err(style::stderr(), format!("{:#}", e)));
         std::process::exit(1);
     }
     // One line at the end of a finished command, from the cache somebody else

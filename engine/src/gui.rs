@@ -1691,9 +1691,10 @@ pub async fn serve(
     let listener = TcpListener::bind(&addr)
         .await
         .map_err(|e| anyhow::anyhow!("cannot bind {}: {}", addr, e))?;
-    println!("[*] IDM GUI on http://{}", addr);
-    println!("[*] downloads -> {}", st.output_dir.display());
-    println!("[*] api token -> {}", token_path.display());
+    let on = crate::style::stdout();
+    println!("{}", crate::style::info(on, format!("IDM GUI on http://{}", addr)));
+    println!("{}", crate::style::field(on, "downloads", st.output_dir.display()));
+    println!("{}", crate::style::field(on, "api token", token_path.display()));
 
     loop {
         match listener.accept().await {

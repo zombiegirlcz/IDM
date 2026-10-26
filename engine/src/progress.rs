@@ -303,9 +303,15 @@ impl<W: Write> Line<W> {
     }
 
     /// A line of its own above the bar; the next update brings the bar back.
+    ///
+    /// A child process' line (`[youtube] ...`, `[download] ...`, `ERROR: ...`)
+    /// is coloured by its tag on the way through, so the one line that says
+    /// why a download failed is not the same grey as the twenty above it.
+    /// When colour is off the text is passed through byte for byte, so a pipe
+    /// sees exactly what yt-dlp wrote.
     pub fn message(&mut self, text: &str) {
         self.wipe();
-        let _ = writeln!(self.out, "{}", text);
+        let _ = writeln!(self.out, "{}", crate::style::child_line(self.style.color, text));
         let _ = self.out.flush();
     }
 
