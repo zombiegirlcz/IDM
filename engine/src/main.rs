@@ -31,19 +31,19 @@ mod verbs;
 /// The `[*] label  value` block a download starts with: dim, aligned label,
 /// plain value. Colour is off when stdout is a pipe, so the text a caller
 /// parses is unchanged.
-fn field(label: &str, value: impl std::fmt::Display) {
+fn say_field(label: &str, value: impl std::fmt::Display) {
     println!("{}", style::field(style::stdout(), label, value));
 }
 
-fn info_line(text: impl std::fmt::Display) {
+fn say_info(text: impl std::fmt::Display) {
     println!("{}", style::info(style::stdout(), text));
 }
 
-fn done(text: impl std::fmt::Display) {
+fn say_done(text: impl std::fmt::Display) {
     println!("{}", style::ok(style::stdout(), text));
 }
 
-fn warn_line(text: impl std::fmt::Display) {
+fn say_warn(text: impl std::fmt::Display) {
     println!("{}", style::warn(style::stdout(), text));
 }
 
@@ -668,12 +668,12 @@ async fn run_direct(
     let mpath = meta_path(&out);
 
     let probe = probe(&client, url, net).await?;
-    field("url", url);
-    field("output", out.display());
-    field("size", format!("{} bytes", probe.total));
-    field("ranges", probe.ranges);
-    field("etag", format!("{:?}", probe.etag));
-    field("modified", format!("{:?}", probe.last_modified));
+    say_field("url", url);
+    say_field("output", out.display());
+    say_field("size", format!("{} bytes", probe.total));
+    say_field("ranges", probe.ranges);
+    say_field("etag", format!("{:?}", probe.etag));
+    say_field("modified", format!("{:?}", probe.last_modified));
 
     if probe.total == 0 {
         anyhow::bail!("server did not report a size; cannot segment (not supported in POC)");
@@ -683,10 +683,10 @@ async fn run_direct(
         let raw = tokio::fs::read_to_string(&mpath).await?;
         let m: Meta = serde_json::from_str(&raw)?;
         if m.total != probe.total || m.url != url {
-            warn_line("resume meta mismatch (size/url changed) — starting fresh");
+            say_warn("resume meta mismatch (size/url changed) — starting fresh");
             None
         } else if m.etag != probe.etag && m.etag.is_some() && probe.etag.is_some() {
-            warn_line("ETag changed — starting fresh");
+            say_warn("ETag changed — starting fresh");
             None
         } else if !args.ignore_mtime
             && m.last_modified != probe.last_modified
@@ -695,15 +695,15 @@ async fn run_direct(
         {
             // The file changed under us: its old offsets describe other bytes.
             // --ignore-mtime (Options -> Downloads) resumes anyway.
-            warn_line("Last-Modified changed — starting fresh");
+            say_warn("Last-Modified changed — starting fresh");
             None
         } else if !matches!(std::fs::metadata(&out), Ok(md) if md.len() == m.total) {
             // The sidecar claims progress, but the file it describes is gone or
             // has a different size — its offsets cannot be trusted.
-            warn_line("output file missing or wrong size — starting fresh");
+            say_warn("output file missing or wrong size — starting fresh");
             None
         } else {
-            done(format!("resuming: {} segments in meta", m.segments.len()));
+            say_done(format!("resuming: {} segments in meta", m.segments.len()));
             Some(m)
         }
     } else {
@@ -856,8 +856,8 @@ async fn run_direct(
     }
 
     let (read_total, crc) = crc32_file(&out)?;
-    field("downloaded", format!("{} bytes", read_total));
-    field("crc32", format!("{:08x}", crc));
+    say_field("downloaded", format!("{} bytes", read_total));
+    say_field("crc32", format!("{:08x}", crc));
     if read_total != probe.total {
         anyhow::bail!("size mismatch: expected {}, got {}", probe.total, read_total);
     }
@@ -865,7 +865,7 @@ async fn run_direct(
     let _ = tokio::fs::remove_file(&mpath).await;
     append_history(&args.history, url, &out, read_total, crc);
     write_report(args.report.as_deref(), &out, read_total, crc);
-    done(format!("-> {}", out.display()));
+    say_done(format!("-> {}", out.display()));
     Ok(())
 }
 
@@ -1029,11 +1029,11 @@ async fn run_direct_dynamic(
     out: PathBuf,
 ) -> anyhow::Result<()> {
     let probe = probe(&client, url, net).await?;
-    field("url", url);
-    field("output", out.display());
-    field("size", format!("{} bytes", probe.total));
-    field("ranges", probe.ranges);
-    field("dynamic", format!("on (min-split {} bytes)", args.min_split));
+    say_field("url", url);
+    say_field("output", out.display());
+    say_field("size", format!("{} bytes", probe.total));
+    say_field("ranges", probe.ranges);
+    say_field("dynamic", format!("on (min-split {} bytes)", args.min_split));
 
     if probe.total == 0 {
         anyhow::bail!("server did not report a size; cannot segment");
@@ -1262,14 +1262,14 @@ async fn run_direct_dynamic(
     }
 
     let (read_total, crc) = crc32_file(&out)?;
-    field("downloaded", format!("{} bytes", read_total));
-    field("crc32", format!("{:08x}", crc));
+    say_field("downloaded", format!("{} bytes", read_total));
+    say_field("crc32", format!("{:08x}", crc));
     if read_total != total {
         anyhow::bail!("size mismatch: expected {}, got {}", total, read_total);
     }
     append_history(&args.history, url, &out, read_total, crc);
     write_report(args.report.as_deref(), &out, read_total, crc);
-    done(format!("-> {}", out.display()));
+    say_done(format!("-> {}", out.display()));
     Ok(())
 }
 
@@ -1430,7 +1430,7 @@ async fn ensure_aria2c(args: &Args) -> anyhow::Result<PathBuf> {
         );
     };
 
-    info_line(format!("aria2c missing, running {}", installer.display()));
+    say_info(format!("aria2c missing, running {}", installer.display()));
 
     let is_ps1 = installer.extension().map(|e| e == "ps1").unwrap_or(false);
     let status = if is_ps1 {
@@ -1483,9 +1483,9 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "download.bin".to_string());
 
-    field("url", url);
-    field("output", out.display());
-    field("backend", format!("aria2c ({})", args.aria2_path.display()));
+    say_field("url", url);
+    say_field("output", out.display());
+    say_field("backend", format!("aria2c ({})", args.aria2_path.display()));
 
     let aria2c = ensure_aria2c(args).await?;
     let mut cmd = tokio::process::Command::new(&aria2c);
@@ -1543,9 +1543,9 @@ async fn run_aria2(args: &Args, url: &str, out: PathBuf) -> anyhow::Result<()> {
     let (size, crc) = crc32_file(&out)?;
     append_history(&args.history, url, &out, size, crc);
     write_report(args.report.as_deref(), &out, size, crc);
-    field("downloaded", format!("{} bytes", size));
-    field("crc32", format!("{:08x}", crc));
-    done(format!("-> {}", out.display()));
+    say_field("downloaded", format!("{} bytes", size));
+    say_field("crc32", format!("{:08x}", crc));
+    say_done(format!("-> {}", out.display()));
     Ok(())
 }
 
@@ -1609,10 +1609,10 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
         }
     };
 
-    field("url", url);
-    field("backend", format!("yt-dlp ({})", yt_dlp.display()));
-    field("format", args.format.as_deref().unwrap_or("best"));
-    field("output", out.display());
+    say_field("url", url);
+    say_field("backend", format!("yt-dlp ({})", yt_dlp.display()));
+    say_field("format", args.format.as_deref().unwrap_or("best"));
+    say_field("output", out.display());
 
     if let Some(parent) = out.parent() {
         if !parent.as_os_str().is_empty() {
@@ -1638,9 +1638,9 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
     let (size, crc) = crc32_file(&out)?;
     append_history(&args.history, url, &out, size, crc);
     write_report(args.report.as_deref(), &out, size, crc);
-    field("downloaded", format!("{} bytes", size));
-    field("crc32", format!("{:08x}", crc));
-    done(format!("-> {}", out.display()));
+    say_field("downloaded", format!("{} bytes", size));
+    say_field("crc32", format!("{:08x}", crc));
+    say_done(format!("-> {}", out.display()));
     Ok(())
 }
 
@@ -1775,7 +1775,7 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
         .map(|s| s.to_string())
         .collect();
     if urls.is_empty() {
-        info_line("queue empty");
+        say_info("queue empty");
         return Ok(());
     }
     let mut ok = 0usize;
@@ -1843,7 +1843,7 @@ async fn run_queue(args: &Args) -> anyhow::Result<()> {
             }
         }
     }
-    info_line(format!("queue done: {} ok, {} failed", ok, fail));
+    say_info(format!("queue done: {} ok, {} failed", ok, fail));
     if fail > 0 {
         anyhow::bail!("{} queue item(s) failed", fail);
     }
@@ -1929,11 +1929,11 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
                             inner
                         );
                     }
-                    field("scheme", format!("unwrapped {}", inner));
+                    say_field("scheme", format!("unwrapped {}", inner));
                     args.url = Some(inner);
                 }
                 None => {
-                    done("idmreg trigger received — nothing to download");
+                    say_done("idmreg trigger received — nothing to download");
                     return Ok(());
                 }
             }
@@ -2020,7 +2020,7 @@ async fn run(mut args: Args) -> anyhow::Result<()> {
     {
         if let Some(ct) = probe_content_type(&client, &url, &net).await {
             if ct.contains("html") {
-                info_line("HTML page detected -> media backend (yt-dlp)");
+                say_info("HTML page detected -> media backend (yt-dlp)");
                 use_media = true;
             }
         }
