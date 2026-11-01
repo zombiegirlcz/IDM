@@ -116,9 +116,13 @@ struct Args {
     #[arg(long)]
     format: Option<String>,
 
-    /// Print available formats as JSON and exit
+    /// Print available formats and exit (a table on a terminal, JSON in a pipe)
     #[arg(long, default_value_t = false)]
     list_formats: bool,
+
+    /// With --list-formats: print JSON even on a terminal
+    #[arg(long = "list-formats-json", default_value_t = false)]
+    list_formats_json: bool,
 
     /// Speed limit in bytes/second (0 = unlimited)
     #[arg(long, default_value_t = 0)]
@@ -1578,12 +1582,23 @@ async fn run_media(args: &Args, net: &Net, url: &str, out_override: Option<PathB
     let referer = net.referer.as_deref();
 
     // --list-formats: report what the backend offers and exit.
+    //
+    // Two audiences, two formats. The window, the browser extension and the
+    // tests all run this through a pipe and need the JSON envelope; a person
+    // at a terminal was being shown that same blob -- braces, quotes, one
+    // field per line, and nothing saying which rows carry sound. The terminal
+    // gets a table instead. Colour follows the same rule as everywhere else
+    // (see style.rs), so `idm --list-formats URL | jq` keeps working.
     if args.list_formats {
         let meta = media::probe_json(
             &yt_dlp, url, cookie, referer, args.proxy.as_deref(),
             args.auth_env.as_deref(), net.cookies_from_browser.as_deref(),
         ).await?;
-        println!("{}", serde_json::to_string_pretty(&media::summarize(&meta))?);
+        if style::stdout() && !args.list_formats_json {
+            print!("{}", media::format_table(&media::summarize(&meta), true));
+        } else {
+            println!("{}", serde_json::to_string_pretty(&media::summarize(&meta))?);
+        }
         return Ok(());
     }
 

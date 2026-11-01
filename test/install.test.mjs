@@ -48,7 +48,11 @@ function fakeArchive() {
     );
   }
   writeFileSync(join(dir, 'idm_gui.py'), '# fake gui\n');
-  writeFileSync(join(dir, 'ensure-aria2.sh'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  for (const helper of ['ensure-aria2.sh', 'ensure-aria2.ps1',
+                        'ensure-ytdlp.sh', 'ensure-ytdlp.ps1',
+                        'ensure-ffmpeg.sh', 'ensure-ffmpeg.ps1']) {
+    writeFileSync(join(dir, helper), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  }
   copyFileSync(join(repoRoot, 'install.sh'), join(dir, 'install.sh'));
   // The window needs a real icon file; a theme name does not render.
   mkdirSync(join(dir, 'assets'), { recursive: true });
@@ -66,6 +70,8 @@ function fakeArchive() {
   execFileSync('tar', [
     '-czf', tar, '-C', dir,
     'idm', 'idm-host', 'idm_gui.py', 'ensure-aria2.sh', 'install.sh',
+    'ensure-aria2.ps1', 'ensure-ytdlp.sh', 'ensure-ytdlp.ps1',
+    'ensure-ffmpeg.sh', 'ensure-ffmpeg.ps1',
     'assets', 'extension',
   ]);
   return tar;

@@ -390,7 +390,8 @@ done
 
 # The aria2 auto-installer travels with the binaries so `--aria2` can install
 # aria2c on demand without the user doing anything.
-for f in ensure-aria2.sh ensure-aria2.ps1 ensure-ytdlp.sh ensure-ytdlp.ps1; do
+for f in ensure-aria2.sh ensure-aria2.ps1 ensure-ytdlp.sh ensure-ytdlp.ps1 \
+         ensure-ffmpeg.sh ensure-ffmpeg.ps1; do
   if [[ -n "${SRC:-}" && -f "$SRC/scripts/$f" ]]; then
     install -m 0755 "$SRC/scripts/$f" "$IDM_DIR/bin/$f" 2>/dev/null || true
   elif [[ -f "$TMP/unpack/$f" ]]; then
@@ -519,6 +520,16 @@ if [[ -x "$IDM_DIR/bin/ensure-ytdlp.sh" ]]; then
     || warn "yt-dlp se nepodařilo připravit (engine ho zkusí doinstalovat při prvním videu)"
 fi
 
+# YouTube serves video and audio as separate streams. yt-dlp fetches both and
+# joins them with ffmpeg -- without it the join fails, and a 1080p download
+# either stops or leaves a silent video next to a stray audio file. Nothing
+# installed ffmpeg before, so "best quality" did not work on a clean machine.
+if [[ -x "$IDM_DIR/bin/ensure-ffmpeg.sh" ]]; then
+  log "kontroluji ffmpeg (spojení videa a zvuku)"
+  bash "$IDM_DIR/bin/ensure-ffmpeg.sh" "$IDM_DIR/bin" >/dev/null 2>&1 \
+    || warn "ffmpeg se nepodařilo připravit (video se zvukem se nespojí)"
+fi
+
 # An update leaves bin.old/ gui.old/ assets.old/ extension.old/ behind so the
 # user can roll back. After a fresh install (or an update that already
 # succeeded) those are just clutter -- and an empty-looking extension/ with
@@ -536,4 +547,5 @@ echo "  Nástroj    : idm  (symlink v $LINK_DIR)"
 echo "  Okno       : idm --gui, nebo ikona 'IDM' na ploše"
 echo "  Stažení    : $DOWNLOADS_DIR"
 echo "  Stav       : $STATE_DIR"
+echo "  Video+zvuk : ffmpeg (spojení streamů)"
 echo "  Odinstalace: idm uninstall"

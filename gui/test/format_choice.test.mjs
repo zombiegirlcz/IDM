@@ -46,11 +46,13 @@ test('a format list becomes human-readable labels', () => {
   assert.match(labels[0].label, /best|auto/i);
   assert.equal(labels[0].format, '');
 
-  const row = labels.find((l) => l.format === '137');
-  assert.ok(row, `no row for format 137: ${JSON.stringify(labels)}`);
+  // The 1080p stream is video-only on YouTube; the window offers it as the
+  // pair with audio, so the selector is `137+bestaudio`.
+  const row = labels.find((l) => l.format === '137+bestaudio');
+  assert.ok(row, `no row for format 137+bestaudio: ${JSON.stringify(labels)}`);
   assert.match(row.label, /1920x1080/, 'the resolution must be visible');
   assert.match(row.label, /mp4/, 'the container must be visible');
-  assert.match(row.label, /video only/i, 'a video-only stream must say so');
+  assert.match(row.label, /video \+ audio/i, 'a merged stream must say so');
 
   const audio = labels.find((l) => l.format === '140');
   assert.match(audio.label, /audio only/i);
@@ -90,6 +92,10 @@ test('the Download File Info dialog carries a format combobox', () => {
   assert.ok(
     got.format_values.some((v) => v.startsWith('137')),
     `no 1080p row: ${JSON.stringify(got.format_values)}`,
+  );
+  assert.ok(
+    got.format_values.some((v) => /merged/i.test(v)),
+    `the 1080p row must say it is merged with audio: ${JSON.stringify(got.format_values)}`,
   );
   // Picking a row must hand the caller the selector, not the label -- and a
   // video-only row is widened to the pair yt-dlp merges, because a lone video

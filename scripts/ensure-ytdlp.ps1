@@ -72,5 +72,31 @@ if (Have yt-dlp) {
     exit 0
 }
 
+# Last resort: pip. Windows images that carry Python but no package manager
+# (a bare VM, a locked-down profile) have nothing else.
+#
+# --break-system-packages is tried first, not last: on a Python installed from
+# python.org it is harmless, and on a distribution-managed interpreter it is
+# the only form that is accepted at all (PEP 668 refuses a plain install with
+# "externally-managed-environment"). A downloader must be able to install its
+# own dependency without the user passing flags.
+$pipForms = @(
+    @("--user", "--break-system-packages"),
+    @("--break-system-packages"),
+    @("--user"),
+    @()
+)
+foreach ($form in $pipForms) {
+    try {
+        & python -m pip install --quiet --upgrade @form "yt-dlp[default]" 2>$null
+        if ($LASTEXITCODE -eq 0) { break }
+    } catch { }
+}
+if (Have yt-dlp) {
+    Write-Log "yt-dlp installed via pip: $((Get-Command yt-dlp).Source)"
+    (Get-Command yt-dlp).Source
+    exit 0
+}
+
 Write-Warn "yt-dlp still not found after installation"
 exit 1

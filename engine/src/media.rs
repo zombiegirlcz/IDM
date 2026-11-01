@@ -167,6 +167,43 @@ fn apply_auth(cmd: &mut tokio::process::Command, cookie: Option<&str>, referer: 
 pub const DEFAULT_FORMAT: &str =
     "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b";
 
+/// Does this selector ask for more than one stream?
+///
+/// A pair -- `137+bestaudio`, `bv*+ba`, `bv*[ext=mp4]+ba[ext=m4a]` -- has to
+/// be joined before it is a playable file, and that join is ffmpeg's job.
+/// A single stream (`22`, `140`) needs no merge and must not be handed a
+/// container format it did not ask for.
+///
+/// This used to be `format.is_none()`: the merge flag was passed for the
+/// default selector only, so an explicit choice from the window -- which is
+/// exactly a pair, because that is how a resolution *with sound* is
+/// expressed -- downloaded the two halves and stopped there. The user got a
+/// silent video and a stray audio file.
+pub fn needs_merge(format: Option<&str>) -> bool {
+    let sel = format.unwrap_or(DEFAULT_FORMAT);
+    // A bare "best"/"worst" can still resolve to a pair; everything with a
+    // plus is one for certain, and the slashed fallback list is tried from
+    // the left, so a pair is what a YouTube page gets.
+    sel.contains('+') || sel.starts_with("bv") || sel.starts_with("bestvideo")
+}
+
+/// Where ffmpeg lives, if we shipped it next to the engine.
+///
+/// install.sh / install.ps1 put it in `$IDM_DIR/bin`, which is the same
+/// directory as this binary, but a child process inherits the caller's PATH
+/// -- and a window launched from a desktop icon has a minimal one. Pointing
+/// yt-dlp at the file directly removes that dependency.
+pub fn ffmpeg_location() -> Option<PathBuf> {
+    let here = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    for name in ["ffmpeg", "ffmpeg.exe"] {
+        let cand = here.join(name);
+        if cand.is_file() {
+            return Some(cand);
+        }
+    }
+    None
+}
+
 /// One machine-readable progress line per update, independent of the
 /// extractor (YouTube, Vimeo, HLS, DASH, a direct media URL, ...).
 ///
@@ -382,6 +419,155 @@ fn kind_of(vcodec: &str, acodec: &str) -> &'static str {
     }
 }
 
+/// Is this format a video stream with no sound of its own?
+///
+/// YouTube serves the picture and the sound as separate streams, so `137` is
+/// 1080p and silent while `140` is audio. yt-dlp joins a *pair* with ffmpeg;
+/// offering `137` on its own is what produced silent films.
+fn is_video_only(kind: &str) -> bool {
+    matches!(kind, "video")
+}
+
+/// The selector a person should actually ask yt-dlp for.
+///
+/// A video-only stream becomes `<id>+bestaudio`, the pair that gets merged;
+/// anything else is used as-is.
+pub fn selector_for(format_id: &str, kind: &str) -> String {
+    if is_video_only(kind) {
+        format!("{}+bestaudio", format_id)
+    } else {
+        format_id.to_string()
+    }
+}
+
+/// The wording for one `kind`, matching the window and the extension.
+pub fn kind_label(kind: &str) -> &'static str {
+    match kind {
+        "video+audio" => "video + audio",
+        "video" => "video + audio (merged)",
+        "audio" => "audio only",
+        _ => "other",
+    }
+}
+
+fn human_size(n: u64) -> String {
+    let f = n as f64;
+    if n >= 1_000_000_000 {
+        format!("{:.1} GB", f / 1e9)
+    } else if n >= 1_000_000 {
+        format!("{:.1} MB", f / 1e6)
+    } else if n >= 1_000 {
+        format!("{:.1} KB", f / 1e3)
+    } else {
+        format!("{} B", n)
+    }
+}
+
+/// A colour-wrapped string, or the plain one when `on` is false.
+fn tint(on: bool, code: &str, text: &str) -> String {
+    if on {
+        format!("{}{}\x1b[0m", code, text)
+    } else {
+        text.to_string()
+    }
+}
+
+/// What `--list-formats` prints: a table, not a JSON blob.
+///
+/// The JSON was the machine format `--list-formats` needed for the window and
+/// the extension, and printing it for a person was a mistake: braces, quotes,
+/// one field per line, and no hint about which rows carry sound. This is the
+/// same information as aligned columns, with the three kinds named so a silent
+/// stream cannot be picked by accident.
+///
+/// Colour only when `on` -- a pipe gets exactly the text, which is what the
+/// tests (and anything parsing the output) rely on.
+pub fn format_table(meta: &serde_json::Value, on: bool) -> String {
+    let title = meta.get("title").and_then(|v| v.as_str()).unwrap_or("media");
+    let id = meta.get("id").and_then(|v| v.as_str()).unwrap_or("");
+    let mut out = String::new();
+    let head = if id.is_empty() {
+        title.to_string()
+    } else {
+        format!("{}  ({})", title, id)
+    };
+    out.push_str(&tint(on, "\x1b[1;36m", &head));
+    out.push('\n');
+
+    let empty = Vec::new();
+    let formats = meta.get("formats").and_then(|v| v.as_array()).unwrap_or(&empty);
+    if formats.is_empty() {
+        out.push_str(&tint(on, "\x1b[2m", "  (no separate streams)"));
+        out.push('\n');
+        return out;
+    }
+
+    let rows: Vec<(String, String, String, String, String)> = formats
+        .iter()
+        .filter_map(|f| {
+            let fid = f.get("format_id").and_then(|v| v.as_str()).unwrap_or("");
+            if fid.is_empty() {
+                return None;
+            }
+            // `summarize()` already decided the kind; the raw blob does not
+            // carry it, so both shapes work and neither is recomputed wrongly.
+            let kind = match f.get("kind").and_then(|v| v.as_str()) {
+                Some(k) if !k.is_empty() => k,
+                _ => {
+                    let vcodec = f.get("vcodec").and_then(|v| v.as_str()).unwrap_or("none");
+                    let acodec = f.get("acodec").and_then(|v| v.as_str()).unwrap_or("none");
+                    kind_of(vcodec, acodec)
+                }
+            };
+            let selector = selector_for(fid, kind);
+            let ext = f.get("ext").and_then(|v| v.as_str()).unwrap_or("");
+            // `resolution` is yt-dlp's own, `note` is what summarize() keeps
+            // of `format_note`, and the raw blob has the long name.
+            let res = f
+                .get("resolution")
+                .and_then(|v| v.as_str())
+                .or_else(|| f.get("note").and_then(|v| v.as_str()))
+                .or_else(|| f.get("format_note").and_then(|v| v.as_str()))
+                .unwrap_or("");
+            let size = f
+                .get("filesize")
+                .and_then(|v| v.as_u64())
+                .map(human_size)
+                .unwrap_or_default();
+            Some((
+                selector,
+                ext.to_string(),
+                res.to_string(),
+                kind_label(kind).to_string(),
+                size,
+            ))
+        })
+        .collect();
+
+    // Columns are measured, not guessed: a long resolution must not push the
+    // kind out of line.
+    let w_id = rows.iter().map(|r| r.0.len()).max().unwrap_or(0).max(4);
+    let w_ext = rows.iter().map(|r| r.1.len()).max().unwrap_or(0).max(3);
+    let w_res = rows.iter().map(|r| r.2.len()).max().unwrap_or(0).max(10);
+
+    for (selector, ext, res, kind, size) in rows {
+        let colour = match kind.as_str() {
+            "video + audio" => "\x1b[32m",
+            "video + audio (merged)" => "\x1b[33m",
+            _ => "\x1b[36m",
+        };
+        out.push_str(&format!(
+            "  {}  {}  {}  {}  {}\n",
+            tint(on, "\x1b[1m", &format!("{:<width$}", selector, width = w_id)),
+            tint(on, "\x1b[2m", &format!("{:<width$}", ext, width = w_ext)),
+            format!("{:<width$}", res, width = w_res),
+            tint(on, colour, &format!("{:<24}", kind)),
+            tint(on, "\x1b[2m", &size),
+        ));
+    }
+    out
+}
+
 /// Compact, UI-friendly summary of a yt-dlp metadata blob.
 pub fn summarize(meta: &serde_json::Value) -> serde_json::Value {
     let mut list = Vec::new();
@@ -496,9 +682,15 @@ pub async fn download(
     // asked for something else, so mp4 is preferred and the fallbacks keep
     // the download working when no mp4 exists.
     cmd.arg("-f").arg(format.unwrap_or(DEFAULT_FORMAT));
-    // Where a merge is needed anyway, merge into mp4.
-    if format.is_none() {
+    // Where a merge is needed anyway, merge into mp4. The test is the shape
+    // of the selector, not whether the user chose one: a pair picked in the
+    // window is a merge too, and without this flag yt-dlp leaves the video
+    // and the audio track side by side.
+    if needs_merge(format) {
         cmd.arg("--merge-output-format").arg("mp4");
+    }
+    if let Some(ff) = ffmpeg_location() {
+        cmd.arg("--ffmpeg-location").arg(ff);
     }
     if limit_rate > 0 {
         cmd.arg("--limit-rate").arg(limit_rate.to_string());
@@ -1164,5 +1356,45 @@ mod progress_tests {
         let p = agg.update(Progress { percent: 100.0, total: 500 });
         assert!((p.percent - 100.0).abs() < 0.05);
         assert_eq!(p.total, 1500);
+    }
+
+    #[test]
+    fn the_format_table_is_readable_and_grouped_by_kind() {
+        let meta: serde_json::Value = serde_json::from_str(
+            r#"{"id":"abc","title":"Test Video","ext":"mp4","formats":[
+                {"format_id":"22","ext":"mp4","resolution":"1280x720","vcodec":"avc1","acodec":"aac","filesize":1234567,"format_note":"720p"},
+                {"format_id":"137","ext":"mp4","resolution":"1920x1080","vcodec":"avc1","acodec":"none","filesize":5000000,"format_note":"1080p"},
+                {"format_id":"140","ext":"m4a","resolution":"audio only","vcodec":"none","acodec":"mp4a","filesize":2000000}
+            ]}"#,
+        ).unwrap();
+        let table = format_table(&meta, false);
+        // One header line, one line per format, no braces and no quotes: the
+        // JSON blob was the reason this had to exist.
+        assert!(table.contains("Test Video"), "title missing:\n{table}");
+        assert!(!table.contains('{') && !table.contains('"'), "still JSON:\n{table}");
+        // The three kinds are told apart in words a person can act on.
+        assert!(table.contains("video + audio"), "combined missing:\n{table}");
+        assert!(table.contains("video + audio (merged)"), "merged missing:\n{table}");
+        assert!(table.contains("audio only"), "audio missing:\n{table}");
+        // The selector a user would type is on every row.
+        assert!(table.contains("137+bestaudio"), "selector missing:\n{table}");
+        assert!(table.contains("22"), "combined id missing:\n{table}");
+        // Colour is opt-in and must not change the text.
+        let plain = format_table(&meta, false);
+        let coloured = format_table(&meta, true);
+        assert!(!plain.contains('\x1b'));
+        assert!(coloured.contains('\x1b'));
+    }
+
+    #[test]
+    fn a_single_stream_is_not_offered_as_a_pair() {
+        let meta: serde_json::Value = serde_json::from_str(
+            r#"{"title":"T","formats":[
+                {"format_id":"140","ext":"m4a","resolution":"audio only","vcodec":"none","acodec":"mp4a"}
+            ]}"#,
+        ).unwrap();
+        let table = format_table(&meta, false);
+        assert!(table.contains("140"), "{table}");
+        assert!(!table.contains("140+bestaudio"), "{table}");
     }
 }

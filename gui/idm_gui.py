@@ -4186,12 +4186,19 @@ def format_labels(formats: list) -> list:
             parts.append(str(f["ext"]))
         if f.get("resolution"):
             parts.append(str(f["resolution"]))
-        # Always say what the stream carries. It used to drop "video+audio" as
-        # redundant, which made a silent 1080p row and a 1080p row with sound
-        # read identically -- picking the silent one gave a video nobody could
-        # hear. "audio only" doubles as the resolution of an audio stream, so
-        # it is not repeated.
+        # YouTube serves video and audio as separate streams, and the window
+        # used to list them as they came: a 1080p row that was silent and an
+        # audio-only row, with no way to ask for the obvious thing. yt-dlp
+        # joins a pair into one file with ffmpeg, so a video-only stream is
+        # offered as `<id>+bestaudio` and says it carries sound. The label
+        # must describe what will actually be downloaded -- a row reading
+        # "1920x1080" that yields a silent film is the bug this closes.
+        selector = fid
+        kind_raw = str(f.get("kind") or "").strip().lower()
         kind = stream_kind_label(f.get("kind"))
+        if kind_raw in ("video", "video only"):
+            selector = fid + "+bestaudio"
+            kind = STREAM_KIND_LABELS["video+audio"] + " (merged)"
         if kind and kind.lower() not in " ".join(parts).lower():
             parts.append(kind)
         if f.get("note"):
@@ -4199,7 +4206,7 @@ def format_labels(formats: list) -> list:
         size = f.get("filesize")
         if size:
             parts.append(fmt_size(int(size)))
-        out.append({"label": "  ".join(parts), "format": fid})
+        out.append({"label": "  ".join(parts), "format": selector})
     return out
 
 

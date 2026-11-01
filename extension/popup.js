@@ -66,8 +66,18 @@
 
     (formats || []).forEach(function (f) {
       var o = document.createElement('option');
-      o.value = f.format_id != null ? String(f.format_id) : '';
-      o.textContent = label(f);
+      var fid = f.format_id != null ? String(f.format_id) : '';
+      // A video-only stream on its own is a silent film. YouTube serves the
+      // picture and the sound separately and yt-dlp joins them, so the option
+      // is offered as the pair -- the same shape gui/idm_gui.py produces.
+      var kind = String(f.kind || '').toLowerCase();
+      if (kind === 'video' || kind === 'video only') {
+        o.value = fid + '+bestaudio';
+        o.textContent = label(f) + ' - video + audio (merged)';
+      } else {
+        o.value = fid;
+        o.textContent = label(f);
+      }
       elFormat.appendChild(o);
     });
   }

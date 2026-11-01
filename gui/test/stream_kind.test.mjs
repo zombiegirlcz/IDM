@@ -33,10 +33,13 @@ test('a stream with both tracks says so', () => {
   assert.match(row.label, /video\s*\+\s*audio/i);
 });
 
-test('a silent video stream warns that there is no sound', () => {
-  const row = labels().find((x) => x.format === '137');
-  assert.ok(row, 'no row for format 137');
-  assert.match(row.label, /no sound|no audio|video only/i);
+test('a video stream is offered with sound, not as a silent trap', () => {
+  // YouTube has no 1080p stream that carries audio: video and sound arrive
+  // separately and yt-dlp joins them. Offering the video stream alone is what
+  // produced silent films, so the row is the *pair* and says so.
+  const row = labels().find((x) => x.format === '137+bestaudio');
+  assert.ok(row, `no 137+bestaudio row: ${JSON.stringify(labels())}`);
+  assert.match(row.label, /video \+ audio/i);
 });
 
 test('an audio-only stream says it once, not twice', () => {
@@ -54,6 +57,17 @@ test('every row names what it carries', () => {
       /video|audio/i,
       `row ${row.format} does not say whether it has sound: ${row.label}`,
     );
+  }
+});
+
+test('a row that must be merged says so', () => {
+  // The download is not "1920x1080" -- it is 1920x1080 plus an audio track
+  // joined by ffmpeg. Saying "merged" is the difference between a promise and
+  // a surprise.
+  const rows = labels().filter((r) => /\+/.test(r.format));
+  assert.ok(rows.length >= 1, 'no merged row at all');
+  for (const r of rows) {
+    assert.match(r.label, /merged/i, `row ${r.format} hides the merge: ${r.label}`);
   }
 });
 

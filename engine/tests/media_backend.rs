@@ -633,3 +633,64 @@ fn an_explicit_format_still_wins() {
     let argv = fs::read_to_string(&log).expect("the stub must have logged argv");
     assert!(argv.contains("251"), "--format must be passed through: {}", argv);
 }
+
+#[test]
+fn an_explicit_pair_is_merged_into_one_file() {
+    // The window expresses "1080p with sound" as `137+bestaudio`. That is a
+    // pair: yt-dlp has to download both streams and join them. The merge flag
+    // used to be passed only when no format was given at all, so a pair
+    // chosen in the dialog left the video and the audio track side by side --
+    // the user got a silent film.
+    let dir = unique_dir("merge");
+    let (stub, log) = make_stub(&dir);
+    let out_file = dir.join("video.mp4");
+    let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
+        .arg("--yt-dlp-path")
+        .arg(&stub)
+        .arg("--force-media")
+        .arg("--format")
+        .arg("137+bestaudio")
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    let argv = fs::read_to_string(&log).expect("stub must have logged argv");
+    assert!(
+        argv.contains("--merge-output-format mp4"),
+        "a pair must be merged into one mp4; argv was {}",
+        argv
+    );
+    assert!(argv.contains("-f 137+bestaudio"), "the pair must reach yt-dlp: {}", argv);
+}
+
+#[test]
+fn a_single_stream_is_not_merged() {
+    // `140` is one audio stream. Asking yt-dlp to merge a single stream is
+    // pointless and, on a machine without ffmpeg, turns a working download
+    // into a failure.
+    let dir = unique_dir("nommerge");
+    let (stub, log) = make_stub(&dir);
+    let out_file = dir.join("out.m4a");
+    let out = Command::new(IDM)
+        .env("STUB_LOG", &log)
+        .arg("--yt-dlp-path")
+        .arg(&stub)
+        .arg("--force-media")
+        .arg("--format")
+        .arg("140")
+        .arg("-o")
+        .arg(&out_file)
+        .arg("https://youtu.be/abc")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    let argv = fs::read_to_string(&log).expect("stub must have logged argv");
+    assert!(
+        !argv.contains("--merge-output-format"),
+        "a single stream needs no merge: {}",
+        argv
+    );
+}

@@ -348,7 +348,9 @@ if ((Test-Path $oldPrefix) -and ($oldPrefix -ne $Prefix)) {
     Remove-Item -Recurse -Force $oldPrefix -ErrorAction SilentlyContinue
 }
 
-foreach ($f in @("idm.exe", "idm-host.exe", "ensure-aria2.ps1", "ensure-aria2.sh", "ensure-ytdlp.ps1", "ensure-ytdlp.sh")) {
+foreach ($f in @("idm.exe", "idm-host.exe", "ensure-aria2.ps1", "ensure-aria2.sh",
+                    "ensure-ytdlp.ps1", "ensure-ytdlp.sh",
+                    "ensure-ffmpeg.ps1", "ensure-ffmpeg.sh")) {
     $srcFile = Join-Path $stage $f
     if (Test-Path $srcFile) { Move-Item $srcFile (Join-Path $binDir $f) -Force }
 }
@@ -621,12 +623,26 @@ if (Test-Path $ensureYtdlp) {
     }
 }
 
+# YouTube serves video and audio as separate streams; yt-dlp joins them with
+# ffmpeg. Without it a 1080p download stops at the merge and the user is left
+# with a silent video next to a stray audio file.
+$ensureFfmpeg = Join-Path $binDir "ensure-ffmpeg.ps1"
+if (Test-Path $ensureFfmpeg) {
+    Write-Log "kontroluji ffmpeg (spojeni videa a zvuku)"
+    try {
+        & powershell -ExecutionPolicy Bypass -File $ensureFfmpeg $binDir | Out-Null
+    } catch {
+        Write-Warn "ffmpeg se nepodarilo pripravit (video se zvukem se nespoji)"
+    }
+}
+
 Write-Host "  Stazeni    : $DownloadsDir"
 Write-Host "  Rozsireni  : chrome://extensions -> Developer mode -> Load unpacked -> $extDir"
 Write-Host "  Firefox    : about:debugging -> Load Temporary Add-on -> $extDir\manifest.firefox.json"
 if (Test-Path $ensurePs1) {
     Write-Host "  aria2      : prepinac 'Via aria2' v okne; aria2c se doinstaluje sam"
 }
+Write-Host "  Video+zvuk : ffmpeg (spojeni streamu)"
 Write-Host ""
 Write-Host "  Odinstalace: irm <tento-skript> | iex; potom:"
 Write-Host "               (dostupne take: $Prefix\install.ps1 -Uninstall; stav smaze -Purge)"

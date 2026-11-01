@@ -67,14 +67,44 @@ if "$TARGET_DIR/yt-dlp" --version >/dev/null 2>&1; then
 fi
 
 # The standalone binary needs a C runtime some minimal images lack; the
-# python zipapp is the fallback that runs anywhere python does.
+# python package is the fallback that runs anywhere python does.
+#
+# --break-system-packages is not a hack here, it is the only thing that works
+# on a modern distribution: Debian 12+, Ubuntu 23.04+, Fedora 38+ and Arch
+# mark the system Python as externally managed (PEP 668) and refuse a plain
+# `pip install` outright -- "error: externally-managed-environment". A
+# downloader has to install its own dependency without asking the user to
+# pass flags, so each form is tried in turn, most specific first.
+pip_install() {
+  local pkg="$1"
+  local attempt
+  for attempt in \
+    "--user --break-system-packages" \
+    "--break-system-packages" \
+    "--user" \
+    ""; do
+    # shellcheck disable=SC2086
+    if python3 -m pip install --quiet --upgrade $attempt "$pkg" >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 if command -v python3 >/dev/null 2>&1; then
   warn "the standalone build did not run here, trying pip"
-  if python3 -m pip install --user --quiet --upgrade "yt-dlp[default]" >/dev/null 2>&1; then
+  if pip_install "yt-dlp[default]"; then
     if command -v yt-dlp >/dev/null 2>&1; then
       command -v yt-dlp
       exit 0
     fi
+    # --user puts the script in ~/.local/bin, which is not on everyone's PATH.
+    for cand in "$HOME/.local/bin/yt-dlp" /usr/local/bin/yt-dlp; do
+      if [[ -x "$cand" ]]; then
+        printf '%s\n' "$cand"
+        exit 0
+      fi
+    done
   fi
 fi
 
