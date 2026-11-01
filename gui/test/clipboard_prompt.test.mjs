@@ -55,7 +55,9 @@ test('the clipboard prompt offers download, queue and format, best by default', 
   assert.ok(got.values_after.some((v) => /1920x1080/.test(v)),
     `the listed formats must appear: ${got.values_after}`);
   assert.equal(got.default_after, '', 'listing formats must not change the choice');
-  assert.equal(got.picked_format, '137');
+  // A video-only row is widened with the audio stream, so the download has
+  // sound; picking it verbatim produced a silent film.
+  assert.equal(got.picked_format, '137+bestaudio');
 });
 
 test('the prompt buttons reach the API: download now / add to queue with a format', () => {
@@ -66,7 +68,7 @@ test('the prompt buttons reach the API: download now / add to queue with a forma
   assert.equal(got.start.paused, false);
 
   assert.equal(got.queued.url, 'https://example.com/watch?v=x');
-  assert.equal(got.queued.format, '137');
+  assert.equal(got.queued.format, '137+bestaudio');
   assert.ok(got.queued.queue, 'add to queue must name a queue');
   assert.equal(got.queued.paused, true, 'add to queue must not start the download');
 

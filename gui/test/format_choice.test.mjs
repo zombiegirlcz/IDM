@@ -30,7 +30,7 @@ test('Api.formats asks /api/formats for a URL', () => {
   assert.equal(got.body.url, 'https://example.com/watch?v=x');
   assert.equal(got.body.cookie, 'SID=1');
   // The parsed list is handed back to the caller, not the raw envelope.
-  assert.deepEqual(got.returned.map((f) => f.format_id), ['137', '140']);
+  assert.deepEqual(got.returned.map((f) => f.format_id), ['22', '137', '140']);
 });
 
 test('a format list becomes human-readable labels', () => {
@@ -91,6 +91,8 @@ test('the Download File Info dialog carries a format combobox', () => {
     got.format_values.some((v) => v.startsWith('137')),
     `no 1080p row: ${JSON.stringify(got.format_values)}`,
   );
-  // Picking a row must hand the caller the selector, not the label.
-  assert.equal(got.selected_format, '137');
+  // Picking a row must hand the caller the selector, not the label -- and a
+  // video-only row is widened to the pair yt-dlp merges, because a lone video
+  // stream has no sound.
+  assert.equal(got.selected_format, '137+bestaudio');
 });

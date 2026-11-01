@@ -24,12 +24,36 @@
     elStatus.className = kind === 'err' ? 'err' : kind === 'ok' ? 'ok' : 'muted';
   }
 
+  // What a stream carries, in words that make the silent one obvious. The
+  // engine's kind is video+audio / video / audio; "video" alone is misleading
+  // -- it is a video WITHOUT sound, which is the trap this label closes.
+  // gui/idm_gui.py's STREAM_KIND_LABELS uses the same three strings.
+  var KIND_LABELS = {
+    'video+audio': 'video + audio',
+    video: 'video only (no sound)',
+    audio: 'audio only',
+  };
+
+  function kindLabel(kind) {
+    if (!kind) return '';
+    var k = String(kind).toLowerCase().replace(/ only/g, '').replace(/\s+/g, '');
+    if (KIND_LABELS[k]) return KIND_LABELS[k];
+    if (k.indexOf('video') === 0) {
+      return k.indexOf('audio') >= 0 ? KIND_LABELS['video+audio'] : KIND_LABELS.video;
+    }
+    if (k.indexOf('audio') === 0) return KIND_LABELS.audio;
+    return String(kind);
+  }
+
   function label(f) {
     var parts = [];
     if (f.format_id) parts.push('[' + f.format_id + ']');
     if (f.resolution) parts.push(f.resolution);
     if (f.ext) parts.push(f.ext);
-    if (f.kind) parts.push(f.kind);
+    var kind = kindLabel(f.kind);
+    if (kind && parts.join(' ').toLowerCase().indexOf(kind.toLowerCase()) < 0) {
+      parts.push(kind);
+    }
     return parts.join(' ') || 'format';
   }
 

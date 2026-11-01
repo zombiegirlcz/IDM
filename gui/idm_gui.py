@@ -2712,6 +2712,24 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir="", project=None):
 
     files.bind("<Double-1>", toggle)
 
+    def _set_checked(row, value):
+        try:
+            i = int(row)
+        except (TypeError, ValueError):
+            return None
+        if value:
+            state["checked"].add(i)
+        else:
+            state["checked"].discard(i)
+        render()
+        return i
+
+    # The file list had no right-click menu at all, and double-click was the
+    # only way to tick a row -- which nobody discovers. Built later, once
+    # check_all/uncheck_all exist, and stashed on the window like the rest of
+    # the Grabber's internals (`_idm_grabber`).
+    files_menu = {}
+
     def check_all():
         state["checked"] = set(range(len(state["files"])))
         render()
@@ -2903,8 +2921,20 @@ def _dialog_grabber(parent, api=None, state_dir="", out_dir="", project=None):
     btns[5].config(command=add_to_idm)
     btns[6].config(command=stats)
 
+    # The file list's right-click menu. Wired here because check_all /
+    # uncheck_all are defined above this point.
+    files_menu.update(attach_tree_menu(files, [
+        ("Check", lambda r: files_menu["check"](r, True)),
+        ("Uncheck", lambda r: files_menu["check"](r, False)),
+        ("Check All", lambda r: check_all()),
+        ("Uncheck All", lambda r: uncheck_all()),
+    ]))
+    files_menu["check"] = _set_checked
+    files_menu["set_checked"] = _set_checked
+
     wiz.select(0)
     win._idm_grabber = {"state": state, "start": start, "render": render,
+                        "files_menu": files_menu,
                         "template": template, "exts": exts, "explore": explore,
                         "crawl": crawl, "same_site": same_site,
                         "depth": depth, "external_depth": external_depth,
@@ -2981,7 +3011,20 @@ def install_edit_menu(root):
     Tk has no context menu on Entry or Text, on Windows or on Linux: right-
     clicking the URL field of Add URL did nothing, so a URL could not be
     pasted in with the mouse.
+
+    Bound per widget *class*, which Tk keeps per interpreter, so one call
+    covers every window -- including the ones opened later. The marker makes
+    a second call a no-op: `add="+"` appends, so binding twice would pop two
+    menus on one click. Every themed_toplevel() calls it, so a dialog built
+    without the main window still gets the menu.
     """
+    try:
+        if str(root.tk.call("set", "::idm_edit_menu")) == "1":
+            return None
+        root.tk.call("set", "::idm_edit_menu", "1")
+    except Exception:  # noqa: BLE001  (not a Tk app, or a raw interpreter)
+        pass
+
     def show(event):
         widget = event.widget
         menu = None
@@ -2998,6 +3041,66 @@ def install_edit_menu(root):
     for cls in EDIT_MENU_CLASSES:
         root.bind_class(cls, "<Button-3>", show, add="+")
     return show
+
+
+def attach_tree_menu(widget, spec):
+    """Give a Treeview a right-click menu that acts on the row clicked.
+
+    Two faults are fixed here at once, because they have the same symptom --
+    a menu that opens and then does nothing:
+
+    * Windows does not select a Treeview row on right-click, so a handler that
+      reads `selection()` acts on nothing. The row under the cursor is resolved
+      with identify_row() and selected explicitly before the menu opens.
+    * Nothing ever *invoked* an entry. A `tk.Menu` with no `command` looks
+      complete and is decoration, which is what `dead_buttons` guards for
+      ordinary buttons; here every entry gets a real callable.
+
+    `spec` is a list of (label, handler[, enabled]) where `handler(row)` is
+    called with the iid of the clicked row. Returns a dict with the menu, the
+    per-label callables (taking no arguments, acting on the selected row) and
+    the mutable row state, so a selftest can invoke an entry and see the call
+    it made.
+    """
+    import tkinter as tk
+
+    state = {"row": None}
+    menu = tk.Menu(widget, tearoff=0)
+    actions = {}
+    for entry in spec:
+        label, handler = entry[0], entry[1]
+        enabled = entry[2] if len(entry) > 2 else True
+
+        def run(h=handler, _s=state):
+            row = _s["row"]
+            if row is None:
+                return None
+            return h(row)
+
+        actions[label] = run
+        menu.add_command(label=label,
+                         state="normal" if enabled else "disabled",
+                         command=run)
+
+    def show(event):
+        row = widget.identify_row(event.y)
+        if not row:
+            return "break"
+        try:
+            widget.selection_set(row)
+            widget.focus(row)
+        except Exception:  # noqa: BLE001
+            pass
+        state["row"] = row
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
+
+    widget.bind("<Button-3>", show, add="+")
+    return {"menu": menu, "actions": actions, "state": state, "show": show,
+            "labels": [e[0] for e in spec]}
 
 
 def _dialog_add_url(parent):
@@ -3071,7 +3174,10 @@ def _dialog_file_info(parent, url, folder, category, formats=None):
         label = fmt.get()
         for e in entries:
             if e["label"] == label:
-                return e["format"]
+                # A video-only stream would be downloaded without sound, which
+                # is what people actually hit; the selector is widened to the
+                # pair yt-dlp merges. "audio only" is left alone.
+                return selector_with_audio(formats, e["format"])
         return ""
 
     win.selected_format = selected_format
@@ -3139,7 +3245,7 @@ def _dialog_clipboard_prompt(parent, url, list_formats=None):
     link.grid(row=1, column=0, columnspan=2, sticky="we", padx=8, pady=4)
 
     ttk.Label(win, text="Formát:").grid(row=2, column=0, sticky="w", padx=8, pady=6)
-    state = {"entries": format_labels([])}
+    state = {"entries": format_labels([]), "formats": []}
     fmt = ttk.Combobox(win, values=[e["label"] for e in state["entries"]],
                        state="readonly")
     fmt.current(0)
@@ -3149,7 +3255,7 @@ def _dialog_clipboard_prompt(parent, url, list_formats=None):
         label = fmt.get()
         for e in state["entries"]:
             if e["label"] == label:
-                return e["format"]
+                return selector_with_audio(state["formats"], e["format"])
         return ""
 
     btns = ttk.Frame(win)
@@ -3164,6 +3270,7 @@ def _dialog_clipboard_prompt(parent, url, list_formats=None):
     def _fill(formats):
         keep = fmt.get()
         state["entries"] = format_labels(formats)
+        state["formats"] = list(formats or [])
         labels = [e["label"] for e in state["entries"]]
         fmt.config(values=labels)
         fmt.set(keep if keep in labels else labels[0])
@@ -3925,6 +4032,35 @@ def _dialog_scheduler(parent, api=None, queue_names=None, state_dir=""):
                 pass
         refresh_queue()
 
+    def _q_menu_do(row, fn):
+        # Windows does not select a Treeview row on right-click, so the
+        # clicked row is put into the selection first.
+        try:
+            qfiles.selection_set(row)
+            qfiles.focus(row)
+        except Exception:  # noqa: BLE001
+            pass
+        return fn()
+
+    def _q_properties(row):
+        if api is None:
+            return None
+        i = selected_qid()
+        it = next((x for x in api.items() if x.get("id") == i), None)
+        if not it:
+            return None
+        return _dialog_properties(win, it.get("url", ""),
+                                  str(it.get("output", "")))
+
+    # The queue's file list had no right-click menu: acting on a queued
+    # download meant reaching for the row of buttons underneath.
+    q_menu = attach_tree_menu(qfiles, [
+        ("Start Now", lambda r: _q_menu_do(r, _start_now)),
+        ("Stop", lambda r: _q_menu_do(r, _stop)),
+        ("Delete", lambda r: _q_menu_do(r, _delete)),
+        ("Properties...", _q_properties),
+    ])
+
     def _stop():
         i = selected_qid()
         if api is not None and i is not None:
@@ -3954,6 +4090,7 @@ def _dialog_scheduler(parent, api=None, queue_names=None, state_dir=""):
     refresh_queue()
     win._idm_qfiles = qfiles
     win._idm_refresh_queue = refresh_queue
+    win._idm_qmenu = q_menu
     return win, nb
 
 
@@ -4049,9 +4186,13 @@ def format_labels(formats: list) -> list:
             parts.append(str(f["ext"]))
         if f.get("resolution"):
             parts.append(str(f["resolution"]))
-        kind = str(f.get("kind") or "")
-        # "audio only" is often already the resolution; don't say it twice.
-        if kind and kind != "video+audio" and kind not in parts:
+        # Always say what the stream carries. It used to drop "video+audio" as
+        # redundant, which made a silent 1080p row and a 1080p row with sound
+        # read identically -- picking the silent one gave a video nobody could
+        # hear. "audio only" doubles as the resolution of an audio stream, so
+        # it is not repeated.
+        kind = stream_kind_label(f.get("kind"))
+        if kind and kind.lower() not in " ".join(parts).lower():
             parts.append(kind)
         if f.get("note"):
             parts.append(str(f["note"]))
@@ -4060,6 +4201,58 @@ def format_labels(formats: list) -> list:
             parts.append(fmt_size(int(size)))
         out.append({"label": "  ".join(parts), "format": fid})
     return out
+
+
+# What a yt-dlp stream carries, in words a user can act on. The engine's
+# media::kind_of says video+audio / video / audio / other; "video" alone is
+# misleading -- it is a video *without sound*, which is exactly the trap this
+# label exists to close. extension/popup.js uses the same three strings.
+STREAM_KIND_LABELS = {
+    "video+audio": "video + audio",
+    "video": "video only (no sound)",
+    "audio": "audio only",
+    "other": "other",
+}
+
+
+def selector_with_audio(formats: list, fid: str) -> str:
+    """Make a picked format produce a file with sound.
+
+    yt-dlp's format list has separate video and audio streams. Picking a
+    1080p video stream alone is what gave people a silent film: the engine
+    downloaded exactly what the selector asked for. A video-only choice is
+    therefore turned into `<id>+bestaudio`, which is the pair yt-dlp merges
+    back together. Audio-only and combined streams are left as picked.
+    """
+    fid = str(fid or "").strip()
+    if not fid or "+" in fid:
+        return fid
+    for f in formats or []:
+        if str(f.get("format_id") or "").strip() != fid:
+            continue
+        if str(f.get("kind") or "").strip().lower() in ("video", "video only"):
+            return fid + "+bestaudio"
+        return fid
+    return fid
+
+
+def stream_kind_label(kind) -> str:
+    """The human wording for one engine `kind`, or "" when there is none."""
+    k = str(kind or "").strip().lower()
+    if not k:
+        return ""
+    # Older queue files and the selftest fixtures carry "video only" /
+    # "audio only"; both must land on the same wording.
+    k = k.replace(" only", "").replace(" ", "")
+    if k in STREAM_KIND_LABELS:
+        return STREAM_KIND_LABELS[k]
+    if k.startswith("video") and "audio" in k:
+        return STREAM_KIND_LABELS["video+audio"]
+    if k.startswith("video"):
+        return STREAM_KIND_LABELS["video"]
+    if k.startswith("audio"):
+        return STREAM_KIND_LABELS["audio"]
+    return str(kind).strip()
 
 
 # Classic (non-ttk) widgets ignore ttk styles completely, and half this
@@ -4166,6 +4359,10 @@ def themed_toplevel(parent, palette=None):
 
     win.bind("<Map>", _paint, add="+")
     win.after(0, _paint)
+    # Cut/Copy/Paste on every text field of this dialog, not just the main
+    # window. install_edit_menu binds per widget class, so the first call does
+    # the work and later ones return immediately.
+    install_edit_menu(win)
     return win
 
 
@@ -5370,12 +5567,8 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     body.add(left, weight=1)
 
     # --- category context menu (right click), like IDM ---
-    cat_menu = tk.Menu(root, tearoff=0)
-    cat_menu.add_command(label="Add category...")
-    cat_menu.add_command(label="Edit category...")
-    cat_menu.add_command(label="Delete category")
-    w["cat_menu"] = cat_menu
-    w["cat_menu_items"] = ["Add category...", "Edit category...", "Delete category"]
+    # Built with the handlers attached (see attach_tree_menu), further down
+    # where _add_category / _edit_category / _del_category exist.
 
     right = ttk.Frame(body)
     listview = ttk.Treeview(
@@ -5435,13 +5628,10 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
     body.add(right, weight=4)
 
     # --- download-list context menu (right click), like IDM ---
-    list_menu = tk.Menu(root, tearoff=0)
-    for _lab in ("Resume", "Stop", "Delete", "Delete Completed",
-                 "Add to Queue", "Delete from Queue", "Properties"):
-        list_menu.add_command(label=_lab)
-    w["list_menu"] = list_menu
-    w["list_menu_items"] = ["Resume", "Stop", "Delete", "Delete Completed",
-                            "Add to Queue", "Delete from Queue", "Properties"]
+    # Built further down, once the handlers it calls exist. Creating it here
+    # with `add_command(label=...)` and wiring the commands 250 lines later is
+    # what left every entry unbound for a while: a menu that opens, closes on
+    # click and does nothing.
 
     # --- progress + status bar at the bottom ---
     progress_row = ttk.Frame(root)
@@ -5650,23 +5840,103 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
 
     listview.bind("<Double-1>", _on_open_properties)
 
-    def _on_list_menu(event):
-        # Windows does NOT select a Treeview row on right-click, so
-        # listview.selection() would be empty and the menu would act on
-        # nothing (the original silent no-op bug). Resolve the row under the
-        # cursor explicitly and select it before showing the menu.
-        row = listview.identify_row(event.y)
-        if row:
-            listview.selection_set(row)
-            listview.focus(row)
-        if not listview.selection():
-            return
-        try:
-            list_menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            list_menu.grab_release()
+    def _selected_item():
+        """The queue row behind the current selection, or None."""
+        i = selected_id()
+        if i is None:
+            return None
+        return next((x for x in view["items"] if x.get("id") == i), None)
 
-    listview.bind("<Button-3>", _on_list_menu)
+    def _redownload(row):
+        """Queue the same URL again, with a format the user picks.
+
+        Picking the wrong stream used to be final: delete the row, copy the
+        URL, paste it into Add URL and start over -- and the folder the file
+        belongs in was lost with it. This keeps the URL, the target folder and
+        the media headers (cookie/referer) of the row it was used on, and adds
+        a *new* download; the old row and its file are left alone.
+        """
+        try:
+            i = int(row)
+        except (TypeError, ValueError):
+            return None
+        it = next((x for x in view["items"] if x.get("id") == i), None)
+        if not it:
+            return None
+        url = str(it.get("url") or "")
+        if not url:
+            return None
+        out = str(it.get("output") or "")
+        folder = os.path.dirname(out) if out else (out_dir or ".")
+        try:
+            available = api.formats(url)
+        except Exception:  # noqa: BLE001
+            available = []
+
+        def _carry(opts):
+            """Keep what made the first download work: its media headers.
+
+            A site behind a login needs the same cookie the second time; a
+            re-download that dropped it would fail where the first one did not.
+            """
+            for key in ("cookie", "referer", "cookies_from_browser"):
+                value = it.get(key)
+                if value:
+                    opts[key] = value
+            return opts
+        win, start, later = _dialog_file_info(
+            root, url, folder, category_of(url, out), formats=available)
+
+        def take():
+            chosen = win.selected_format()
+            media = win.media_options()
+            win.destroy()
+            opts = _carry(download_options(load_settings(state_dir), url,
+                                           fallback_dir=folder))
+            # The folder of the row being replaced wins over the category
+            # default: that is where the file already is.
+            if folder:
+                opts["out_dir"] = folder
+            if chosen:
+                opts["format"] = chosen
+            opts.update(media)
+            try:
+                new_id = api.add(url, connections=opts["connections"],
+                                 aria2=bool(aria2_var.get()), options=opts)
+                status.set(f"downloading again: {basename(url)} (#{new_id})")
+            except Exception as e:  # noqa: BLE001
+                status.set(f"error: {e}")
+            refresh()
+
+        def queued():
+            chosen = win.selected_format()
+            media = win.media_options()
+            win.destroy()
+            opts = _carry(download_options(load_settings(state_dir), url,
+                                           fallback_dir=folder))
+            if folder:
+                opts["out_dir"] = folder
+            if chosen:
+                opts["format"] = chosen
+            opts.update(media)
+            plan = add_plan("queue", load_settings(state_dir))
+            if plan["queue"]:
+                opts["queue"] = plan["queue"]
+            try:
+                new_id = api.add(url, connections=opts["connections"],
+                                 aria2=bool(aria2_var.get()), options=opts)
+                if plan["pause"] and new_id:
+                    api.pause(new_id)
+                status.set(f"queued again: {basename(url)}")
+            except Exception as e:  # noqa: BLE001
+                status.set(f"error: {e}")
+            refresh()
+
+        start.config(command=take)
+        later.config(command=queued)
+        return win
+
+    w["redownload"] = _redownload
 
     def _queue_toggle(label):
         """Move the selected download in or out of the current queue.
@@ -5690,26 +5960,49 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
             status.set(f"error: {e}")
         refresh()
 
-    list_menu.entryconfig("Resume", command=lambda: act("Resume"))
-    list_menu.entryconfig("Stop", command=lambda: act("Stop"))
-    list_menu.entryconfig("Delete", command=lambda: act("Delete"))
-    list_menu.entryconfig("Delete Completed", command=lambda: _delete_completed())
-    list_menu.entryconfig("Add to Queue", command=lambda: _queue_toggle("Add to Queue"))
-    list_menu.entryconfig("Delete from Queue",
-                          command=lambda: _queue_toggle("Delete from Queue"))
-    list_menu.entryconfig("Properties", command=lambda: _on_open_properties())
+    def _menu_act(row, name):
+        """Run `act` against the row the menu was opened on, not the selection.
 
-    def _on_cat_menu(event):
-        row = tree.identify_row(event.y)
-        if row:
-            tree.selection_set(row)
-            tree.focus(row)
+        They are usually the same -- the handler selects the row before the
+        menu appears -- but an entry must act on what was clicked even if
+        something moved the selection in between.
+        """
         try:
-            cat_menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            cat_menu.grab_release()
+            listview.selection_set(str(row))
+        except Exception:  # noqa: BLE001
+            pass
+        return act(name)
 
-    tree.bind("<Button-3>", _on_cat_menu)
+    def _menu_queue(row, label):
+        try:
+            listview.selection_set(str(row))
+        except Exception:  # noqa: BLE001
+            pass
+        return _queue_toggle(label)
+
+    def _menu_properties(row):
+        try:
+            listview.selection_set(str(row))
+        except Exception:  # noqa: BLE001
+            pass
+        return _on_open_properties()
+
+    list_menu = attach_tree_menu(listview, [
+        ("Resume", lambda r: _menu_act(r, "Resume")),
+        ("Stop", lambda r: _menu_act(r, "Stop")),
+        ("Delete", lambda r: _menu_act(r, "Delete")),
+        ("Delete Completed", lambda r: _delete_completed()),
+        ("Add to Queue", lambda r: _menu_queue(r, "Add to Queue")),
+        ("Delete from Queue", lambda r: _menu_queue(r, "Delete from Queue")),
+        ("Download again...", _redownload),
+        ("Properties", _menu_properties),
+    ])
+    w["list_menu"] = list_menu["menu"]
+    w["list_menu_items"] = list_menu["labels"]
+    w["list_menu_actions"] = list_menu["actions"]
+    w["list_menu_state"] = list_menu["state"]
+    w["listview"] = listview
+
 
     def _selected_category():
         sel = tree.selection()
@@ -5752,9 +6045,27 @@ def build_window(api: Api, out_dir: str = "", on_close=None, state_dir: str = ""
         rebuild_tree()
         status.set(f"category deleted: {name}")
 
-    cat_menu.entryconfig("Add category...", command=_add_category)
-    cat_menu.entryconfig("Edit category...", command=_edit_category)
-    cat_menu.entryconfig("Delete category", command=_del_category)
+    def _cat_menu_do(row, fn):
+        # The handlers read the tree selection, so put the clicked row there
+        # first -- Windows does not do it on right-click.
+        try:
+            tree.selection_set(row)
+            tree.focus(row)
+        except Exception:  # noqa: BLE001
+            pass
+        return fn()
+
+    cat_menu = attach_tree_menu(tree, [
+        ("Add category...", lambda r: _cat_menu_do(r, _add_category)),
+        ("Edit category...", lambda r: _cat_menu_do(r, _edit_category)),
+        ("Delete category", lambda r: _cat_menu_do(r, _del_category)),
+        ("Add URL to this category...",
+         lambda r: _cat_menu_do(r, _on_add)),
+    ])
+    w["cat_menu"] = cat_menu["menu"]
+    w["cat_menu_items"] = cat_menu["labels"]
+    w["cat_menu_actions"] = cat_menu["actions"]
+    w["cat_menu_state"] = cat_menu["state"]
 
     def _open_options():
         _dialog_options(
@@ -6536,11 +6847,16 @@ def selftest_migrate_logins():
 
 
 SAMPLE_FORMATS = [
+    # 22 is the one that matters for the report: a stream that carries both
+    # tracks, and it must not read the same as the silent one.
+    {"format_id": "22", "ext": "mp4", "resolution": "1280x720",
+     "vcodec": "avc1", "acodec": "mp4a", "filesize": 9_000_000,
+     "note": "720p", "kind": "video+audio"},
     {"format_id": "137", "ext": "mp4", "resolution": "1920x1080",
      "vcodec": "avc1", "acodec": "none", "filesize": 5_000_000,
-     "note": "1080p", "kind": "video only"},
+     "note": "1080p", "kind": "video"},
     {"format_id": "140", "ext": "m4a", "resolution": "audio only",
-     "vcodec": "none", "acodec": "mp4a", "kind": "audio only"},
+     "vcodec": "none", "acodec": "mp4a", "kind": "audio"},
 ]
 
 
@@ -6838,16 +7154,31 @@ class _RecordingApi:
     `added` keeps just the URLs (the Tasks menu checks how many were queued).
     One class, because two classes with the same name meant the second one
     silently shadowed the first.
+
+    Every mutating call is recorded rather than performed, so a test can
+    invoke a context-menu entry and see exactly what it asked the engine to
+    do -- which is the only way to prove a menu is not decoration.
     """
 
-    def __init__(self):
+    def __init__(self, rows=None, formats=None):
         self.adds = []
         self.added = []
         self.options = []
         self.paused = []
+        self.resumed = []
+        self.removed = []
+        self.queues = []
+        self.format_calls = []
+        self.updates = []
+        self.rows = list(rows or [])
+        self.formats_rows = list(formats or [])
 
     def items(self):
-        return []
+        return list(self.rows)
+
+    def formats(self, url, cookie="", referer="", proxy=""):
+        self.format_calls.append(url)
+        return list(self.formats_rows)
 
     def add(self, url, connections=None, aria2=False, options=None):
         self.adds.append({"url": url,
@@ -6858,13 +7189,20 @@ class _RecordingApi:
         return len(self.adds)
 
     def resume(self, i):
-        pass
+        self.resumed.append(i)
 
     def pause(self, i):
         self.paused.append(i)
 
     def remove(self, i):
-        pass
+        self.removed.append(i)
+
+    def set_queue(self, i, queue):
+        self.queues.append({"id": i, "queue": queue})
+
+    def update(self, i, url=None, output=None, description=None):
+        self.updates.append({"id": i, "url": url, "output": output,
+                             "description": description})
 
 
 def selftest_grabber_checks(state_dir):
@@ -7327,6 +7665,197 @@ def _pump_until(root, done, seconds=5.0):
     while not done() and time.time() < end:
         root.update()
         time.sleep(0.02)
+
+
+# One queue row with everything the list needs, for the menu tests.
+MENU_TEST_ROWS = [
+    {"id": 1, "url": "https://example.com/a.bin", "status": "done",
+     "output": "/tmp/videa/a.bin", "downloaded": 10, "total": 10,
+     "description": "first"},
+    # A failed row: Delete Completed must leave it alone.
+    {"id": 2, "url": "https://example.com/watch?v=x", "status": "error",
+     "output": "/tmp/videa/x.mp4", "downloaded": 20, "total": 20,
+     "description": ""},
+    {"id": 3, "url": "https://example.com/c.bin", "status": "done",
+     "output": "/tmp/videa/c.bin", "downloaded": 30, "total": 30,
+     "description": ""},
+    {"id": 7, "url": "https://example.com/watch?v=x", "status": "paused",
+     "output": "/tmp/videa/x.mp4", "downloaded": 5, "total": 20,
+     "description": "", "cookie": "SID=1"},
+    {"id": 9, "url": "https://example.com/e.bin", "status": "running",
+     "output": "/tmp/videa/e.bin", "downloaded": 1, "total": 20,
+     "description": ""},
+]
+
+
+def _menu_window(api, rows=None):
+    """A built main window with `rows` in the list, ready to right-click."""
+    api.rows = list(rows if rows is not None else MENU_TEST_ROWS)
+    root, refresh, w = build_window(api, out_dir="/tmp/videa")
+    root.withdraw()
+    refresh()
+    root.update()
+    return root, w
+
+
+def _invoke(w, label, row):
+    """Do what clicking `label` on `row` in the context menu does.
+
+    Tk's `Menu.invoke()` would need a mapped, posted menu; the callable the
+    entry was built with is the same one, and it is what proves the entry is
+    wired. It is looked up in the dict attach_tree_menu returned.
+    """
+    actions = w["list_menu_actions"]
+    w["list_menu_state"]["row"] = str(row)
+    return actions[label]()
+
+
+def selftest_list_menu_actions():
+    """Every entry of the download list's context menu must reach the API."""
+    out = {"errors": [], "resume": [], "pause": [], "remove": [],
+           "queue": []}
+    api = _RecordingApi()
+    root, w = _menu_window(api)
+    try:
+        _invoke(w, "Resume", 7)
+        _invoke(w, "Stop", 7)
+        _invoke(w, "Delete", 7)
+        # Which queue the entry moves the item into comes from the tree
+        # selection, so pick a named queue first ("" would be the main one).
+        w["view"]["queue"] = "Synchronization queue"
+        _invoke(w, "Add to Queue", 7)
+        out["resume"] = list(api.resumed)
+        out["pause"] = list(api.paused)
+        out["remove"] = list(api.removed)
+        out["queue"] = list(api.queues)
+        out["labels"] = list(w["list_menu_items"])
+        out["bound"] = sorted(
+            k for k, v in w["list_menu_actions"].items() if callable(v))
+    except Exception as e:  # noqa: BLE001
+        out["errors"].append(f"{type(e).__name__}: {e}")
+    finally:
+        root.destroy()
+    print(json.dumps(out, sort_keys=True), flush=True)
+    return 0
+
+
+def selftest_delete_completed():
+    """Delete Completed must remove finished rows only."""
+    api = _RecordingApi()
+    root, w = _menu_window(api)
+    try:
+        _invoke(w, "Delete Completed", 1)
+        removed = sorted(api.removed)
+    finally:
+        root.destroy()
+    print(json.dumps({"removed": removed}), flush=True)
+    return 0
+
+
+def selftest_grabber_menu():
+    """The Grabber's file list must tick / untick a row from its menu."""
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    win = _dialog_grabber(root, api=_RecordingApi(), state_dir="",
+                          out_dir="/tmp")
+    win.withdraw()
+    g = win._idm_grabber
+    g["state"]["files"] = ["https://example.com/a.mp3",
+                           "https://example.com/b.zip"]
+    g["state"]["checked"] = set()
+    g["render"]()
+    root.update()
+    menu = g["files_menu"]
+    menu["state"]["row"] = "0"
+    menu["actions"]["Check"]()
+    checked = len(g["state"]["checked"])
+    menu["state"]["row"] = "0"
+    menu["actions"]["Uncheck"]()
+    unchecked = len(g["state"]["checked"])
+    labels = list(menu["labels"])
+    root.destroy()
+    print(json.dumps({"labels": labels, "checked": checked,
+                      "unchecked": unchecked}), flush=True)
+    return 0
+
+
+def selftest_scheduler_menu():
+    """The Scheduler's queue list must act on the clicked row."""
+    import tkinter as tk
+
+    api = _RecordingApi(rows=[{"id": 4, "url": "https://example.com/d.bin",
+                               "status": "paused",
+                               "output": "/tmp/d.bin"}])
+    root = tk.Tk()
+    root.withdraw()
+    win, _nb = _dialog_scheduler(root, api=api, queue_names=["Main"],
+                                 state_dir="")
+    win.withdraw()
+    root.update()
+    menu = win._idm_qmenu
+    menu["state"]["row"] = "4"
+    menu["actions"]["Start Now"]()
+    menu["state"]["row"] = "4"
+    menu["actions"]["Stop"]()
+    out = {"labels": list(menu["labels"]), "resumed": list(api.resumed),
+           "paused": list(api.paused)}
+    root.destroy()
+    print(json.dumps(out), flush=True)
+    return 0
+
+
+def _redownload_selftest(pick_prefix):
+    """Open Download again on row 7, pick a row starting with `pick_prefix`,
+    press Start Download, and report what reached the API."""
+    api = _RecordingApi(formats=list(SAMPLE_FORMATS))
+    root, w = _menu_window(api)
+    try:
+        win = w["redownload"](7)
+        root.update()
+        combo = None
+        for child in win.winfo_children():
+            if child.winfo_class() == "TCombobox" and any(
+                    pick_prefix in str(v) for v in child.cget("values")):
+                combo = child
+        values = [str(v) for v in combo.cget("values")] if combo else []
+        if combo:
+            combo.set(next((v for v in values
+                            if v.startswith(pick_prefix)), ""))
+        start = None
+        for child in win.winfo_children():
+            for sub in getattr(child, "winfo_children", lambda: [])():
+                if (sub.winfo_class() == "TButton"
+                        and str(sub.cget("text")) == "Start Download"):
+                    start = sub
+        start.invoke()
+        root.update()
+        opts = api.options[0] if api.options else {}
+        return {
+            "url": api.added[0] if api.added else "",
+            "out_dir": opts.get("out_dir", ""),
+            "options": {k: opts.get(k) for k in ("format", "cookie") if k in opts},
+            "adds": len(api.adds),
+            "removed": list(api.removed),
+            "paused": list(api.paused),
+            "asked_for": list(api.format_calls),
+        }
+    finally:
+        root.destroy()
+
+
+def selftest_redownload():
+    """Download again... must queue a new copy with the picked format."""
+    print(json.dumps(_redownload_selftest("22"), sort_keys=True), flush=True)
+    return 0
+
+
+def selftest_redownload_silent():
+    """Picking a video-only row must still produce a file with sound."""
+    got = _redownload_selftest("137")
+    print(json.dumps({"format": got["options"].get("format", "")}), flush=True)
+    return 0
 
 
 def selftest_clipboard_prompt():
@@ -8039,6 +8568,12 @@ def main(argv=None):
     p.add_argument("--selftest-store-password", action="store_true")
     p.add_argument("--selftest-grabber-tree", action="store_true")
     p.add_argument("--selftest-grabber-checks", action="store_true")
+    p.add_argument("--selftest-list-menu-actions", action="store_true")
+    p.add_argument("--selftest-delete-completed", action="store_true")
+    p.add_argument("--selftest-grabber-menu", action="store_true")
+    p.add_argument("--selftest-scheduler-menu", action="store_true")
+    p.add_argument("--selftest-redownload", action="store_true")
+    p.add_argument("--selftest-redownload-silent", action="store_true")
     p.add_argument("--grabber-include", default="")
     p.add_argument("--grabber-exclude", default="")
     p.add_argument("--grabber-all-sites", action="store_true",
@@ -8072,6 +8607,18 @@ def _main_with_display(args, cmdline, p, dplan, xvfb):
         return selftest_grabber_tree(args.state_dir)
     if args.selftest_grabber_checks:
         return selftest_grabber_checks(args.state_dir)
+    if args.selftest_list_menu_actions:
+        return selftest_list_menu_actions()
+    if args.selftest_delete_completed:
+        return selftest_delete_completed()
+    if args.selftest_grabber_menu:
+        return selftest_grabber_menu()
+    if args.selftest_scheduler_menu:
+        return selftest_scheduler_menu()
+    if args.selftest_redownload:
+        return selftest_redownload()
+    if args.selftest_redownload_silent:
+        return selftest_redownload_silent()
     if args.selftest_grabber_explore:
         if not args.url:
             print("--selftest-grabber-explore needs --url", file=sys.stderr)
