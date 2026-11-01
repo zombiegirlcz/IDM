@@ -97,7 +97,12 @@ test('the pip fallback brings the YouTube challenge solver along', () => {
   // Plain `pip install yt-dlp` leaves out yt-dlp-ejs, and YouTube then offers
   // no downloadable format at all ("Requested format is not available").
   const text = readFileSync(sh, 'utf8');
-  const pip = text.split('\n').find((l) => l.includes('pip install'));
-  assert.ok(pip, 'no pip fallback line');
-  assert.match(pip, /yt-dlp\[default\]/, pip);
+  // The package is named at the call site, not where pip is invoked: the
+  // helper takes it as an argument, so only the call proves the extras are
+  // asked for. Matching the first `pip install` line found the helper's own
+  // body, which says nothing about what is installed.
+  const pip = text
+    .split('\n')
+    .find((l) => /pip_install\s+"yt-dlp\[default\]"/.test(l));
+  assert.ok(pip, `no pip_install "yt-dlp[default]" call in ${sh}`);
 });
